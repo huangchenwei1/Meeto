@@ -115,16 +115,17 @@ class MockOrdersRepository implements OrdersRepository {
       ..planConfirmedAt = now.subtract(const Duration(hours: 17));
     _say(active, _liza.id, 'Tickets reserved \u2014 see you Saturday!');
 
-    // A finished one: Bianca's cafe afternoon settled last week.
+    // A finished one: Bianca's bookshop-cafe afternoon settled last week
+    // (the activity behind moment-001; completed posts leave the wall).
     final _MockOrder done = _create(
-      postId: 'post-001',
+      postId: 'post-000',
       earner: _bianca,
-      postTitle: 'Coffee afternoon, fully planned',
+      postTitle: 'Coffee afternoon in a bookshop cafe',
       feePesos: 600,
       createdAt: now.subtract(const Duration(days: 7)),
     )
       ..status = 'COMPLETED'
-      ..planPlace = 'Single Origin, Salcedo Village'
+      ..planPlace = 'Hidden cafe in a Legazpi bookshop'
       ..planAt = now.subtract(const Duration(days: 5))
       ..planProposedAt = now.subtract(const Duration(days: 7))
       ..planConfirmedAt = now.subtract(const Duration(days: 7))

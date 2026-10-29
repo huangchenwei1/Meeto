@@ -61,6 +61,21 @@ class MockHostsRepository implements HostsRepository {
       ],
     ),
     const HostCard(
+      id: 'host-203',
+      name: 'Liza',
+      avatarUrl: 'https://i.pravatar.cc/150?img=25',
+      meta: 'Female \u00b7 25',
+      isVerified: true,
+      bio: 'Movies and after-talk. I pick the screening, the seats, and '
+          'the dessert place for the post-movie debrief.',
+      city: 'Manila',
+      tags: <String>['Movies', 'Tea', 'Long walks'],
+      completedActivities: 15,
+      recentProposals: <String>[
+        'Director\u2019s cut screening at Power Plant, Saturday 4pm',
+      ],
+    ),
+    const HostCard(
       id: 'host-204',
       name: 'James',
       avatarUrl: 'https://i.pravatar.cc/150?img=13',
@@ -72,6 +87,21 @@ class MockHostsRepository implements HostsRepository {
       completedActivities: 8,
       recentProposals: <String>[
         'Single Origin in Salcedo, Saturday 3pm',
+      ],
+    ),
+    const HostCard(
+      id: 'host-205',
+      name: 'Noel',
+      avatarUrl: 'https://i.pravatar.cc/150?img=53',
+      meta: 'Male \u00b7 30',
+      isVerified: true,
+      bio: 'Bar crawl host in Poblacion. I know which rooftop is quiet on '
+          'a Friday and which whiskey list is actually worth it.',
+      city: 'Manila',
+      tags: <String>['Bars', 'Whiskey', 'Live music'],
+      completedActivities: 18,
+      recentProposals: <String>[
+        'Quiet rooftop in Poblacion, Friday 9pm',
       ],
     ),
   ];

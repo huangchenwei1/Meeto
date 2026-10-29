@@ -33,7 +33,10 @@ void main() {
     // Community tab: demand posts and the guidelines banner.
     await tester.tap(find.byIcon(Iconsax.home_2));
     await tester.pumpAndSettle();
-    expect(find.text('Coffee date at a new cafe'), findsOneWidget);
+    expect(
+      find.text('Show me a cafe worth leaving BGC for'),
+      findsOneWidget,
+    );
     expect(find.text(AppStrings.bannerCta), findsOneWidget);
 
     // Messages tab: demo orders with status pills (same OrdersPage as API

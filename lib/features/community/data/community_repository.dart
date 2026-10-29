@@ -117,6 +117,15 @@ class MockCommunityRepository implements CommunityRepository {
         isVerified: true,
       );
 
+  // Demo cast mirroring server/prisma/seed.mjs: USER accounts post
+  // activity requests, HOST accounts apply to run them.
+  static const PostAuthor _andrea = PostAuthor(
+    id: 'user-100',
+    name: 'Andrea',
+    avatarUrl: 'https://i.pravatar.cc/150?img=47',
+    meta: 'Female \u00b7 24',
+    isVerified: true,
+  );
   static const PostAuthor _miguel = PostAuthor(
     id: 'user-101',
     name: 'Miguel',
@@ -138,48 +147,36 @@ class MockCommunityRepository implements CommunityRepository {
     meta: 'Male \u00b7 28',
     isVerified: true,
   );
-  static const PostAuthor _rafael = PostAuthor(
-    id: 'user-104',
-    name: 'Rafael',
-    avatarUrl: 'https://i.pravatar.cc/150?img=33',
-    meta: 'Male \u00b7 26',
-    isVerified: true,
-  );
-  static const PostAuthor _daniel = PostAuthor(
-    id: 'user-105',
-    name: 'Daniel',
-    avatarUrl: 'https://i.pravatar.cc/150?img=7',
-    meta: 'Male \u00b7 31',
-    isVerified: true,
-  );
 
   /// Demo host shown as attribution on the seeded in-progress activity.
-  static const PostAuthor _bianca = PostAuthor(
-    id: 'host-201',
-    name: 'Bianca',
-    avatarUrl: 'https://i.pravatar.cc/150?img=44',
-    meta: 'Female \u00b7 26',
+  static const PostAuthor _liza = PostAuthor(
+    id: 'host-203',
+    name: 'Liza',
+    avatarUrl: 'https://i.pravatar.cc/150?img=25',
+    meta: 'Female \u00b7 25',
     isVerified: true,
   );
 
-  /// Simulated candidates who apply to the current user's new posts.
+  /// Simulated host candidates who pitch on the current user's new posts
+  /// (same hosts as app-001/app-002-style applications in the server seed).
   static const List<PostAuthor> _demoCandidates = <PostAuthor>[
     PostAuthor(
-      id: 'user-106',
+      id: 'host-204',
       name: 'James',
       avatarUrl: 'https://i.pravatar.cc/150?img=13',
       meta: 'Male \u00b7 28',
       isVerified: true,
-      proposal: 'Single Origin in Makati, Saturday 3pm \u2014 great beans '
-          'and quiet enough to talk',
+      proposal: 'Single Origin in Salcedo, Saturday 3pm \u2014 quiet '
+          'upstairs seats and the best hand brew flight in Makati',
     ),
     PostAuthor(
-      id: 'user-107',
+      id: 'host-205',
       name: 'Noel',
       avatarUrl: 'https://i.pravatar.cc/150?img=53',
       meta: 'Male \u00b7 30',
       isVerified: true,
-      proposal: 'New cafe in BGC with a rooftop, Sunday afternoon',
+      proposal: 'Rooftop bar in Poblacion that stays quiet on Fridays, '
+          'then the best whiskey list in the block',
     ),
   ];
 
@@ -190,23 +187,25 @@ class MockCommunityRepository implements CommunityRepository {
       _candidateControllers = <String, StreamController<List<PostAuthor>>>{};
   int _postSequence = 100;
 
+  // Same scripts as server/prisma/seed.mjs: loose activity intents from
+  // the USER side; the selected host proposes the concrete plan.
   static List<ActivityPost> _seedPosts() {
     final DateTime now = DateTime.now();
     return <ActivityPost>[
       ActivityPost(
         id: 'post-001',
         sceneTag: 'Coffee',
-        title: 'Coffee date at a new cafe',
-        description: 'New specialty cafe, relaxed chat over a good brew',
+        title: 'Show me a cafe worth leaving BGC for',
+        description: 'Want a relaxed coffee afternoon, you pick the place',
         detail:
-            'Found a newly opened hand-brew cafe \u2014 quiet space and the '
-            'beans are supposed to be great. Looking for someone to hang out '
-            'with: coffee and easy conversation about work, life, or whatever '
-            'you are reading lately. No pressure, and the time is flexible.',
-        timeText: 'Today 3:00 PM \u00b7 ~1.5 hours',
-        place: 'Makati \u00b7 Single Origin',
+            'I have been in Manila three months and only know the chain '
+            'cafes near my office. Looking for a host who knows the '
+            'specialty coffee scene and can plan a relaxed afternoon: the '
+            'place, the order, the conversation. Time is flexible this week.',
+        timeText: 'Time flexible',
+        place: 'Place open to ideas',
         distanceKm: 1.2,
-        signedCount: 0,
+        signedCount: 2,
         imageUrl: _sceneImages['Coffee']!,
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),
@@ -215,82 +214,109 @@ class MockCommunityRepository implements CommunityRepository {
       ActivityPost(
         id: 'post-002',
         sceneTag: 'Dinner',
-        title: 'Japanese dinner date',
-        description: 'Eating alone is boring \u2014 join me for sushi',
+        title: 'Plan me a Japanese dinner I cannot find on my own',
+        description: 'Good sushi, good conversation, you handle the plan',
         detail:
-            'My go-to Japanese restaurant, I will book the table. Eating '
-            'alone gets lonely, so I am looking for a dinner companion. The '
-            'meal is on me, any topic works, and we part ways right after. '
-            'Simple and easy.',
-        timeText: 'Tonight 7:00 PM \u00b7 ~2 hours',
-        place: 'BGC \u00b7 Sushi Nori',
+            'I eat out a lot but keep going back to the same two places. '
+            'Want a host who can plan a proper Japanese dinner \u2014 '
+            'somewhere I would never find alone. Weeknights after 7 work '
+            'best. Meal is on me.',
+        timeText: 'Weeknights after 7',
+        place: 'Place open to ideas',
         distanceKm: 2.8,
-        signedCount: 0,
+        signedCount: 1,
         imageUrl: _sceneImages['Dinner']!,
         author: _paolo,
         createdAt: now.subtract(const Duration(hours: 3)),
         budgetAmount: 1000,
       ),
       ActivityPost(
+        // In progress: Liza's plan is selected, mirroring the seeded
+        // ACTIVE escrow order on the server.
         id: 'post-003',
-        sceneTag: 'Bar',
-        title: 'Drinks at a quiet bar',
-        description: 'Quiet whiskey bar, light drinks and good talk',
+        sceneTag: 'Movie',
+        title: 'Movie night with an actual plan',
+        description: 'Pick the film, the cinema and the after-talk spot',
         detail:
-            'Friday after work I want to unwind at a whiskey bar in '
-            'Poblacion. The place is quiet \u2014 perfect for a long '
-            'conversation. Looking for company for a glass or two: light '
-            'drinks only, no heavy drinking, and drinks are on me. Hope you '
-            'enjoy a chill vibe too.',
-        timeText: 'Friday 9:00 PM \u00b7 ~2 hours',
-        place: 'Poblacion \u00b7 The Spirits Library',
-        distanceKm: 3.5,
+            'I love movies but hate deciding. Looking for a host to plan '
+            'the whole evening: which film, which cinema, and where we talk '
+            'about it after. Saturday afternoon preferred. Tickets and '
+            'snacks on me.',
+        timeText: 'Saturday afternoon',
+        place: 'Place open to ideas',
+        distanceKm: 4.6,
         signedCount: 1,
-        imageUrl: _sceneImages['Bar']!,
+        imageUrl: _sceneImages['Movie']!,
         author: _marco,
-        createdAt: now.subtract(const Duration(hours: 5)),
-        budgetAmount: 1400,
+        createdAt: now.subtract(const Duration(hours: 24)),
+        budgetAmount: 800,
         status: 'MATCHED',
-        selectedHost: _bianca,
+        selectedHost: _liza,
       ),
       ActivityPost(
         id: 'post-004',
-        sceneTag: 'Movie',
-        title: 'Movie date for the new release',
-        description: 'New film out \u2014 need someone to talk about it after',
-        detail:
-            'There is a new film I want to catch on Saturday. Watching alone '
-            'is sad because there is nobody to discuss it with afterwards. '
-            'Tickets are on me, and we can grab a snack after to talk about '
-            'the movie. Even if we do not click, the date simply ends after '
-            'the film.',
-        timeText: 'Saturday 2:00 PM \u00b7 ~3 hours',
-        place: 'Ortigas \u00b7 SM Megamall Cinema',
-        distanceKm: 4.6,
-        signedCount: 0,
-        imageUrl: _sceneImages['Movie']!,
-        author: _rafael,
-        createdAt: now.subtract(const Duration(days: 1)),
-        budgetAmount: 800,
-      ),
-      ActivityPost(
-        id: 'post-005',
         sceneTag: 'Tea',
-        title: 'Afternoon tea and a catch-up',
-        description: 'Popular dessert cafe, sit down and unwind',
+        title: 'Slow Sunday: dessert cafe and no agenda',
+        description: 'Need someone to plan a lazy tea afternoon',
         detail:
-            'Sunday I want to camp at a dessert cafe \u2014 their cakes and '
-            'fruit tea get great reviews. Just looking for someone to chat '
-            'and relax with. Work keeps me busy all week, so weekends are for '
-            'slow conversations. All desserts and drinks are on me.',
-        timeText: 'Sunday 3:30 PM \u00b7 ~2 hours',
-        place: 'QC \u00b7 Dulce Patisserie',
+            'Work ate my whole month. I want one slow Sunday afternoon: '
+            'good fruit tea, good cake, zero decisions made by me. Host '
+            'plans everything, I just show up. Desserts are on me.',
+        timeText: 'Sunday afternoon',
+        place: 'Place open to ideas',
         distanceKm: 3.9,
         signedCount: 0,
         imageUrl: _sceneImages['Tea']!,
-        author: _daniel,
-        createdAt: now.subtract(const Duration(days: 2)),
+        author: _andrea,
+        createdAt: now.subtract(const Duration(hours: 48)),
         budgetAmount: 650,
+      ),
+      ActivityPost(
+        id: 'moment-001',
+        type: 'MOMENT',
+        sceneTag: '',
+        title: 'Bianca took me to a cafe hidden inside a bookshop. Best '
+            'Sunday in months \u2014 I did not make a single decision all '
+            'afternoon.',
+        description: 'Bianca took me to a cafe hidden inside a bookshop. '
+            'Best Sunday in months \u2014 I did not make a single decision '
+            'all afternoon.',
+        detail: '',
+        timeText: '',
+        place: '',
+        distanceKm: 0,
+        signedCount: 0,
+        imageUrl:
+            'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
+        images: <String>[
+          'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
+          'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
+        ],
+        author: _andrea,
+        createdAt: now.subtract(const Duration(hours: 6)),
+        budgetAmount: 0,
+      ),
+      ActivityPost(
+        id: 'moment-002',
+        type: 'MOMENT',
+        sceneTag: '',
+        title: 'Kat planned a dinner at a 12-seat omakase counter I never '
+            'knew existed. Worth every peso of the service fee.',
+        description: 'Kat planned a dinner at a 12-seat omakase counter I '
+            'never knew existed. Worth every peso of the service fee.',
+        detail: '',
+        timeText: '',
+        place: '',
+        distanceKm: 0,
+        signedCount: 0,
+        imageUrl:
+            'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
+        images: <String>[
+          'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
+        ],
+        author: _paolo,
+        createdAt: now.subtract(const Duration(hours: 12)),
+        budgetAmount: 0,
       ),
     ];
   }
@@ -303,7 +329,10 @@ class MockCommunityRepository implements CommunityRepository {
         .where(
           (ActivityPost post) => sceneTag == null || post.sceneTag == sceneTag,
         )
-        .toList();
+        .toList()
+      ..sort(
+        (ActivityPost a, ActivityPost b) => b.createdAt.compareTo(a.createdAt),
+      );
   }
 
   @override
