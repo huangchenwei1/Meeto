@@ -5,12 +5,11 @@ import '../../core/constants/app_strings.dart';
 import '../../core/env/app_env.dart';
 import '../../core/network/api_client.dart';
 import '../../core/session/auth_session.dart';
-import '../chat/data/chat_repository.dart';
-import '../chat/pages/chat_list_page.dart';
 import '../hosts/data/api_hosts_repository.dart';
 import '../hosts/data/hosts_repository.dart';
 import '../hosts/pages/hosts_page.dart';
 import '../notifications/data/notifications_repository.dart';
+import '../orders/data/api_orders_repository.dart';
 import '../orders/data/orders_repository.dart';
 import '../orders/pages/orders_page.dart';
 import '../partner/data/api_partner_repository.dart';
@@ -36,11 +35,10 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late final PartnerRepository _partnerRepository;
-  late final ChatRepository _chatRepository;
   late final ProfileRepository _profileRepository;
   late final HostsRepository _hostsRepository;
-  OrdersRepository? _ordersRepository;
-  NotificationsRepository? _notificationsRepository;
+  late final OrdersRepository _ordersRepository;
+  late final NotificationsRepository _notificationsRepository;
 
   final GlobalKey<ProfilePageState> _profileKey =
       GlobalKey<ProfilePageState>();
@@ -55,16 +53,17 @@ class _HomeShellState extends State<HomeShell> {
     if (AppEnv.useRemoteApi) {
       final ApiClient apiClient = ApiClient(baseUrl: AppEnv.apiBaseUrl);
       _partnerRepository = ApiPartnerRepository(apiClient);
-      _chatRepository = MockChatRepository();
       _profileRepository = ApiProfileRepository(apiClient);
       _hostsRepository = ApiHostsRepository(apiClient);
-      _ordersRepository = OrdersRepository(apiClient);
-      _notificationsRepository = NotificationsRepository(apiClient);
+      _ordersRepository = ApiOrdersRepository(apiClient);
+      _notificationsRepository = ApiNotificationsRepository(apiClient);
     } else {
-      _partnerRepository = MockPartnerRepository();
-      _chatRepository = MockChatRepository();
+      final MockOrdersRepository mockOrders = MockOrdersRepository();
+      _partnerRepository = MockPartnerRepository(orders: mockOrders);
       _profileRepository = MockProfileRepository();
       _hostsRepository = MockHostsRepository();
+      _ordersRepository = mockOrders;
+      _notificationsRepository = MockNotificationsRepository();
     }
   }
 
@@ -74,28 +73,23 @@ class _HomeShellState extends State<HomeShell> {
   Widget get _communityTab => FeedPage(
         key: _feedKey,
         partnerRepository: _partnerRepository,
-        chatRepository: _chatRepository,
         profileRepository: _profileRepository,
         ordersRepository: _ordersRepository,
       );
 
-  /// Messages tab: live orders in API mode, demo chat in mock mode.
-  Widget get _messagesTab => _ordersRepository != null
-      ? OrdersPage(
-          repository: _ordersRepository!,
-          notificationsRepository: _notificationsRepository!,
-          partnerRepository: _partnerRepository,
-          chatRepository: _chatRepository,
-          profileRepository: _profileRepository,
-          hostsRepository: _hostsRepository,
-        )
-      : ChatListPage(repository: _chatRepository);
+  /// Messages tab: the caller's orders plus the notifications inbox.
+  Widget get _messagesTab => OrdersPage(
+        repository: _ordersRepository,
+        notificationsRepository: _notificationsRepository,
+        partnerRepository: _partnerRepository,
+        profileRepository: _profileRepository,
+        hostsRepository: _hostsRepository,
+      );
 
   Widget get _meTab => ProfilePage(
         key: _profileKey,
         repository: _profileRepository,
         partnerRepository: _partnerRepository,
-        chatRepository: _chatRepository,
         ordersRepository: _ordersRepository,
       );
 

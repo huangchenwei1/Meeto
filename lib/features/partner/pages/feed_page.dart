@@ -5,9 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../chat/data/chat_repository.dart';
 import '../../community/pages/community_guidelines_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -25,17 +25,13 @@ class FeedPage extends StatefulWidget {
   const FeedPage({
     super.key,
     required this.partnerRepository,
-    required this.chatRepository,
     required this.profileRepository,
-    this.ordersRepository,
+    required this.ordersRepository,
   });
 
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
-
-  /// Present in API mode only (real two-sided flows).
-  final OrdersRepository? ordersRepository;
+  final OrdersRepository ordersRepository;
 
   @override
   State<FeedPage> createState() => FeedPageState();
@@ -55,7 +51,7 @@ class FeedPageState extends State<FeedPage> {
     _loadScenes();
     _loadPosts();
     _locateViewer();
-    if (widget.ordersRepository != null) {
+    if (AppEnv.useRemoteApi) {
       // API mode: other users publish in real time; poll quietly so new
       // posts appear without a manual refresh.
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -137,7 +133,6 @@ class FeedPageState extends State<FeedPage> {
         builder: (_) => PostDetailPage(
           post: post,
           partnerRepository: widget.partnerRepository,
-          chatRepository: widget.chatRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.ordersRepository,
         ),

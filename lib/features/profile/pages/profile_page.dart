@@ -13,7 +13,6 @@ import '../../auth/data/auth_repository_factory.dart';
 import '../../auth/pages/login_page.dart';
 import '../../auth/pages/profile_setup_page.dart';
 import '../../auth/pages/verification_page.dart';
-import '../../chat/data/chat_repository.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../partner/data/partner_repository.dart';
 import '../../partner/pages/my_posts_page.dart';
@@ -28,16 +27,12 @@ class ProfilePage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.partnerRepository,
-    required this.chatRepository,
-    this.ordersRepository,
+    required this.ordersRepository,
   });
 
   final ProfileRepository repository;
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
-
-  /// Present in API mode only.
-  final OrdersRepository? ordersRepository;
+  final OrdersRepository ordersRepository;
 
   @override
   State<ProfilePage> createState() => ProfilePageState();
@@ -87,7 +82,6 @@ class ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute<void>(
         builder: (_) => MyPostsPage(
           partnerRepository: widget.partnerRepository,
-          chatRepository: widget.chatRepository,
           profileRepository: widget.repository,
           ordersRepository: widget.ordersRepository,
         ),

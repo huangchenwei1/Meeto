@@ -2,9 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meeto/core/constants/scene_pricing.dart';
-import 'package:meeto/features/chat/data/chat_repository.dart';
-import 'package:meeto/features/chat/models/chat_message.dart';
-import 'package:meeto/features/chat/models/conversation.dart';
+import 'package:meeto/features/orders/data/orders_repository.dart';
+import 'package:meeto/features/orders/models/live_order.dart';
 import 'package:meeto/features/partner/data/partner_repository.dart';
 import 'package:meeto/features/partner/models/date_post.dart';
 import 'package:meeto/features/partner/models/post_author.dart';
@@ -50,10 +49,10 @@ void main() {
       expect(updated.signedCount, posts.first.signedCount + 1);
     });
 
-    test('approving a candidate creates an escrow deal conversation',
-        () async {
-      final MockPartnerRepository partnerRepository = MockPartnerRepository();
-      final MockChatRepository chatRepository = MockChatRepository();
+    test('approving a candidate creates the escrow order', () async {
+      final MockOrdersRepository ordersRepository = MockOrdersRepository();
+      final MockPartnerRepository partnerRepository =
+          MockPartnerRepository(orders: ordersRepository);
 
       final DatePost post = await partnerRepository.createPost(
         const CreatePostInput(
@@ -75,39 +74,21 @@ void main() {
       );
       expect(selected.id, candidates.first.id);
 
-      final List<Conversation> before =
-          await chatRepository.fetchConversations();
-      final Conversation conversation =
-          await chatRepository.createDealConversation(
-        post: post,
-        payer: selected,
-      );
-      final List<Conversation> after =
-          await chatRepository.fetchConversations();
+      // Selection creates the AWAITING_PAYMENT order; paying activates it
+      // and the wall post carries the host attribution.
+      final LiveOrder? order = await ordersRepository.findByPostId(post.id);
+      expect(order, isNotNull);
+      expect(order!.status, 'AWAITING_PAYMENT');
+      expect(order.earner.id, selected.id);
+      expect(order.feePesos, post.tipAmount);
+      expect(order.netPesos, ScenePricing.netEarnings(post.tipAmount));
 
-      expect(after.length, before.length + 1);
-      expect(after.first.id, conversation.id);
-      expect(conversation.peerName, selected.name);
-      expect(conversation.order!.tipAmount, post.tipAmount);
-      expect(conversation.order!.isCompleted, isFalse);
+      final LiveOrder paid = await ordersRepository.pay(order.id);
+      expect(paid.status, 'ACTIVE');
 
-      // History opens with the deal card followed by the escrow card.
-      final ConversationSnapshot snapshot =
-          await chatRepository.watchConversation(conversation.id).first;
-      expect(snapshot.messages[0].eventIcon, OrderEventIcon.deal);
-      expect(snapshot.messages[1].eventIcon, OrderEventIcon.escrow);
-
-      // Re-approving the same payer must not duplicate the conversation.
-      final Conversation duplicate =
-          await chatRepository.createDealConversation(
-        post: post,
-        payer: selected,
-      );
-      expect(duplicate.id, conversation.id);
-      expect(
-        (await chatRepository.fetchConversations()).length,
-        after.length,
-      );
+      final DatePost updated = await partnerRepository.fetchPostById(post.id);
+      expect(updated.status, 'MATCHED');
+      expect(updated.selectedHost?.id, selected.id);
     });
 
     test('settlement pays out the fee minus the platform commission', () {

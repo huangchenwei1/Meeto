@@ -13,8 +13,6 @@ import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
-import '../../chat/data/chat_repository.dart';
-import '../../chat/pages/chat_detail_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
@@ -27,32 +25,26 @@ import '../models/post_author.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/pages/verification_page.dart';
 
-/// Full-screen date post detail.
+/// Full-screen activity post detail.
 ///
 /// Two viewpoints:
-/// - Someone else's post: the current user signs up as a CANDIDATE for free
-///   and sees the expected net earnings (fee minus platform commission).
+/// - Someone else's open request (host viewer): sign up with a plan pitch
+///   and see the expected net earnings (fee minus platform commission).
 /// - The current user's own post: shows the live candidate pool; approving
-///   one candidate triggers the (male) payer's escrow payment and opens the
-///   new deal conversation.
+///   one plan creates the escrow order and opens the payment + order room.
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({
     super.key,
     required this.post,
     required this.partnerRepository,
-    required this.chatRepository,
     required this.profileRepository,
-    this.ordersRepository,
+    required this.ordersRepository,
   });
 
   final DatePost post;
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
-
-  /// Present in API mode only: real orders replace the demo-director chat
-  /// flow, so approvals land in the server-backed order room.
-  final OrdersRepository? ordersRepository;
+  final OrdersRepository ordersRepository;
 
   @override
   State<PostDetailPage> createState() => _PostDetailPageState();
@@ -223,19 +215,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text(AppStrings.candidateSignedUpSnack)),
     );
-    if (widget.ordersRepository == null) {
-      // DEMO NOTE (mock mode only): fakes the poster approving the current
-      // user and paying the match fee into escrow.
-      final DatePost post = updated;
-      Timer(const Duration(seconds: 3), () {
-        widget.chatRepository.createDealConversation(
-          post: post,
-          payer: post.author,
-        );
-      });
-    }
-    // API mode: nothing to fake — if the poster selects this user, the
-    // order appears in the Chats tab (orders list) within a poll cycle.
+    // If the poster selects this host, the order appears in the Messages
+    // tab (orders list) within a poll cycle.
   }
 
   Future<void> _approveCandidate(PostAuthor candidate) async {
@@ -243,76 +224,49 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
     setState(() => _approving = true);
-    final PostAuthor selected = await widget.partnerRepository.selectCandidate(
-      _post.id,
-      candidate.id,
-    );
+    await widget.partnerRepository.selectCandidate(_post.id, candidate.id);
 
-    final OrdersRepository? ordersRepository = widget.ordersRepository;
-    if (ordersRepository != null) {
-      // API mode: contact only exists behind the paywall. When the approver
-      // is the payer (male poster), the escrow payment page opens right
-      // here; otherwise the selected male pays from his device before chat
-      // unlocks.
-      LiveOrder? order = await ordersRepository.findByPostId(_post.id);
-      if (!mounted) {
-        return;
-      }
-      if (order != null &&
-          order.isPayer(AuthSession.currentUserId) &&
-          order.status == 'AWAITING_PAYMENT') {
-        final LiveOrder? paid = await Navigator.of(context).push<LiveOrder>(
-          MaterialPageRoute<LiveOrder>(
-            builder: (_) => PaymentPage(
-              repository: ordersRepository,
-              order: order!,
-            ),
-          ),
-        );
-        if (paid != null) {
-          order = paid;
-        }
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() => _approving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.selectionDoneSnack)),
-      );
-      final LiveOrder? created = order;
-      if (created != null) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => OrderRoomPage(
-              repository: ordersRepository,
-              orderId: created.id,
-              initialOrder: created,
-            ),
-          ),
-        );
-      }
+    // Contact only exists behind the paywall: selection creates the escrow
+    // order, so the payment page opens right here for the poster.
+    LiveOrder? order =
+        await widget.ordersRepository.findByPostId(_post.id);
+    if (!mounted) {
       return;
     }
-
-    // Mock mode: the demo escrow payment happens instantly and the deal
-    // conversation opens right away.
-    final conversation = await widget.chatRepository.createDealConversation(
-      post: _post,
-      payer: selected,
-    );
+    if (order != null &&
+        order.isPayer(AuthSession.currentUserId) &&
+        order.status == 'AWAITING_PAYMENT') {
+      final LiveOrder? paid = await Navigator.of(context).push<LiveOrder>(
+        MaterialPageRoute<LiveOrder>(
+          builder: (_) => PaymentPage(
+            repository: widget.ordersRepository,
+            order: order!,
+          ),
+        ),
+      );
+      if (paid != null) {
+        order = paid;
+      }
+    }
     if (!mounted) {
       return;
     }
     setState(() => _approving = false);
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatDetailPage(
-          repository: widget.chatRepository,
-          conversation: conversation,
-        ),
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.selectionDoneSnack)),
     );
+    final LiveOrder? created = order;
+    if (created != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderRoomPage(
+            repository: widget.ordersRepository,
+            orderId: created.id,
+            initialOrder: created,
+          ),
+        ),
+      );
+    }
   }
 
   void _openAuthor() {

@@ -1,51 +1,82 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:meeto/features/chat/data/chat_repository.dart';
-import 'package:meeto/features/chat/models/date_order.dart';
+import 'package:meeto/core/session/auth_session.dart';
+import 'package:meeto/features/orders/data/orders_repository.dart';
+import 'package:meeto/features/orders/models/live_order.dart';
 
 void main() {
-  group('MockChatRepository order state machine', () {
-    test('depart -> arrive -> complete advances both sides', () async {
-      final MockChatRepository repository = MockChatRepository();
-      const String id = 'conv-rafael';
+  setUp(() {
+    AuthSession.setUser(
+      id: 'user-100',
+      name: 'Andrea',
+      avatarUrl: '',
+      meta: 'Female \u00b7 24',
+      gender: 'FEMALE',
+      role: 'USER',
+    );
+  });
 
-      final List<ConversationSnapshot> snapshots = <ConversationSnapshot>[];
-      final StreamSubscription<ConversationSnapshot> sub =
-          repository.watchConversation(id).listen(snapshots.add);
-      addTearDown(sub.cancel);
+  group('MockOrdersRepository state machine', () {
+    test('pay -> plan -> meet -> settle mirrors the server flow', () async {
+      final MockOrdersRepository repository = MockOrdersRepository();
 
-      // Initial snapshot: both ready.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(snapshots.last.conversation.order!.myStage, OrderStage.ready);
-      expect(snapshots.last.conversation.order!.peerStage, OrderStage.ready);
+      // Seeded demo orders: one in progress, one completed.
+      final List<LiveOrder> orders = await repository.listMine();
+      expect(orders.length, 2);
+      expect(
+        orders.map((LiveOrder o) => o.status),
+        containsAll(<String>['ACTIVE', 'COMPLETED']),
+      );
 
-      // Depart: I am en route; the simulated peer follows.
-      await repository.departOrder(id);
-      await _pumpEvents();
-      expect(snapshots.last.conversation.order!.myStage, OrderStage.enRoute);
+      final LiveOrder active = orders
+          .firstWhere((LiveOrder o) => o.status == 'ACTIVE');
+      expect(active.isPayer('user-100'), isTrue);
+      expect(active.planConfirmed, isTrue);
+      // Phone contact unlocks once escrowed.
+      expect(active.earnerPhone, isNotEmpty);
+
+      // The host re-proposes; the poster confirms.
+      final DateTime at = DateTime.now().add(const Duration(days: 1));
+      LiveOrder updated = await repository.proposePlan(
+        active.id,
+        place: 'Greenbelt Cinema',
+        scheduledAt: at,
+      );
+      expect(updated.planProposed, isTrue);
+      expect(updated.planConfirmed, isFalse);
+      updated = await repository.confirmPlan(active.id);
+      expect(updated.planConfirmed, isTrue);
+      expect(updated.place, 'Greenbelt Cinema');
+
+      // Meet: I confirm, the simulated peer follows, escrow starts settling.
+      updated = await repository.confirmMeet(active.id, lat: 14.55, lng: 121);
+      expect(updated.metConfirmedBy('user-100'), isTrue);
       await Future<void>.delayed(const Duration(milliseconds: 1700));
-      expect(snapshots.last.conversation.order!.peerStage, OrderStage.enRoute);
+      updated = await repository.getOrder(active.id);
+      expect(updated.status, 'MET');
+      expect(updated.metAt, isNotNull);
+      expect(updated.settleAt, isNotNull);
 
-      // Arrive: I check in; the simulated peer follows.
-      await repository.arriveOrder(id);
-      await _pumpEvents();
-      expect(snapshots.last.conversation.order!.myStage, OrderStage.arrived);
-      await Future<void>.delayed(const Duration(milliseconds: 1800));
-      expect(snapshots.last.conversation.order!.peerStage, OrderStage.arrived);
-      expect(snapshots.last.conversation.order!.bothArrived, isTrue);
+      // Messages persist per order.
+      await repository.sendMessage(active.id, 'See you there!');
+      final List<OrderMessage> messages =
+          await repository.listMessages(active.id);
+      expect(messages.last.text, 'See you there!');
+      expect(messages.last.senderId, 'user-100');
+    });
 
-      // Complete: settles after the simulated peer confirmation.
-      await repository.completeOrder(id);
-      await _pumpEvents();
-      expect(snapshots.last.conversation.order!.isCompleted, isTrue);
+    test('cancel and dispute are terminal side exits', () async {
+      final MockOrdersRepository repository = MockOrdersRepository();
+      final List<LiveOrder> orders = await repository.listMine();
+      final LiveOrder active =
+          orders.firstWhere((LiveOrder o) => o.status == 'ACTIVE');
 
-      // Completed event card is appended and highlighted.
-      expect(snapshots.last.messages.last.isHighlighted, isTrue);
+      final LiveOrder disputed = await repository.dispute(active.id);
+      expect(disputed.status, 'DISPUTED');
+      expect(disputed.disputed, isTrue);
+
+      final LiveOrder completed =
+          orders.firstWhere((LiveOrder o) => o.status == 'COMPLETED');
+      expect(completed.settleAt, isNotNull);
     });
   });
 }
-
-/// Lets queued stream events reach listeners before asserting.
-Future<void> _pumpEvents() =>
-    Future<void>.delayed(const Duration(milliseconds: 20));

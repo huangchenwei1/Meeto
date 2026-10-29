@@ -37,13 +37,20 @@ class AppNotification {
   final DateTime createdAt;
 }
 
-/// In-app notifications (API mode only; the mock demo has no notification
-/// sources). Push delivery (APNs/FCM) later reuses the same backend data.
-class NotificationsRepository {
-  NotificationsRepository(this._client);
+/// In-app notifications. Push delivery (APNs/FCM) later reuses the same
+/// backend data.
+abstract interface class NotificationsRepository {
+  Future<List<AppNotification>> list();
+  Future<int> unreadCount();
+  Future<void> markAllRead();
+}
+
+class ApiNotificationsRepository implements NotificationsRepository {
+  ApiNotificationsRepository(this._client);
 
   final ApiClient _client;
 
+  @override
   Future<List<AppNotification>> list() async {
     final List<dynamic> json =
         await _client.get('/notifications') as List<dynamic>;
@@ -53,6 +60,7 @@ class NotificationsRepository {
         .toList(growable: false);
   }
 
+  @override
   Future<int> unreadCount() async {
     final Map<String, dynamic> json =
         await _client.get('/notifications/unread-count')
@@ -60,7 +68,20 @@ class NotificationsRepository {
     return json['count'] as int;
   }
 
+  @override
   Future<void> markAllRead() async {
     await _client.post('/notifications/read');
   }
+}
+
+/// The demo build has no notification sources; the inbox stays empty.
+class MockNotificationsRepository implements NotificationsRepository {
+  @override
+  Future<List<AppNotification>> list() async => const <AppNotification>[];
+
+  @override
+  Future<int> unreadCount() async => 0;
+
+  @override
+  Future<void> markAllRead() async {}
 }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
-import '../../chat/data/chat_repository.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/pages/order_room_page.dart';
 import '../../partner/data/partner_repository.dart';
@@ -19,14 +18,12 @@ class NotificationsPage extends StatefulWidget {
     super.key,
     required this.notificationsRepository,
     required this.partnerRepository,
-    required this.chatRepository,
     required this.profileRepository,
     required this.ordersRepository,
   });
 
   final NotificationsRepository notificationsRepository;
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
 
@@ -86,7 +83,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
           builder: (_) => PostDetailPage(
             post: post,
             partnerRepository: widget.partnerRepository,
-            chatRepository: widget.chatRepository,
             profileRepository: widget.profileRepository,
             ordersRepository: widget.ordersRepository,
           ),

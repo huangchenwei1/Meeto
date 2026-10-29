@@ -4,7 +4,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
-import '../../chat/data/chat_repository.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/partner_repository.dart';
@@ -18,15 +17,13 @@ class MyPostsPage extends StatefulWidget {
   const MyPostsPage({
     super.key,
     required this.partnerRepository,
-    required this.chatRepository,
     required this.profileRepository,
-    this.ordersRepository,
+    required this.ordersRepository,
   });
 
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
-  final OrdersRepository? ordersRepository;
+  final OrdersRepository ordersRepository;
 
   @override
   State<MyPostsPage> createState() => _MyPostsPageState();
@@ -60,7 +57,6 @@ class _MyPostsPageState extends State<MyPostsPage> {
         builder: (_) => PostDetailPage(
           post: post,
           partnerRepository: widget.partnerRepository,
-          chatRepository: widget.chatRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.ordersRepository,
         ),

@@ -7,7 +7,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../chat/data/chat_repository.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/models/host_card.dart';
 import '../../notifications/data/notifications_repository.dart';
@@ -30,19 +29,15 @@ class OrdersPage extends StatefulWidget {
     required this.repository,
     required this.notificationsRepository,
     required this.partnerRepository,
-    required this.chatRepository,
     required this.profileRepository,
-    this.hostsRepository,
+    required this.hostsRepository,
   });
 
   final OrdersRepository repository;
   final NotificationsRepository notificationsRepository;
   final PartnerRepository partnerRepository;
-  final ChatRepository chatRepository;
   final ProfileRepository profileRepository;
-
-  /// Enables the host-side pending-invitations strip when provided.
-  final HostsRepository? hostsRepository;
+  final HostsRepository hostsRepository;
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();
@@ -56,8 +51,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Timer? _pollTimer;
   bool _respondingInvitation = false;
 
-  bool get _showInvitations =>
-      AuthSession.isHost && widget.hostsRepository != null;
+  bool get _showInvitations => AuthSession.isHost;
 
   @override
   void initState() {
@@ -81,7 +75,7 @@ class _OrdersPageState extends State<OrdersPage> {
       List<InvitationRecord> pending = _pendingInvitations;
       if (_showInvitations) {
         final List<InvitationRecord> invitations =
-            await widget.hostsRepository!.fetchInvitations();
+            await widget.hostsRepository.fetchInvitations();
         pending = invitations
             .where((InvitationRecord i) => i.isPending)
             .toList(growable: false);
@@ -103,7 +97,7 @@ class _OrdersPageState extends State<OrdersPage> {
     setState(() => _respondingInvitation = true);
     try {
       final LiveOrder? order =
-          await widget.hostsRepository!.acceptInvitation(invitation.id);
+          await widget.hostsRepository.acceptInvitation(invitation.id);
       if (!mounted) {
         return;
       }
@@ -143,7 +137,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Future<void> _declineInvitation(InvitationRecord invitation) async {
     setState(() => _respondingInvitation = true);
     try {
-      await widget.hostsRepository!.declineInvitation(invitation.id);
+      await widget.hostsRepository.declineInvitation(invitation.id);
       if (mounted) {
         setState(() {
           _pendingInvitations = _pendingInvitations
@@ -173,7 +167,6 @@ class _OrdersPageState extends State<OrdersPage> {
         builder: (_) => NotificationsPage(
           notificationsRepository: widget.notificationsRepository,
           partnerRepository: widget.partnerRepository,
-          chatRepository: widget.chatRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.repository,
         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
+import '../../orders/data/orders_repository.dart';
 import '../models/date_post.dart';
 import '../models/post_author.dart';
 
@@ -78,9 +79,13 @@ abstract interface class PartnerRepository {
 
 /// In-memory mock used for the demo build.
 class MockPartnerRepository implements PartnerRepository {
-  MockPartnerRepository() {
+  MockPartnerRepository({this.orders}) {
     _posts.addAll(_seedPosts());
   }
+
+  /// When present, approving a candidate also creates the local demo order
+  /// (mirrors the server, where selection creates the escrow order).
+  final MockOrdersRepository? orders;
 
   static const List<String> _scenes = <String>[
     'Coffee',
@@ -413,6 +418,8 @@ class MockPartnerRepository implements PartnerRepository {
       status: 'MATCHED',
       selectedHost: candidate,
     );
+    // Selection creates the escrow order, exactly like the server does.
+    orders?.seedFromSelection(_posts[index], candidate);
     _emitCandidates(postId);
     return candidate;
   }

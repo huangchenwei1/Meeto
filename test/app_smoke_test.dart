@@ -36,11 +36,13 @@ void main() {
     expect(find.text('Coffee date at a new cafe'), findsOneWidget);
     expect(find.text(AppStrings.bannerCta), findsOneWidget);
 
-    // Messages tab (conversations in mock mode) with order status pills.
-    // The nav bar is icon-only, so tabs are addressed by icon.
+    // Messages tab: demo orders with status pills (same OrdersPage as API
+    // mode). The nav bar is icon-only, so tabs are addressed by icon.
     await tester.tap(find.byIcon(Iconsax.message));
     await tester.pumpAndSettle();
-    expect(find.text('Marco'), findsOneWidget);
+    expect(find.text('Liza'), findsOneWidget);
+    expect(find.text(AppStrings.statusActive), findsOneWidget);
+    expect(find.text('Bianca'), findsOneWidget);
     expect(find.text(AppStrings.statusCompleted), findsOneWidget);
 
     // Me tab: menu renders; the wallet is host-side only, so the USER
