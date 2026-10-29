@@ -1,0 +1,256 @@
+// Meeto database schema.
+//
+// LOCAL DEV / DEMO: SQLite (no infra needed).
+// PRODUCTION: switch `provider` to "postgresql" and set DATABASE_URL; then
+// regenerate migrations. String status fields map to Postgres enums at that
+// point (Prisma enums are not supported on SQLite).
+//
+// MONEY: all amounts are integer minor units (centavos, PHP).
+// RATES: basis points (1000 = 10%).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  phone      String   @unique // E.164, login identity (OTP)
+  name       String
+  gender     String // MALE | FEMALE
+  role       String   @default("USER") // USER | ADMIN
+  avatarUrl  String   @default("")
+  meta       String   @default("")
+  bio        String   @default("")
+  birthDate  DateTime? // age is derived, never stored
+  country    String   @default("") // launch markets: Philippines | Indonesia | Vietnam
+  city       String   @default("")
+  job        String   @default("") // picked from a fixed category list client-side
+  education  String   @default("") // picked from a fixed level list client-side
+  heightCm   Int?
+  weightKg   Int?
+  tagsJson   String   @default("[]") // JSON array of interest tags
+  photosJson String   @default("[]") // JSON array of photo URLs
+  // NONE | PENDING | VERIFIED. Real-person verification; currently a mock
+  // provider that approves instantly, later a real KYC vendor.
+  verificationStatus    String   @default("NONE")
+  verificationSelfieUrl String   @default("")
+  createdAt  DateTime @default(now())
+
+  posts          Post[]
+  applications   Application[]
+  ordersAsPayer  Order[]       @relation("payer")
+  ordersAsEarner Order[]       @relation("earner")
+  ledgerEntries  LedgerEntry[]
+  withdrawals    Withdrawal[]
+  notifications  Notification[]
+  messages       Message[]
+  invitationsSent     Invitation[] @relation("inviter")
+  invitationsReceived Invitation[] @relation("invitedHost")
+}
+
+// A USER directly invites a HOST from the host directory. Accepting is the
+// moment of truth: it creates a direct post + selected application + order
+// awaiting payment, so everything downstream reuses the standard order flow.
+model Invitation {
+  id          String    @id @default(cuid())
+  fromUserId  String
+  from        User      @relation("inviter", fields: [fromUserId], references: [id])
+  hostId      String
+  host        User      @relation("invitedHost", fields: [hostId], references: [id])
+  sceneTag    String
+  note        String    @default("")
+  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  postId      String    @default("") // set when accepted
+  orderId     String    @default("") // set when accepted
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([hostId, status])
+  @@index([fromUserId, createdAt])
+}
+
+// Single-row (id = 1) platform pricing. Adjustable at runtime via the admin
+// API; posts snapshot the fee at publish time so repricing never affects
+// existing posts or orders.
+model PricingConfig {
+  id                Int      @id @default(1)
+  platformFeeRateBp Int
+  defaultFeeMinor   Int
+  sceneFeesJson     String // JSON object: scene tag -> fee minor units
+  updatedAt         DateTime @updatedAt
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  // DEMAND: an activity request that hosts can sign up for (the
+  // transactional post). MOMENT: a community photo/text recap of a
+  // completed activity; never transactional.
+  type        String   @default("DEMAND")
+  sceneTag    String
+  title       String
+  description String   @default("")
+  detail      String   @default("")
+  timeText    String   @default("")
+  scheduledAt DateTime?
+  place       String   @default("")
+  placeLat    Float    @default(0)
+  placeLng    Float    @default(0)
+  distanceKm  Float    @default(0)
+  imageUrl    String   @default("")
+  imagesJson  String   @default("[]") // JSON array of photo URLs (moments)
+  status      String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
+  // FEED: publicly listed in the community. DIRECT: backing post of a
+  // private invitation deal; never shown in the community feed.
+  origin      String   @default("FEED")
+  feeMinor    Int // snapshot of the platform fee at publish time
+  createdAt   DateTime @default(now())
+
+  applications Application[]
+  orders       Order[]
+}
+
+model Application {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id])
+  applicantId String
+  applicant   User     @relation(fields: [applicantId], references: [id])
+  status      String   @default("APPLIED") // APPLIED | SELECTED | RELEASED
+  // The host's one-line plan pitch (where / when / what), written at
+  // sign-up. Selection is picking the best plan, not just the person.
+  proposal    String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@unique([postId, applicantId])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  postId          String
+  post            Post     @relation(fields: [postId], references: [id])
+  payerId         String // always the poster (who requested the activity)
+  payer           User     @relation("payer", fields: [payerId], references: [id])
+  earnerId        String // always the selected host
+  earner          User     @relation("earner", fields: [earnerId], references: [id])
+  status          String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT | ACTIVE | MET | COMPLETED | CANCELLED | DISPUTED
+  feeMinor        Int
+  commissionMinor Int // round(feeMinor * rateBp / 10000), fixed at creation
+  netMinor        Int // feeMinor - commissionMinor (exact sum guaranteed)
+
+  // Live location snapshots, shared only while the order is ACTIVE/MET so
+  // the parties can coordinate (distance display) and the meet check works.
+  payerLat        Float?
+  payerLng        Float?
+  payerLocatedAt  DateTime?
+  earnerLat       Float?
+  earnerLng       Float?
+  earnerLocatedAt DateTime?
+
+  // One-tap meet confirmation per side, with the GPS fix taken at tap time.
+  // When both exist and are within the colocation radius the order becomes
+  // MET and the settlement timer starts (lazy auto-settle after the delay).
+  payerMetAt      DateTime?
+  payerMetLat     Float?
+  payerMetLng     Float?
+  earnerMetAt     DateTime?
+  earnerMetLat    Float?
+  earnerMetLng    Float?
+  metAt           DateTime?
+
+  // The concrete plan: the host proposes place + time after payment, the
+  // poster confirms. Confirmed values override the post's rough intent for
+  // display and the meet-up venue. Re-proposing clears the confirmation.
+  planPlace       String    @default("")
+  planLat         Float     @default(0)
+  planLng         Float     @default(0)
+  planAt          DateTime?
+  planProposedAt  DateTime?
+  planConfirmedAt DateTime?
+
+  // A dispute freezes auto-settlement for manual resolution.
+  disputedAt      DateTime?
+  disputedById    String    @default("")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  payments      Payment[]
+  ledgerEntries LedgerEntry[]
+  messages      Message[]
+}
+
+// Order-scoped chat between the two matched parties. Interim transport
+// until the IM provider is integrated: clients poll for new messages. The
+// shape (order-scoped, sender + text) survives the IM migration.
+model Message {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// One row per charge attempt against a payment channel. The demo provider
+// is MOCK; a real channel (gcash/maya/cards) slots in behind the same
+// interface without touching order logic.
+model Payment {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  amountMinor Int
+  provider    String   @default("MOCK")
+  status      String // SUCCEEDED | REFUNDED
+  createdAt   DateTime @default(now())
+}
+
+// Append-only money movements. Every business event posts a balanced set of
+// entries (sum = 0 across accounts for settlements), so balances are always
+// derivable and auditable.
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  account     String // PLATFORM_ESCROW | PLATFORM_REVENUE | USER_WALLET
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  amountMinor Int // signed
+  entryType   String // ESCROW_IN | ESCROW_RELEASE | ESCROW_REFUND | SETTLE_NET | SETTLE_COMMISSION | WITHDRAWAL
+  createdAt   DateTime @default(now())
+
+  @@index([account, userId])
+}
+
+model Withdrawal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amountMinor Int
+  status      String   @default("PENDING") // PENDING | PAID
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  userId         String // recipient
+  user           User      @relation(fields: [userId], references: [id])
+  type           String // NEW_APPLICANT | SELECTED | ORDER_PAID | ORDER_CANCELLED
+  actorName      String    @default("")
+  actorAvatarUrl String    @default("")
+  postId         String    @default("")
+  orderId        String    @default("")
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}

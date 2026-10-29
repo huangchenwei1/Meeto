@@ -1,0 +1,11 @@
+build/
+.dart_tool/
+.idea/
+*.iml
+ios/Pods/
+ios/.symlinks/
+server/node_modules/
+server/dist/
+server/prisma/dev.db
+*.log
+.DS_Store

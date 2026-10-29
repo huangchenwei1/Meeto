@@ -1,0 +1,53 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:meeto/app.dart';
+import 'package:meeto/core/constants/app_strings.dart';
+
+void main() {
+  testWidgets('all user-side tabs render with mock data', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MeetoApp());
+    await tester.pumpAndSettle();
+
+    // Login first: phone -> fixed demo OTP -> home. The demo persona is a
+    // USER-side account, so the shell shows the 4-tab layout.
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('loginPhoneField')),
+      '9170000100',
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('loginContinueButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('otpCodeField')),
+      '123456',
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('otpVerifyButton')));
+    await tester.pumpAndSettle();
+
+    // Hosts tab (default): the host directory.
+    expect(find.text(AppStrings.hostsTitle), findsOneWidget);
+    expect(find.text('Bianca'), findsOneWidget);
+
+    // Community tab: demand posts and the guidelines banner.
+    await tester.tap(find.byIcon(Iconsax.home_2));
+    await tester.pumpAndSettle();
+    expect(find.text('Coffee date at a new cafe'), findsOneWidget);
+    expect(find.text(AppStrings.bannerCta), findsOneWidget);
+
+    // Messages tab (conversations in mock mode) with order status pills.
+    // The nav bar is icon-only, so tabs are addressed by icon.
+    await tester.tap(find.byIcon(Iconsax.message));
+    await tester.pumpAndSettle();
+    expect(find.text('Marco'), findsOneWidget);
+    expect(find.text(AppStrings.statusCompleted), findsOneWidget);
+
+    // Me tab: menu renders; the wallet is host-side only, so the USER
+    // persona must not see it.
+    await tester.tap(find.byIcon(Iconsax.user));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStrings.walletLabel), findsNothing);
+    expect(find.text(AppStrings.menuMyPosts), findsOneWidget);
+  });
+}

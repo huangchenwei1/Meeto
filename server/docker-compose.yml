@@ -1,0 +1,36 @@
+# Test-environment stack: PostgreSQL + Meeto API.
+# Usage: docker compose up --build
+# The app listens on :3000; point the Flutter build at it with
+# --dart-define=MEETO_API_BASE_URL=http://<host>:3000
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: meeto
+      POSTGRES_PASSWORD: meeto-dev-password
+      POSTGRES_DB: meeto
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U meeto']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://meeto:meeto-dev-password@db:5432/meeto
+      # Change both of these before exposing the stack anywhere public.
+      JWT_SECRET: change-me-in-production
+      SEED_ON_BOOT: 'true'
+      # Demo-header impersonation is disabled automatically in production
+      # NODE_ENV; set ALLOW_DEMO_AUTH=false to also disable it elsewhere.
+    ports:
+      - '3000:3000'
+
+volumes:
+  pgdata:

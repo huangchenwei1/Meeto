@@ -1,0 +1,646 @@
+openapi: 3.1.0
+info:
+  title: Meeto API
+  version: 0.1.0
+  description: |
+    Server contract for the Meeto paid-dating platform (MEET / DATE / EARN).
+
+    BUSINESS RULES (confirmed):
+    - Anyone can publish a date post; sign-ups only join a candidate pool.
+    - The poster selects exactly one candidate. The match forms when the MALE
+      side pays the platform-set match fee. The female side is always free.
+    - The payment is held in escrow by the platform and settled to the female
+      side after both parties confirm completion, minus the platform
+      commission. Cancellation refunds the full amount to the payer.
+    - Pricing (per-scene match fees and the commission rate) is
+      platform-controlled and adjustable at runtime via admin endpoints.
+
+    CONVENTIONS:
+    - All monetary amounts are integer minor units (centavos) with currency
+      PHP. `feeMinor: 60000` means PHP 600.00.
+    - The commission rate is expressed in basis points (`1000` = 10%).
+      Settlement math is: commission = round(fee * rateBp / 10000),
+      net = fee - commission, so the three always sum exactly.
+    - Order state transitions are server-authoritative. Clients send intents
+      and render pushed/polled state; they never advance state locally.
+
+    AUTH: phone OTP login (`/auth/otp/request` -> `/auth/otp/verify`,
+    `/auth/register` for new phones) issues JWT access/refresh bearer
+    tokens. Outside production the OTP is fixed (123456) and echoed back as
+    `devCode`; a real SMS gateway slots in behind the SmsProvider interface.
+    DEMO FALLBACK: outside production, `X-User-Id: <seeded id>` is also
+    accepted so demo-director flows can impersonate counterparties; set
+    `ALLOW_DEMO_AUTH=false` or NODE_ENV=production to disable.
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: config
+  - name: users
+  - name: posts
+  - name: orders
+  - name: wallet
+  - name: admin
+
+components:
+  securitySchemes:
+    demoUser:
+      type: apiKey
+      in: header
+      name: X-User-Id
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode: { type: integer }
+              message: { type: string }
+              error: { type: string }
+  schemas:
+    Gender:
+      type: string
+      enum: [MALE, FEMALE]
+    PostStatus:
+      type: string
+      enum: [OPEN, PENDING_PAYMENT, MATCHED, COMPLETED, CANCELLED]
+      description: |
+        OPEN -> PENDING_PAYMENT (candidate selected, awaiting payer)
+        PENDING_PAYMENT -> MATCHED (escrow succeeded)
+        MATCHED -> COMPLETED | OPEN (order cancelled reopens the post)
+    ApplicationStatus:
+      type: string
+      enum: [APPLIED, SELECTED, RELEASED]
+    OrderStatus:
+      type: string
+      enum: [AWAITING_PAYMENT, ACTIVE, COMPLETED, CANCELLED]
+      description: |
+        AWAITING_PAYMENT -> ACTIVE (payer escrows the fee)
+        ACTIVE -> COMPLETED (both parties confirm; settlement runs)
+        AWAITING_PAYMENT|ACTIVE -> CANCELLED (full refund if escrowed)
+    PersonStage:
+      type: string
+      enum: [READY, EN_ROUTE, ARRIVED]
+    WithdrawalStatus:
+      type: string
+      enum: [PENDING, PAID]
+    PricingConfig:
+      type: object
+      required: [platformFeeRateBp, defaultFeeMinor, sceneFees]
+      properties:
+        platformFeeRateBp:
+          type: integer
+          description: Commission in basis points, e.g. 1000 = 10%.
+        defaultFeeMinor: { type: integer }
+        sceneFees:
+          type: object
+          additionalProperties: { type: integer }
+          description: Scene tag -> match fee in minor units.
+    User:
+      type: object
+      required: [id, name, gender, isVerified]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        gender: { $ref: '#/components/schemas/Gender' }
+        avatarUrl: { type: string }
+        meta: { type: string }
+        isVerified: { type: boolean }
+    Post:
+      type: object
+      required: [id, author, sceneTag, title, status, feeMinor]
+      properties:
+        id: { type: string }
+        author: { $ref: '#/components/schemas/User' }
+        sceneTag: { type: string }
+        title: { type: string }
+        description: { type: string }
+        detail: { type: string }
+        timeText: { type: string }
+        place: { type: string }
+        distanceKm: { type: number }
+        imageUrl: { type: string }
+        applicantCount: { type: integer }
+        status: { $ref: '#/components/schemas/PostStatus' }
+        feeMinor:
+          type: integer
+          description: Match fee snapshotted from pricing config at publish.
+        hasApplied:
+          type: boolean
+          description: Whether the caller already applied.
+        selectedHost:
+          allOf: [{ $ref: '#/components/schemas/User' }]
+          nullable: true
+          description: The host whose plan was approved; null while open.
+        createdAt: { type: string, format: date-time }
+    CreatePostInput:
+      type: object
+      required: [sceneTag, title]
+      properties:
+        sceneTag: { type: string }
+        title: { type: string }
+        description: { type: string }
+        detail: { type: string }
+        timeText: { type: string }
+        place: { type: string }
+        distanceKm: { type: number }
+        imageUrl: { type: string }
+    Application:
+      type: object
+      required: [id, postId, applicant, status, createdAt]
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        applicant: { $ref: '#/components/schemas/User' }
+        status: { $ref: '#/components/schemas/ApplicationStatus' }
+        createdAt: { type: string, format: date-time }
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        orderId: { type: string }
+        senderId: { type: string }
+        text: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Order:
+      type: object
+      required:
+        [id, postId, payer, earner, status, feeMinor, commissionMinor,
+         netMinor, payerStage, earnerStage]
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        payer:
+          allOf: [{ $ref: '#/components/schemas/User' }]
+          description: Always the male side.
+        earner:
+          allOf: [{ $ref: '#/components/schemas/User' }]
+          description: Always the female side; receives netMinor on settle.
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        feeMinor: { type: integer }
+        commissionMinor: { type: integer }
+        netMinor: { type: integer }
+        payerStage: { $ref: '#/components/schemas/PersonStage' }
+        earnerStage: { $ref: '#/components/schemas/PersonStage' }
+        payerCompleted: { type: boolean }
+        earnerCompleted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    WalletSummary:
+      type: object
+      required: [balanceMinor, monthIncomeMinor, withdrawableMinor]
+      properties:
+        balanceMinor: { type: integer }
+        monthIncomeMinor: { type: integer }
+        withdrawableMinor: { type: integer }
+    Withdrawal:
+      type: object
+      required: [id, amountMinor, status, createdAt]
+      properties:
+        id: { type: string }
+        amountMinor: { type: integer }
+        status: { $ref: '#/components/schemas/WithdrawalStatus' }
+        createdAt: { type: string, format: date-time }
+
+security:
+  - demoUser: []
+
+paths:
+  /auth/otp/request:
+    post:
+      summary: Request a login OTP for a phone number
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string, description: E.164, example: '+639171234567' }
+      responses:
+        '201':
+          description: OTP sent (devCode echoed outside production)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: boolean }
+                  devCode: { type: string, description: Non-production only }
+  /auth/otp/verify:
+    post:
+      summary: Verify an OTP; logs in existing users or starts registration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+      responses:
+        '201':
+          description: LOGGED_IN with tokens, or NEEDS_PROFILE with a registration token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [LOGGED_IN, NEEDS_PROFILE] }
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+                  user: { $ref: '#/components/schemas/PublicUser' }
+                  registrationToken: { type: string }
+        '401': { description: Invalid or expired code }
+  /auth/register:
+    post:
+      summary: Complete registration for a verified new phone
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registrationToken, name, gender]
+              properties:
+                registrationToken: { type: string }
+                name: { type: string }
+                gender: { type: string, enum: [MALE, FEMALE] }
+      responses:
+        '201':
+          description: Account created; tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  refreshToken: { type: string }
+                  user: { $ref: '#/components/schemas/PublicUser' }
+        '401': { description: Invalid registration token or phone already registered }
+  /auth/refresh:
+    post:
+      summary: Exchange a refresh token for a new token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '201':
+          description: New token pair
+        '401': { description: Invalid or expired refresh token }
+  /config/pricing:
+    get:
+      tags: [config]
+      summary: Active platform pricing (public)
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingConfig' }
+
+  /users/me:
+    get:
+      tags: [users]
+      summary: Current user profile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+  /users/{id}:
+    get:
+      tags: [users]
+      summary: Public user profile
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /posts:
+    get:
+      tags: [posts]
+      summary: Feed of open posts
+      parameters:
+        - name: scene
+          in: query
+          schema: { type: string }
+        - name: authorId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Post' }
+    post:
+      tags: [posts]
+      summary: Publish a post (fee snapshotted from pricing config)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePostInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+  /posts/{id}:
+    get:
+      tags: [posts]
+      summary: Post detail
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Post' }
+        '404': { $ref: '#/components/responses/Error' }
+  /posts/{id}/applications:
+    get:
+      tags: [posts]
+      summary: Candidate pool (post author only)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Application' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [posts]
+      summary: Sign up as a candidate (free; opposite gender only)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '409':
+          description: Already applied / post not open / same gender
+  /posts/{id}/selection:
+    post:
+      tags: [posts]
+      summary: >
+        Approve one candidate (author only). Creates an order in
+        AWAITING_PAYMENT where the payer is always the male side.
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [applicationId]
+              properties:
+                applicationId: { type: string }
+      responses:
+        '201':
+          description: Order created, awaiting the payer's escrow payment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /orders:
+    get:
+      tags: [orders]
+      summary: Orders where the caller is payer or earner
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Order' }
+  /orders/{id}:
+    get:
+      tags: [orders]
+      summary: Order detail (participants only)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+  /orders/{id}/payment:
+    post:
+      tags: [orders]
+      summary: >
+        Pay the match fee into escrow (payer only). Demo uses a mock payment
+        provider; production swaps in a real channel behind the same
+        interface.
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '201':
+          description: Escrowed; order ACTIVE, post MATCHED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '409': { $ref: '#/components/responses/Error' }
+  /orders/{id}/depart:
+    post:
+      tags: [orders]
+      summary: Caller departs (READY -> EN_ROUTE)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+  /orders/{id}/arrive:
+    post:
+      tags: [orders]
+      summary: Caller checks in (EN_ROUTE -> ARRIVED)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+  /orders/{id}/complete:
+    post:
+      tags: [orders]
+      summary: >
+        Caller confirms completion (both must have arrived). When both
+        parties have confirmed, settlement runs atomically: escrow releases,
+        the earner's wallet receives netMinor, the platform books
+        commissionMinor.
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+  /orders/{id}/cancel:
+    post:
+      tags: [orders]
+      summary: >
+        Cancel before completion (either participant). If escrowed, the payer
+        is refunded in full. The post reopens so the poster can select again.
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+
+  /orders/{id}/messages:
+    post:
+      tags: [orders]
+      summary: Send an order-scoped chat message (participants only)
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 2000 }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+    get:
+      tags: [orders]
+      summary: >
+        List messages oldest-first. Pass afterId to fetch only newer
+        messages (interim poll transport until the IM provider lands).
+      parameters:
+        - { $ref: '#/components/parameters/id' }
+        - name: afterId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Message' }
+
+  /wallet:
+    get:
+      tags: [wallet]
+      summary: Caller's wallet summary (derived from the ledger)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletSummary' }
+  /wallet/withdrawals:
+    get:
+      tags: [wallet]
+      summary: Caller's withdrawal history
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Withdrawal' }
+    post:
+      tags: [wallet]
+      summary: Request a withdrawal (balance permitting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountMinor]
+              properties:
+                amountMinor: { type: integer, minimum: 1 }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+        '409':
+          description: Insufficient balance
+
+  /admin/pricing:
+    put:
+      tags: [admin]
+      summary: Update platform pricing (admin only, effective immediately)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PricingConfig' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PricingConfig' }
+        '403': { $ref: '#/components/responses/Error' }
+  /admin/orders:
+    get:
+      tags: [admin]
+      summary: All orders (admin only)
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Order' }
+        '403': { $ref: '#/components/responses/Error' }
