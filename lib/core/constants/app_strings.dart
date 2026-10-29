@@ -7,7 +7,6 @@ abstract final class AppStrings {
   static const String appName = 'Meeto';
 
   // Tabs
-  static const String tabHome = 'Home';
   static const String tabMessages = 'Messages';
   static const String tabMe = 'Me';
 
@@ -129,17 +128,11 @@ abstract final class AppStrings {
   static const String approveCta = 'Approve';
   static const String tipPayNote =
       'Held in escrow by Meeto \u00b7 full refund on cancellation';
-  static const String tipReceiveNote =
-      'Paid out to you after the activity completes';
 
   // Escrow / settlement
-  static String escrowTitle(String name, String amount) =>
-      '$name paid $amount \u00b7 held in escrow';
   static const String escrowSub =
       'Meeto holds the payment until the activity completes \u00b7 full '
       'refund if cancelled';
-  static const String matchGreeting =
-      'We are matched! Looking forward to it';
 
   // Publish
   static const String publishTitle = 'Post an activity';
@@ -153,8 +146,6 @@ abstract final class AppStrings {
   static const String publishPhTitle = 'e.g. Coffee at a new cafe';
   static const String publishPhDesc =
       'e.g. New cafe in town, looking for relaxed company and good chat...';
-  static const String publishPhTime = 'e.g. Saturday 3:00 PM \u00b7 ~2 hours';
-  static const String publishPhPlace = 'e.g. Makati \u00b7 Single Origin';
   static const String publishTipPayNote =
       'Service fee you\'ll pay when you pick a host \u00b7 held in escrow '
       'by Meeto';
@@ -179,12 +170,7 @@ abstract final class AppStrings {
   static const String profileLivesInLabel = 'Lives in';
 
   // Chats
-  static const String emptyChatList = 'No conversations yet';
-  static const String chatNotice =
-      "Yesterday's earnings \u20b11,260 arrived in your wallet";
   static const String statusCompleted = 'Completed';
-  static const String statusBooked = 'Booked';
-  static const String officialNotice = 'Official notice';
   static const String messageInputHint = 'Type a message...';
 
   // Order flow (chat detail)
@@ -199,34 +185,6 @@ abstract final class AppStrings {
     'En route',
     'Arrived',
   ];
-  static const String personStatusDone = 'Confirmed';
-  static const String btnDepart = "I'm on my way";
-  static const String btnArrive = 'Check in';
-  static const String btnFinish = 'Complete';
-  static const String btnWaiting = 'Waiting';
-  static const String btnAwaitingConfirm = 'Awaiting confirmation';
-  static const String meLabel = 'Me';
-  static String dealTitle(String title) => 'Deal confirmed \u00b7 $title';
-  static String dealSub(String time, String tip) =>
-      '$time \u00b7 Expected fee $tip';
-  static const String departTitle = "You're on your way";
-  static String departSub(String distance, String place, int etaMinutes) =>
-      '$distance km to $place \u00b7 ~$etaMinutes min ride \u00b7 '
-      'trip protection on';
-  static const String arriveTitle = 'You have arrived';
-  static const String arriveSub = 'Check-in successful \u00b7 waiting to meet';
-  static const String meetTitle = 'Both have arrived';
-  static const String meetSub =
-      'Both checked in \u00b7 the activity has started';
-  static String finishTitle(String net) =>
-      'Activity completed \u00b7 $net settled to your wallet';
-  static String finishSub(String fee, String feePct) =>
-      'Confirmed by both sides \u00b7 $fee \u2212 $feePct platform fee \u00b7 '
-      'ready to withdraw';
-  static const String peerDepartedMsg = "I'm on my way too, see you soon!";
-  static const String stateMeeting = 'Activity in progress';
-  static String mapCaption(String distance, int etaMinutes) =>
-      '$distance km \u00b7 ~$etaMinutes min ride';
 
   // Live orders (API mode: both sides act from their own devices)
   static const String ordersEmpty =
@@ -239,18 +197,6 @@ abstract final class AppStrings {
   static String payCta(String amount) => 'Pay $amount into escrow';
   static const String waitingForPayment =
       'Waiting for the service fee to be paid';
-  static const String confirmCompletion = 'Confirm completion';
-  static const String waitingPeerConfirm =
-      'Waiting for the other side to confirm';
-  static const String waitingPeerArrive =
-      'Waiting for the other side to arrive';
-  static const String cancelOrderCta = 'Cancel plan \u00b7 full refund';
-  static const String cancelConfirmTitle = 'Cancel this plan?';
-  static const String cancelConfirmBody =
-      'The service fee is refunded in full and the post reopens for new '
-      'candidates.';
-  static const String cancelConfirmYes = 'Cancel plan';
-  static const String cancelConfirmNo = 'Keep it';
   static String settledEarnerNote(String net) =>
       'Activity completed \u00b7 $net settled to your wallet';
   static String settledPayerNote(String fee) =>
@@ -451,7 +397,6 @@ abstract final class AppStrings {
   static const String notVerifiedStatus = 'Not verified';
   static const String setupUploadFailed = 'Upload failed, try again';
   static const String setupAvatarRequired = 'Add a profile photo first';
-  static const String reviewsEmpty = 'No reviews yet';
   static String joinedLine(String time) => 'Joined $time';
 
   // Publish: structured time and place pickers
@@ -515,7 +460,6 @@ abstract final class AppStrings {
       'Invitation sent \u2014 you\'ll be notified when they respond';
   static const String inviteAlreadyPendingSnack =
       'You already have a pending invitation to this host';
-  static const String invitationsHeader = 'Invitations';
   static String inviteFromLine(String name, String scene) =>
       '$name invited you to host: $scene';
   static const String inviteAcceptCta = 'Accept';
@@ -603,7 +547,6 @@ abstract final class AppStrings {
   static String timeDaysAgo(int d) => '${d}d ago';
 
   // Me page
-  static const String meIdLine = 'Meeto ID 20481 \u00b7 Manila';
   static const String walletLabel = 'Earnings this month';
   static String walletWithdrawable(String amount) =>
       'Withdrawable $amount \u00b7 T+1 payout';
