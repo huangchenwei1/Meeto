@@ -4,18 +4,18 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
-import '../models/date_post.dart';
+import '../models/activity_post.dart';
 import '../models/post_author.dart';
-import 'partner_repository.dart';
+import 'community_repository.dart';
 
-/// [PartnerRepository] backed by the Meeto API.
+/// [CommunityRepository] backed by the Meeto API.
 ///
 /// Pages are unchanged: they depend on the interface only. Money arrives in
 /// minor units and is mapped to whole pesos here. Counterparty actions are
 /// performed by real users from their own devices; peer-side changes arrive
 /// via polling.
-class ApiPartnerRepository implements PartnerRepository {
-  ApiPartnerRepository(this._client);
+class ApiCommunityRepository implements CommunityRepository {
+  ApiCommunityRepository(this._client);
 
   final ApiClient _client;
 
@@ -39,7 +39,7 @@ class ApiPartnerRepository implements PartnerRepository {
       <String, Map<String, ({String applicationId, PostAuthor author})>>{};
 
   @override
-  Future<List<DatePost>> fetchPosts({String? sceneTag}) async {
+  Future<List<ActivityPost>> fetchPosts({String? sceneTag}) async {
     final Map<String, String> query = <String, String>{
       'scene': ?sceneTag,
     };
@@ -49,7 +49,7 @@ class ApiPartnerRepository implements PartnerRepository {
     ) as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()
-        .map(_toDatePost)
+        .map(_toActivityPost)
         .toList(growable: false);
   }
 
@@ -60,7 +60,7 @@ class ApiPartnerRepository implements PartnerRepository {
   }
 
   @override
-  Future<DatePost> createPost(CreatePostInput input) async {
+  Future<ActivityPost> createPost(CreatePostInput input) async {
     final Map<String, dynamic> json = await _client.post(
       '/posts',
       body: <String, dynamic>{
@@ -76,7 +76,7 @@ class ApiPartnerRepository implements PartnerRepository {
         'imageUrl': _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
       },
     ) as Map<String, dynamic>;
-    return _toDatePost(json);
+    return _toActivityPost(json);
   }
 
   @override
@@ -85,8 +85,8 @@ class ApiPartnerRepository implements PartnerRepository {
   }
 
   @override
-  Future<DatePost> createMoment(String text, List<String> images) async {
-    return _toDatePost(
+  Future<ActivityPost> createMoment(String text, List<String> images) async {
+    return _toActivityPost(
       await _client.post(
         '/posts/moments',
         body: <String, dynamic>{'text': text, 'images': images},
@@ -95,7 +95,7 @@ class ApiPartnerRepository implements PartnerRepository {
   }
 
   @override
-  Future<DatePost> signUp(String postId, String proposal) async {
+  Future<ActivityPost> signUp(String postId, String proposal) async {
     await _client.post(
       '/posts/$postId/applications',
       body: <String, dynamic>{'proposal': proposal},
@@ -141,7 +141,7 @@ class ApiPartnerRepository implements PartnerRepository {
     final ({String applicationId, PostAuthor author}) candidate =
         pool![candidateId]!;
 
-    // Creates the order server-side (AWAITING_PAYMENT); the male side pays
+    // Creates the order server-side (AWAITING_PAYMENT); the paying user settles
     // from their own device via the order room.
     await _client.post(
       '/posts/$postId/selection',
@@ -151,24 +151,24 @@ class ApiPartnerRepository implements PartnerRepository {
   }
 
   @override
-  Future<List<DatePost>> fetchPostsByAuthor(String authorId) async {
+  Future<List<ActivityPost>> fetchPostsByAuthor(String authorId) async {
     final List<dynamic> json = await _client.get(
       '/posts',
       query: <String, String>{'authorId': authorId},
     ) as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()
-        .map(_toDatePost)
+        .map(_toActivityPost)
         .toList(growable: false);
   }
 
   @override
-  Future<DatePost> fetchPostById(String postId) => _fetchPost(postId);
+  Future<ActivityPost> fetchPostById(String postId) => _fetchPost(postId);
 
-  Future<DatePost> _fetchPost(String postId) async {
+  Future<ActivityPost> _fetchPost(String postId) async {
     final Map<String, dynamic> json =
         await _client.get('/posts/$postId') as Map<String, dynamic>;
-    return _toDatePost(json);
+    return _toActivityPost(json);
   }
 
   Future<List<PostAuthor>> _fetchCandidates(String postId) async {
@@ -192,11 +192,11 @@ class ApiPartnerRepository implements PartnerRepository {
         .toList(growable: false);
   }
 
-  DatePost _toDatePost(Map<String, dynamic> json) {
+  ActivityPost _toActivityPost(Map<String, dynamic> json) {
     final String sceneTag = json['sceneTag'] as String;
     final String imageUrl = json['imageUrl'] as String;
     final String type = json['type'] as String? ?? 'DEMAND';
-    return DatePost(
+    return ActivityPost(
       id: json['id'] as String,
       type: type,
       sceneTag: sceneTag,
@@ -222,7 +222,7 @@ class ApiPartnerRepository implements PartnerRepository {
           .toList(growable: false),
       author: _toAuthor(json['author'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['createdAt'] as String),
-      tipAmount: minorToPesos(json['feeMinor'] as int),
+      budgetAmount: minorToPesos(json['feeMinor'] as int),
       hasApplied: json['hasApplied'] as bool? ?? false,
       status: json['status'] as String? ?? 'OPEN',
       selectedHost: json['selectedHost'] == null

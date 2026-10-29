@@ -3,7 +3,7 @@ import 'dart:async';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../orders/data/orders_repository.dart';
-import '../models/date_post.dart';
+import '../models/activity_post.dart';
 import '../models/post_author.dart';
 
 /// Input payload for publishing a new activity request.
@@ -32,30 +32,30 @@ class CreatePostInput {
   final double? placeLng;
 }
 
-/// Data source contract for date posts.
+/// Data source contract for community activity posts.
 ///
 /// Pages depend on this abstraction only. To go live, implement it with a
-/// real API client (e.g. `ApiPartnerRepository`) and swap the instance
+/// real API client (e.g. `ApiCommunityRepository`) and swap the instance
 /// injected in the page — no UI change required.
-abstract interface class PartnerRepository {
+abstract interface class CommunityRepository {
   /// Returns community wall posts (waiting + in-progress + moments),
   /// optionally filtered by [sceneTag].
-  Future<List<DatePost>> fetchPosts({String? sceneTag});
+  Future<List<ActivityPost>> fetchPosts({String? sceneTag});
 
   /// Returns all posts published by [authorId] (any status), used by the
   /// author's own management view.
-  Future<List<DatePost>> fetchPostsByAuthor(String authorId);
+  Future<List<ActivityPost>> fetchPostsByAuthor(String authorId);
 
   /// Returns one post by id (any status), e.g. when opened from a
   /// notification.
-  Future<DatePost> fetchPostById(String postId);
+  Future<ActivityPost> fetchPostById(String postId);
 
   /// Returns available scene names, excluding the implicit "For you".
   Future<List<String>> fetchScenes();
 
   /// Publishes a new post and returns it. The match fee is platform-set
   /// per scene ([ScenePricing]); posters cannot price.
-  Future<DatePost> createPost(CreatePostInput input);
+  Future<ActivityPost> createPost(CreatePostInput input);
 
   /// Author-only delete; allowed while the post is still open (no order).
   Future<void> deletePost(String postId);
@@ -63,10 +63,10 @@ abstract interface class PartnerRepository {
   /// Signs the current user up as a CANDIDATE for [postId] (free).
   /// [proposal] is the required one-line plan pitch shown to the poster.
   /// Returns the updated post. The poster still has to pick one candidate.
-  Future<DatePost> signUp(String postId, String proposal);
+  Future<ActivityPost> signUp(String postId, String proposal);
 
   /// Publishes a community recap (photos + text). Open to both roles.
-  Future<DatePost> createMoment(String text, List<String> images);
+  Future<ActivityPost> createMoment(String text, List<String> images);
 
   /// Emits the current candidate pool of the caller's own post, then again
   /// whenever it changes. In production this arrives via server push.
@@ -78,8 +78,8 @@ abstract interface class PartnerRepository {
 }
 
 /// In-memory mock used for the demo build.
-class MockPartnerRepository implements PartnerRepository {
-  MockPartnerRepository({this.orders}) {
+class MockCommunityRepository implements CommunityRepository {
+  MockCommunityRepository({this.orders}) {
     _posts.addAll(_seedPosts());
   }
 
@@ -183,17 +183,17 @@ class MockPartnerRepository implements PartnerRepository {
     ),
   ];
 
-  final List<DatePost> _posts = <DatePost>[];
+  final List<ActivityPost> _posts = <ActivityPost>[];
   final Map<String, List<PostAuthor>> _candidates =
       <String, List<PostAuthor>>{};
   final Map<String, StreamController<List<PostAuthor>>>
       _candidateControllers = <String, StreamController<List<PostAuthor>>>{};
   int _postSequence = 100;
 
-  static List<DatePost> _seedPosts() {
+  static List<ActivityPost> _seedPosts() {
     final DateTime now = DateTime.now();
-    return <DatePost>[
-      DatePost(
+    return <ActivityPost>[
+      ActivityPost(
         id: 'post-001',
         sceneTag: 'Coffee',
         title: 'Coffee date at a new cafe',
@@ -210,9 +210,9 @@ class MockPartnerRepository implements PartnerRepository {
         imageUrl: _sceneImages['Coffee']!,
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),
-        tipAmount: 600,
+        budgetAmount: 600,
       ),
-      DatePost(
+      ActivityPost(
         id: 'post-002',
         sceneTag: 'Dinner',
         title: 'Japanese dinner date',
@@ -229,9 +229,9 @@ class MockPartnerRepository implements PartnerRepository {
         imageUrl: _sceneImages['Dinner']!,
         author: _paolo,
         createdAt: now.subtract(const Duration(hours: 3)),
-        tipAmount: 1000,
+        budgetAmount: 1000,
       ),
-      DatePost(
+      ActivityPost(
         id: 'post-003',
         sceneTag: 'Bar',
         title: 'Drinks at a quiet bar',
@@ -249,11 +249,11 @@ class MockPartnerRepository implements PartnerRepository {
         imageUrl: _sceneImages['Bar']!,
         author: _marco,
         createdAt: now.subtract(const Duration(hours: 5)),
-        tipAmount: 1400,
+        budgetAmount: 1400,
         status: 'MATCHED',
         selectedHost: _bianca,
       ),
-      DatePost(
+      ActivityPost(
         id: 'post-004',
         sceneTag: 'Movie',
         title: 'Movie date for the new release',
@@ -271,9 +271,9 @@ class MockPartnerRepository implements PartnerRepository {
         imageUrl: _sceneImages['Movie']!,
         author: _rafael,
         createdAt: now.subtract(const Duration(days: 1)),
-        tipAmount: 800,
+        budgetAmount: 800,
       ),
-      DatePost(
+      ActivityPost(
         id: 'post-005',
         sceneTag: 'Tea',
         title: 'Afternoon tea and a catch-up',
@@ -290,34 +290,34 @@ class MockPartnerRepository implements PartnerRepository {
         imageUrl: _sceneImages['Tea']!,
         author: _daniel,
         createdAt: now.subtract(const Duration(days: 2)),
-        tipAmount: 650,
+        budgetAmount: 650,
       ),
     ];
   }
 
   @override
-  Future<List<DatePost>> fetchPosts({String? sceneTag}) async {
+  Future<List<ActivityPost>> fetchPosts({String? sceneTag}) async {
     // Simulated network latency so loading states stay testable.
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return _posts
         .where(
-          (DatePost post) => sceneTag == null || post.sceneTag == sceneTag,
+          (ActivityPost post) => sceneTag == null || post.sceneTag == sceneTag,
         )
         .toList();
   }
 
   @override
-  Future<List<DatePost>> fetchPostsByAuthor(String authorId) async {
+  Future<List<ActivityPost>> fetchPostsByAuthor(String authorId) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     return _posts
-        .where((DatePost post) => post.author.id == authorId)
+        .where((ActivityPost post) => post.author.id == authorId)
         .toList();
   }
 
   @override
-  Future<DatePost> fetchPostById(String postId) async {
+  Future<ActivityPost> fetchPostById(String postId) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    return _posts.firstWhere((DatePost post) => post.id == postId);
+    return _posts.firstWhere((ActivityPost post) => post.id == postId);
   }
 
   @override
@@ -327,9 +327,9 @@ class MockPartnerRepository implements PartnerRepository {
   }
 
   @override
-  Future<DatePost> createPost(CreatePostInput input) async {
+  Future<ActivityPost> createPost(CreatePostInput input) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    final DatePost post = DatePost(
+    final ActivityPost post = ActivityPost(
       id: 'post-${++_postSequence}',
       sceneTag: input.sceneTag,
       title: input.title,
@@ -342,7 +342,7 @@ class MockPartnerRepository implements PartnerRepository {
       imageUrl: _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
       author: currentUserAuthor,
       createdAt: DateTime.now(),
-      tipAmount: ScenePricing.feeForScene(input.sceneTag),
+      budgetAmount: ScenePricing.feeForScene(input.sceneTag),
     );
     _posts.insert(0, post);
     _scheduleDemoCandidates(post.id);
@@ -352,13 +352,13 @@ class MockPartnerRepository implements PartnerRepository {
   @override
   Future<void> deletePost(String postId) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    _posts.removeWhere((DatePost post) => post.id == postId);
+    _posts.removeWhere((ActivityPost post) => post.id == postId);
   }
 
   @override
-  Future<DatePost> createMoment(String text, List<String> images) async {
+  Future<ActivityPost> createMoment(String text, List<String> images) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    final DatePost post = DatePost(
+    final ActivityPost post = ActivityPost(
       id: 'post-${++_postSequence}',
       type: 'MOMENT',
       sceneTag: '',
@@ -373,17 +373,17 @@ class MockPartnerRepository implements PartnerRepository {
       images: images,
       author: currentUserAuthor,
       createdAt: DateTime.now(),
-      tipAmount: 0,
+      budgetAmount: 0,
     );
     _posts.insert(0, post);
     return post;
   }
 
   @override
-  Future<DatePost> signUp(String postId, String proposal) async {
+  Future<ActivityPost> signUp(String postId, String proposal) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    final int index = _posts.indexWhere((DatePost p) => p.id == postId);
-    final DatePost updated = _posts[index].copyWith(
+    final int index = _posts.indexWhere((ActivityPost p) => p.id == postId);
+    final ActivityPost updated = _posts[index].copyWith(
       signedCount: _posts[index].signedCount + 1,
       hasApplied: true,
     );
@@ -412,7 +412,7 @@ class MockPartnerRepository implements PartnerRepository {
     // The match consumes the slot; remaining candidates are released. The
     // post becomes an in-progress activity attributed to the chosen host.
     _candidates[postId] = <PostAuthor>[candidate];
-    final int index = _posts.indexWhere((DatePost p) => p.id == postId);
+    final int index = _posts.indexWhere((ActivityPost p) => p.id == postId);
     _posts[index] = _posts[index].copyWith(
       signedCount: 1,
       status: 'MATCHED',
@@ -444,7 +444,7 @@ class MockPartnerRepository implements PartnerRepository {
       return;
     }
     pool.add(candidate);
-    final int index = _posts.indexWhere((DatePost p) => p.id == postId);
+    final int index = _posts.indexWhere((ActivityPost p) => p.id == postId);
     if (index >= 0) {
       _posts[index] = _posts[index].copyWith(signedCount: pool.length);
     }

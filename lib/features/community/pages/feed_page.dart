@@ -12,24 +12,24 @@ import '../../community/pages/community_guidelines_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
-import '../data/partner_repository.dart';
-import '../models/date_post.dart';
+import '../data/community_repository.dart';
+import '../models/activity_post.dart';
 import '../widgets/moment_card.dart';
 import '../widgets/post_card.dart';
 import 'moment_composer_page.dart';
 import 'post_detail_page.dart';
 import 'publish_page.dart';
 
-/// Home tab: scene filter chips, promo banner and the date post feed.
+/// Home tab: scene filter chips, promo banner and the activity feed.
 class FeedPage extends StatefulWidget {
   const FeedPage({
     super.key,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.profileRepository,
     required this.ordersRepository,
   });
 
-  final PartnerRepository partnerRepository;
+  final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
 
@@ -38,7 +38,7 @@ class FeedPage extends StatefulWidget {
 }
 
 class FeedPageState extends State<FeedPage> {
-  List<DatePost> _posts = <DatePost>[];
+  List<ActivityPost> _posts = <ActivityPost>[];
   List<String> _scenes = <String>[];
   String? _selectedScene;
   bool _isLoading = true;
@@ -95,7 +95,7 @@ class FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _loadScenes() async {
-    final List<String> scenes = await widget.partnerRepository.fetchScenes();
+    final List<String> scenes = await widget.communityRepository.fetchScenes();
     if (!mounted) {
       return;
     }
@@ -106,9 +106,9 @@ class FeedPageState extends State<FeedPage> {
     if (!silent) {
       setState(() => _isLoading = true);
     }
-    final List<DatePost> posts;
+    final List<ActivityPost> posts;
     try {
-      posts = await widget.partnerRepository.fetchPosts(
+      posts = await widget.communityRepository.fetchPosts(
         sceneTag: _selectedScene,
       );
     } on Exception {
@@ -127,12 +127,12 @@ class FeedPageState extends State<FeedPage> {
     });
   }
 
-  Future<void> _openDetail(DatePost post) async {
+  Future<void> _openDetail(ActivityPost post) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PostDetailPage(
           post: post,
-          partnerRepository: widget.partnerRepository,
+          communityRepository: widget.communityRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.ordersRepository,
         ),
@@ -141,7 +141,7 @@ class FeedPageState extends State<FeedPage> {
     _loadPosts();
   }
 
-  void _openAuthor(DatePost post) {
+  void _openAuthor(ActivityPost post) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => UserProfilePage(
@@ -156,7 +156,7 @@ class FeedPageState extends State<FeedPage> {
     final bool? published = await Navigator.of(context).push(
       MaterialPageRoute<bool>(
         fullscreenDialog: true,
-        builder: (_) => PublishPage(repository: widget.partnerRepository),
+        builder: (_) => PublishPage(repository: widget.communityRepository),
       ),
     );
     if (published ?? false) {
@@ -170,7 +170,7 @@ class FeedPageState extends State<FeedPage> {
       MaterialPageRoute<bool>(
         fullscreenDialog: true,
         builder: (_) =>
-            MomentComposerPage(repository: widget.partnerRepository),
+            MomentComposerPage(repository: widget.communityRepository),
       ),
     );
     if (posted ?? false) {
@@ -294,7 +294,7 @@ class FeedPageState extends State<FeedPage> {
                                     ),
                                   );
                                 }
-                                final DatePost post = _posts[index - 1];
+                                final ActivityPost post = _posts[index - 1];
                                 if (post.isMoment) {
                                   return MomentCard(
                                     post: post,

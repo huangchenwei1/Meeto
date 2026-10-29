@@ -92,7 +92,7 @@ class UpdateProfileDto {
 }
 
 /// PublicUser plus cross-table aggregates for the profile page.
-type ProfileView = PublicUser & { datesCompleted: number; datePosts: number };
+type ProfileView = PublicUser & { activitiesCompleted: number; activityPosts: number };
 
 /// Own profile only: includes the raw birth date so the edit form can
 /// prefill it. Other users only ever see the derived age.
@@ -165,7 +165,7 @@ export class UsersController {
   }
 
   private async toProfileView(user: User): Promise<ProfileView> {
-    const [datesCompleted, datePosts] = await Promise.all([
+    const [activitiesCompleted, activityPosts] = await Promise.all([
       this.prisma.order.count({
         where: {
           status: OrderStatus.completed,
@@ -180,6 +180,6 @@ export class UsersController {
         },
       }),
     ]);
-    return { ...toPublicUser(user), datesCompleted, datePosts };
+    return { ...toPublicUser(user), activitiesCompleted, activityPosts };
   }
 }

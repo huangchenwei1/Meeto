@@ -16,6 +16,6 @@ abstract final class ScenePricing {
 
   static int feeForScene(String scene) => config.feeForScene(scene);
 
-  /// What the female side receives after the platform commission.
+  /// What the host receives after the platform commission.
   static int netEarnings(int fee) => config.netEarnings(fee);
 }

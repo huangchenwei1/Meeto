@@ -10,7 +10,7 @@ import '../../../core/utils/relative_time.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
-import '../models/date_post.dart';
+import '../models/activity_post.dart';
 
 /// Community wall item: poster header + a status-led activity card.
 /// The card tells how the activity is going (waiting / in progress and
@@ -28,7 +28,7 @@ class PostCard extends StatelessWidget {
 
   static const double _imageWidth = 112;
 
-  final DatePost post;
+  final ActivityPost post;
   final VoidCallback onTap;
   final VoidCallback onAuthorTap;
 
@@ -98,7 +98,7 @@ class PostCard extends StatelessWidget {
 class _AuthorHeader extends StatelessWidget {
   const _AuthorHeader({required this.post, required this.onAuthorTap});
 
-  final DatePost post;
+  final ActivityPost post;
   final VoidCallback onAuthorTap;
 
   @override
@@ -138,7 +138,7 @@ class _AuthorHeader extends StatelessWidget {
 class _CoverImage extends StatelessWidget {
   const _CoverImage({required this.post, required this.width});
 
-  final DatePost post;
+  final ActivityPost post;
   final double width;
 
   @override
@@ -194,7 +194,7 @@ class _PostBody extends StatelessWidget {
     this.venueDistanceKm,
   });
 
-  final DatePost post;
+  final ActivityPost post;
   final bool isMine;
 
   /// Viewer's real distance to the venue, appended to the place line.
@@ -278,7 +278,7 @@ class _PostBody extends StatelessWidget {
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.post});
 
-  final DatePost post;
+  final ActivityPost post;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +337,7 @@ class _MetaLine extends StatelessWidget {
 class _BudgetLabel extends StatelessWidget {
   const _BudgetLabel({required this.post});
 
-  final DatePost post;
+  final ActivityPost post;
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +349,7 @@ class _BudgetLabel extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: AppColors.textHint),
           ),
           TextSpan(
-            text: MoneyFormat.format(post.tipAmount),
+            text: MoneyFormat.format(post.budgetAmount),
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
@@ -366,7 +366,7 @@ class _BudgetLabel extends StatelessWidget {
 class _ManageButton extends StatelessWidget {
   const _ManageButton({required this.post});
 
-  final DatePost post;
+  final ActivityPost post;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +393,7 @@ class _ManageButton extends StatelessWidget {
 class _ProgressFooter extends StatelessWidget {
   const _ProgressFooter({required this.post});
 
-  final DatePost post;
+  final ActivityPost post;
 
   @override
   Widget build(BuildContext context) {

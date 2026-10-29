@@ -2,8 +2,8 @@ import 'dart:async';
 
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
-import '../../partner/models/date_post.dart';
-import '../../partner/models/post_author.dart';
+import '../../community/models/activity_post.dart';
+import '../../community/models/post_author.dart';
 import '../models/live_order.dart';
 
 /// Data source contract for orders (the escrow deal between the poster who
@@ -138,12 +138,12 @@ class MockOrdersRepository implements OrdersRepository {
   /// Called by the mock partner repository when the poster approves a
   /// candidate: creates the AWAITING_PAYMENT order exactly like the server
   /// does on selection.
-  LiveOrder seedFromSelection(DatePost post, PostAuthor host) {
+  LiveOrder seedFromSelection(ActivityPost post, PostAuthor host) {
     final _MockOrder order = _create(
       postId: post.id,
       earner: host,
       postTitle: post.title,
-      feePesos: post.tipAmount,
+      feePesos: post.budgetAmount,
       createdAt: DateTime.now(),
       place: post.place,
       scheduledAt: null,

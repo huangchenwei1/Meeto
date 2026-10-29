@@ -16,8 +16,8 @@ class CurrentUser {
   final String id;
   final String name;
 
-  /// MALE | FEMALE. Drives money UI: only the female side earns, so the
-  /// wallet card is shown to female users only.
+  /// MALE | FEMALE. Display-only; money UI is driven by the account role
+  /// (only HOST accounts earn and see the wallet card).
   final String gender;
 
   final String avatarUrl;

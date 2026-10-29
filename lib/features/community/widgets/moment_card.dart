@@ -4,14 +4,14 @@ import 'package:iconsax/iconsax.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
-import '../models/date_post.dart';
+import '../models/activity_post.dart';
 
 /// Community recap card: author, text, photos. Non-transactional — no
 /// price, no CTA, just social proof that real activities happen.
 class MomentCard extends StatelessWidget {
   const MomentCard({super.key, required this.post, this.onAuthorTap});
 
-  final DatePost post;
+  final ActivityPost post;
   final VoidCallback? onAuthorTap;
 
   String get _timeAgo {

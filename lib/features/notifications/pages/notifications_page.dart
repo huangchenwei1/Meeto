@@ -5,9 +5,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/pages/order_room_page.dart';
-import '../../partner/data/partner_repository.dart';
-import '../../partner/models/date_post.dart';
-import '../../partner/pages/post_detail_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/models/activity_post.dart';
+import '../../community/pages/post_detail_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/notifications_repository.dart';
 
@@ -17,13 +17,13 @@ class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
     required this.notificationsRepository,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.profileRepository,
     required this.ordersRepository,
   });
 
   final NotificationsRepository notificationsRepository;
-  final PartnerRepository partnerRepository;
+  final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
 
@@ -73,8 +73,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       return;
     }
     if (item.postId.isNotEmpty) {
-      final DatePost post =
-          await widget.partnerRepository.fetchPostById(item.postId);
+      final ActivityPost post =
+          await widget.communityRepository.fetchPostById(item.postId);
       if (!mounted) {
         return;
       }
@@ -82,7 +82,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         MaterialPageRoute<void>(
           builder: (_) => PostDetailPage(
             post: post,
-            partnerRepository: widget.partnerRepository,
+            communityRepository: widget.communityRepository,
             profileRepository: widget.profileRepository,
             ordersRepository: widget.ordersRepository,
           ),

@@ -10,7 +10,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../partner/models/post_author.dart';
+import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import 'payment_page.dart';

@@ -12,10 +12,10 @@ import '../notifications/data/notifications_repository.dart';
 import '../orders/data/api_orders_repository.dart';
 import '../orders/data/orders_repository.dart';
 import '../orders/pages/orders_page.dart';
-import '../partner/data/api_partner_repository.dart';
-import '../partner/data/partner_repository.dart';
+import '../community/data/api_community_repository.dart';
+import '../community/data/community_repository.dart';
 import '../profile/data/api_profile_repository.dart';
-import '../partner/pages/feed_page.dart';
+import '../community/pages/feed_page.dart';
 import '../profile/data/profile_repository.dart';
 import '../profile/pages/profile_page.dart';
 
@@ -34,7 +34,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late final PartnerRepository _partnerRepository;
+  late final CommunityRepository _communityRepository;
   late final ProfileRepository _profileRepository;
   late final HostsRepository _hostsRepository;
   late final OrdersRepository _ordersRepository;
@@ -52,14 +52,14 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     if (AppEnv.useRemoteApi) {
       final ApiClient apiClient = ApiClient(baseUrl: AppEnv.apiBaseUrl);
-      _partnerRepository = ApiPartnerRepository(apiClient);
+      _communityRepository = ApiCommunityRepository(apiClient);
       _profileRepository = ApiProfileRepository(apiClient);
       _hostsRepository = ApiHostsRepository(apiClient);
       _ordersRepository = ApiOrdersRepository(apiClient);
       _notificationsRepository = ApiNotificationsRepository(apiClient);
     } else {
       final MockOrdersRepository mockOrders = MockOrdersRepository();
-      _partnerRepository = MockPartnerRepository(orders: mockOrders);
+      _communityRepository = MockCommunityRepository(orders: mockOrders);
       _profileRepository = MockProfileRepository();
       _hostsRepository = MockHostsRepository();
       _ordersRepository = mockOrders;
@@ -72,7 +72,7 @@ class _HomeShellState extends State<HomeShell> {
   /// Community feed tab (shared by both shells).
   Widget get _communityTab => FeedPage(
         key: _feedKey,
-        partnerRepository: _partnerRepository,
+        communityRepository: _communityRepository,
         profileRepository: _profileRepository,
         ordersRepository: _ordersRepository,
       );
@@ -81,7 +81,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget get _messagesTab => OrdersPage(
         repository: _ordersRepository,
         notificationsRepository: _notificationsRepository,
-        partnerRepository: _partnerRepository,
+        communityRepository: _communityRepository,
         profileRepository: _profileRepository,
         hostsRepository: _hostsRepository,
       );
@@ -89,7 +89,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget get _meTab => ProfilePage(
         key: _profileKey,
         repository: _profileRepository,
-        partnerRepository: _partnerRepository,
+        communityRepository: _communityRepository,
         ordersRepository: _ordersRepository,
       );
 
@@ -139,7 +139,7 @@ class _HomeShellState extends State<HomeShell> {
           const NavigationDestination(
             icon: Icon(Iconsax.message),
             selectedIcon: Icon(Iconsax.message5),
-            label: AppStrings.tabDates,
+            label: AppStrings.tabMessages,
           ),
           const NavigationDestination(
             icon: Icon(Iconsax.user),

@@ -4,13 +4,13 @@ import 'post_author.dart';
 ///
 /// BUSINESS RULES:
 /// - DEMAND: a user-side activity request. Hosts sign up with a plan pitch;
-///   the poster approves one plan, pays the platform-set [tipAmount] into
+///   the poster approves one plan, pays the platform-set [budgetAmount] into
 ///   escrow, and the selected host earns it minus the commission.
 /// - MOMENT: a non-transactional photo/text recap of a completed activity.
 /// - The wall shows waiting and in-progress activities; [selectedHost]
 ///   carries the attribution once a plan was approved.
-class DatePost {
-  const DatePost({
+class ActivityPost {
+  const ActivityPost({
     required this.id,
     this.type = 'DEMAND',
     required this.sceneTag,
@@ -27,14 +27,14 @@ class DatePost {
     this.images = const <String>[],
     required this.author,
     required this.createdAt,
-    required this.tipAmount,
+    required this.budgetAmount,
     this.hasApplied = false,
     this.status = 'OPEN',
     this.selectedHost,
   });
 
-  factory DatePost.fromJson(Map<String, dynamic> json) {
-    return DatePost(
+  factory ActivityPost.fromJson(Map<String, dynamic> json) {
+    return ActivityPost(
       id: json['id'] as String,
       type: json['type'] as String? ?? 'DEMAND',
       sceneTag: json['sceneTag'] as String,
@@ -52,7 +52,7 @@ class DatePost {
           (json['images'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
       author: PostAuthor.fromJson(json['author'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['createdAt'] as String),
-      tipAmount: json['tipAmount'] as int,
+      budgetAmount: json['budgetAmount'] as int,
       hasApplied: json['hasApplied'] as bool? ?? false,
       status: json['status'] as String? ?? 'OPEN',
       selectedHost: json['selectedHost'] == null
@@ -108,7 +108,7 @@ class DatePost {
 
   /// Platform-set service fee (whole pesos) for this scene. Paid by the
   /// poster on match; the host earns it minus the platform commission.
-  final int tipAmount;
+  final int budgetAmount;
 
   /// Whether the current user has already signed up as a candidate.
   final bool hasApplied;
@@ -127,13 +127,13 @@ class DatePost {
     return isWhole ? distanceKm.toInt().toString() : distanceKm.toString();
   }
 
-  DatePost copyWith({
+  ActivityPost copyWith({
     int? signedCount,
     bool? hasApplied,
     String? status,
     PostAuthor? selectedHost,
   }) {
-    return DatePost(
+    return ActivityPost(
       id: id,
       type: type,
       sceneTag: sceneTag,
@@ -150,7 +150,7 @@ class DatePost {
       images: images,
       author: author,
       createdAt: createdAt,
-      tipAmount: tipAmount,
+      budgetAmount: budgetAmount,
       hasApplied: hasApplied ?? this.hasApplied,
       status: status ?? this.status,
       selectedHost: selectedHost ?? this.selectedHost,
@@ -171,7 +171,7 @@ class DatePost {
       'imageUrl': imageUrl,
       'author': author.toJson(),
       'createdAt': createdAt.toIso8601String(),
-      'tipAmount': tipAmount,
+      'budgetAmount': budgetAmount,
       'hasApplied': hasApplied,
     };
   }

@@ -4,16 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meeto/core/constants/scene_pricing.dart';
 import 'package:meeto/features/orders/data/orders_repository.dart';
 import 'package:meeto/features/orders/models/live_order.dart';
-import 'package:meeto/features/partner/data/partner_repository.dart';
-import 'package:meeto/features/partner/models/date_post.dart';
-import 'package:meeto/features/partner/models/post_author.dart';
+import 'package:meeto/features/community/data/community_repository.dart';
+import 'package:meeto/features/community/models/activity_post.dart';
+import 'package:meeto/features/community/models/post_author.dart';
 
 void main() {
   group('Candidate -> selection -> escrow deal flow', () {
     test('publishing gathers candidates with a platform-set fee', () async {
-      final MockPartnerRepository repository = MockPartnerRepository();
+      final MockCommunityRepository repository = MockCommunityRepository();
 
-      final DatePost post = await repository.createPost(
+      final ActivityPost post = await repository.createPost(
         const CreatePostInput(
           sceneTag: 'Dinner',
           title: 'Dinner downtown',
@@ -24,7 +24,7 @@ void main() {
       );
 
       // Pricing is platform-set per scene, not chosen by the poster.
-      expect(post.tipAmount, ScenePricing.feeForScene('Dinner'));
+      expect(post.budgetAmount, ScenePricing.feeForScene('Dinner'));
 
       final List<List<PostAuthor>> emissions = <List<PostAuthor>>[];
       final StreamSubscription<List<PostAuthor>> sub =
@@ -38,10 +38,10 @@ void main() {
     });
 
     test('sign-up marks the current user as an applied candidate', () async {
-      final MockPartnerRepository repository = MockPartnerRepository();
-      final List<DatePost> posts = await repository.fetchPosts();
+      final MockCommunityRepository repository = MockCommunityRepository();
+      final List<ActivityPost> posts = await repository.fetchPosts();
 
-      final DatePost updated = await repository.signUp(
+      final ActivityPost updated = await repository.signUp(
         posts.first.id,
         'Cafe in Makati, Saturday 3pm',
       );
@@ -51,10 +51,10 @@ void main() {
 
     test('approving a candidate creates the escrow order', () async {
       final MockOrdersRepository ordersRepository = MockOrdersRepository();
-      final MockPartnerRepository partnerRepository =
-          MockPartnerRepository(orders: ordersRepository);
+      final MockCommunityRepository communityRepository =
+          MockCommunityRepository(orders: ordersRepository);
 
-      final DatePost post = await partnerRepository.createPost(
+      final ActivityPost post = await communityRepository.createPost(
         const CreatePostInput(
           sceneTag: 'Coffee',
           title: 'Coffee and a walk',
@@ -65,10 +65,10 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 1500));
       final List<PostAuthor> candidates =
-          await partnerRepository.watchCandidates(post.id).first;
+          await communityRepository.watchCandidates(post.id).first;
       expect(candidates, isNotEmpty);
 
-      final PostAuthor selected = await partnerRepository.selectCandidate(
+      final PostAuthor selected = await communityRepository.selectCandidate(
         post.id,
         candidates.first.id,
       );
@@ -80,13 +80,13 @@ void main() {
       expect(order, isNotNull);
       expect(order!.status, 'AWAITING_PAYMENT');
       expect(order.earner.id, selected.id);
-      expect(order.feePesos, post.tipAmount);
-      expect(order.netPesos, ScenePricing.netEarnings(post.tipAmount));
+      expect(order.feePesos, post.budgetAmount);
+      expect(order.netPesos, ScenePricing.netEarnings(post.budgetAmount));
 
       final LiveOrder paid = await ordersRepository.pay(order.id);
       expect(paid.status, 'ACTIVE');
 
-      final DatePost updated = await partnerRepository.fetchPostById(post.id);
+      final ActivityPost updated = await communityRepository.fetchPostById(post.id);
       expect(updated.status, 'MATCHED');
       expect(updated.selectedHost?.id, selected.id);
     });

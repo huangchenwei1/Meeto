@@ -139,12 +139,12 @@ class ApiProfileRepository implements ProfileRepository {
   /// Honest stats: both counts come from real posts and orders. No rating
   /// shown until the review system provides real scores.
   List<ProfileStat> _stats(Map<String, dynamic> json) {
-    final int datePosts = json['datePosts'] as int? ?? 0;
-    final int datesCompleted = json['datesCompleted'] as int? ?? 0;
+    final int activityPosts = json['activityPosts'] as int? ?? 0;
+    final int activitiesCompleted = json['activitiesCompleted'] as int? ?? 0;
     return <ProfileStat>[
-      ProfileStat(value: '$datePosts', label: AppStrings.profileDatePosts),
+      ProfileStat(value: '$activityPosts', label: AppStrings.profileActivityPosts),
       ProfileStat(
-        value: '$datesCompleted',
+        value: '$activitiesCompleted',
         label: AppStrings.profileDatesCompleted,
       ),
     ];

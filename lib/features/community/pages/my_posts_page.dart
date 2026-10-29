@@ -6,8 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
-import '../data/partner_repository.dart';
-import '../models/date_post.dart';
+import '../data/community_repository.dart';
+import '../models/activity_post.dart';
 import 'post_detail_page.dart';
 
 /// The caller's own posts, every status included. This is the management
@@ -16,12 +16,12 @@ import 'post_detail_page.dart';
 class MyPostsPage extends StatefulWidget {
   const MyPostsPage({
     super.key,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.profileRepository,
     required this.ordersRepository,
   });
 
-  final PartnerRepository partnerRepository;
+  final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
 
@@ -30,7 +30,7 @@ class MyPostsPage extends StatefulWidget {
 }
 
 class _MyPostsPageState extends State<MyPostsPage> {
-  List<DatePost> _posts = <DatePost>[];
+  List<ActivityPost> _posts = <ActivityPost>[];
   bool _loaded = false;
 
   @override
@@ -40,7 +40,7 @@ class _MyPostsPageState extends State<MyPostsPage> {
   }
 
   Future<void> _load() async {
-    final List<DatePost> posts = await widget.partnerRepository
+    final List<ActivityPost> posts = await widget.communityRepository
         .fetchPostsByAuthor(AuthSession.currentUserId);
     if (!mounted) {
       return;
@@ -51,12 +51,12 @@ class _MyPostsPageState extends State<MyPostsPage> {
     });
   }
 
-  Future<void> _openDetail(DatePost post) async {
+  Future<void> _openDetail(ActivityPost post) async {
     await Navigator.of(context).push(
       MaterialPageRoute<bool>(
         builder: (_) => PostDetailPage(
           post: post,
-          partnerRepository: widget.partnerRepository,
+          communityRepository: widget.communityRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.ordersRepository,
         ),
@@ -84,7 +84,7 @@ class _MyPostsPageState extends State<MyPostsPage> {
                   separatorBuilder: (_, int i) =>
                       const Divider(indent: 84, height: 1),
                   itemBuilder: (BuildContext context, int index) {
-                    final DatePost post = _posts[index];
+                    final ActivityPost post = _posts[index];
                     return _PostRow(
                       post: post,
                       onTap: () => _openDetail(post),
@@ -98,7 +98,7 @@ class _MyPostsPageState extends State<MyPostsPage> {
 class _PostRow extends StatelessWidget {
   const _PostRow({required this.post, required this.onTap});
 
-  final DatePost post;
+  final ActivityPost post;
   final VoidCallback onTap;
 
   @override

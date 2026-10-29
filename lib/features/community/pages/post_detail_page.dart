@@ -19,8 +19,8 @@ import '../../orders/pages/order_room_page.dart';
 import '../../orders/pages/payment_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
-import '../data/partner_repository.dart';
-import '../models/date_post.dart';
+import '../data/community_repository.dart';
+import '../models/activity_post.dart';
 import '../models/post_author.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/pages/verification_page.dart';
@@ -36,13 +36,13 @@ class PostDetailPage extends StatefulWidget {
   const PostDetailPage({
     super.key,
     required this.post,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.profileRepository,
     required this.ordersRepository,
   });
 
-  final DatePost post;
-  final PartnerRepository partnerRepository;
+  final ActivityPost post;
+  final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
 
@@ -51,7 +51,7 @@ class PostDetailPage extends StatefulWidget {
 }
 
 class _PostDetailPageState extends State<PostDetailPage> {
-  late DatePost _post = widget.post;
+  late ActivityPost _post = widget.post;
   late bool _signedUp = widget.post.hasApplied;
   bool _approving = false;
 
@@ -187,9 +187,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   Future<void> _signUpWith(String proposal) async {
     setState(() => _signedUp = true);
-    final DatePost updated;
+    final ActivityPost updated;
     try {
-      updated = await widget.partnerRepository.signUp(_post.id, proposal);
+      updated = await widget.communityRepository.signUp(_post.id, proposal);
     } on ApiException catch (e) {
       if (!mounted) {
         return;
@@ -224,7 +224,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
     setState(() => _approving = true);
-    await widget.partnerRepository.selectCandidate(_post.id, candidate.id);
+    await widget.communityRepository.selectCandidate(_post.id, candidate.id);
 
     // Contact only exists behind the paywall: selection creates the escrow
     // order, so the payment page opens right here for the poster.
@@ -333,7 +333,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
     try {
-      await widget.partnerRepository.deletePost(_post.id);
+      await widget.communityRepository.deletePost(_post.id);
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -420,7 +420,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   const SizedBox(height: 18),
                   if (_isMine) ...<Widget>[
                     _CandidatesSection(
-                      candidatesStream: widget.partnerRepository
+                      candidatesStream: widget.communityRepository
                           .watchCandidates(_post.id),
                       onApprove: _approveCandidate,
                     ),
@@ -665,7 +665,7 @@ class _CandidateRow extends StatelessWidget {
 class _InfoCard extends StatelessWidget {
   const _InfoCard({required this.post, this.venueDistanceKm});
 
-  final DatePost post;
+  final ActivityPost post;
 
   /// Viewer's real distance to the venue; the row is hidden when null.
   final double? venueDistanceKm;
@@ -730,7 +730,7 @@ class _InfoCard extends StatelessWidget {
 class _AuthorCard extends StatelessWidget {
   const _AuthorCard({required this.post, required this.onTap});
 
-  final DatePost post;
+  final ActivityPost post;
   final VoidCallback onTap;
 
   @override
@@ -822,13 +822,13 @@ class _CandidateBottomBar extends StatelessWidget {
     required this.onSignUp,
   });
 
-  final DatePost post;
+  final ActivityPost post;
   final bool signedUp;
   final VoidCallback onSignUp;
 
   @override
   Widget build(BuildContext context) {
-    final int amount = ScenePricing.netEarnings(post.tipAmount);
+    final int amount = ScenePricing.netEarnings(post.budgetAmount);
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -896,7 +896,7 @@ class _CandidateBottomBar extends StatelessWidget {
 class _PosterBottomBar extends StatelessWidget {
   const _PosterBottomBar({required this.post});
 
-  final DatePost post;
+  final ActivityPost post;
 
   @override
   Widget build(BuildContext context) {
@@ -929,7 +929,7 @@ class _PosterBottomBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      MoneyFormat.format(post.tipAmount),
+                      MoneyFormat.format(post.budgetAmount),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

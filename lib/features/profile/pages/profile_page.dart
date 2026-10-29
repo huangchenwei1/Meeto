@@ -14,8 +14,8 @@ import '../../auth/pages/login_page.dart';
 import '../../auth/pages/profile_setup_page.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../orders/data/orders_repository.dart';
-import '../../partner/data/partner_repository.dart';
-import '../../partner/pages/my_posts_page.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/pages/my_posts_page.dart';
 import '../data/profile_repository.dart';
 import '../models/current_user.dart';
 import '../models/profile_parts.dart';
@@ -26,12 +26,12 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({
     super.key,
     required this.repository,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.ordersRepository,
   });
 
   final ProfileRepository repository;
-  final PartnerRepository partnerRepository;
+  final CommunityRepository communityRepository;
   final OrdersRepository ordersRepository;
 
   @override
@@ -81,7 +81,7 @@ class ProfilePageState extends State<ProfilePage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MyPostsPage(
-          partnerRepository: widget.partnerRepository,
+          communityRepository: widget.communityRepository,
           profileRepository: widget.repository,
           ordersRepository: widget.ordersRepository,
         ),

@@ -1,5 +1,5 @@
 import '../../../core/network/api_client.dart';
-import '../../partner/models/post_author.dart';
+import '../../community/models/post_author.dart';
 
 /// Server-authoritative order as returned by the API. All money fields are
 /// whole pesos (converted from minor units at the boundary).

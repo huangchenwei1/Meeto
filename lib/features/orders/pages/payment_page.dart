@@ -7,7 +7,7 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/pages/verification_page.dart';
-import '../../partner/models/post_author.dart';
+import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 

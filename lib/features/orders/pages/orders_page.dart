@@ -11,8 +11,8 @@ import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/models/host_card.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
-import '../../partner/data/partner_repository.dart';
-import '../../partner/models/post_author.dart';
+import '../../community/data/community_repository.dart';
+import '../../community/models/post_author.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
@@ -28,14 +28,14 @@ class OrdersPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.notificationsRepository,
-    required this.partnerRepository,
+    required this.communityRepository,
     required this.profileRepository,
     required this.hostsRepository,
   });
 
   final OrdersRepository repository;
   final NotificationsRepository notificationsRepository;
-  final PartnerRepository partnerRepository;
+  final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final HostsRepository hostsRepository;
 
@@ -166,7 +166,7 @@ class _OrdersPageState extends State<OrdersPage> {
       MaterialPageRoute<void>(
         builder: (_) => NotificationsPage(
           notificationsRepository: widget.notificationsRepository,
-          partnerRepository: widget.partnerRepository,
+          communityRepository: widget.communityRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.repository,
         ),
@@ -182,7 +182,7 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.tabDates)),
+      appBar: AppBar(title: const Text(AppStrings.tabMessages)),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Column(

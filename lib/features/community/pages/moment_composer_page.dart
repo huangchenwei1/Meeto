@@ -7,13 +7,13 @@ import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/pages/verification_page.dart';
-import '../data/partner_repository.dart';
+import '../data/community_repository.dart';
 
 /// Composer for a community recap (moment): short text + up to 3 photos.
 class MomentComposerPage extends StatefulWidget {
   const MomentComposerPage({super.key, required this.repository});
 
-  final PartnerRepository repository;
+  final CommunityRepository repository;
 
   @override
   State<MomentComposerPage> createState() => _MomentComposerPageState();

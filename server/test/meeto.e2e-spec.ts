@@ -462,7 +462,7 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', MIGUEL)
         .expect(200);
       expect(viewed.body.bio).toBe('Coffee lover, weekend hiker');
-      expect(typeof viewed.body.datesCompleted).toBe('number');
+      expect(typeof viewed.body.activitiesCompleted).toBe('number');
     });
 
     it('sets a birth date once (18+ only) and locks it afterwards', async () => {

@@ -9,18 +9,18 @@ import '../../../core/constants/scene_pricing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/geo.dart';
 import '../../../core/utils/money.dart';
-import '../data/partner_repository.dart';
+import '../data/community_repository.dart';
 import '../data/place_search.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/pages/verification_page.dart';
 
-/// Full-screen form to publish a new date post.
+/// Full-screen form to publish a new activity post.
 ///
 /// Pops with `true` when a post was published.
 class PublishPage extends StatefulWidget {
   const PublishPage({super.key, required this.repository});
 
-  final PartnerRepository repository;
+  final CommunityRepository repository;
 
   @override
   State<PublishPage> createState() => _PublishPageState();

@@ -8,8 +8,7 @@ abstract final class AppStrings {
 
   // Tabs
   static const String tabHome = 'Home';
-  static const String tabChats = 'Chats';
-  static const String tabDates = 'Plans';
+  static const String tabMessages = 'Messages';
   static const String tabMe = 'Me';
 
   // Feed (community activity wall)
@@ -171,7 +170,7 @@ abstract final class AppStrings {
   // User profile
   static const String profileTitle = 'Profile';
   static const String profileReviews = 'Reviews';
-  static const String profileDatePosts = 'Activities posted';
+  static const String profileActivityPosts = 'Activities posted';
   static const String profileDatesCompleted = 'Activities completed';
   static const String profileJobLabel = 'Work';
   static const String profileEducationLabel = 'Education';
