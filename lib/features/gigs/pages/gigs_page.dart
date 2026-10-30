@@ -8,8 +8,8 @@ import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../shared/widgets/feed_activity_card.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
@@ -348,8 +348,10 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// One open request in the work view: what the activity is, who posted it,
-/// what the host nets, and how crowded the pitch pool already is.
+/// One open request in the shared feed-post card: poster header on top,
+/// activity box below with the signup count in the footer and the pitch
+/// pill as the action. No money on the card; the earnings breakdown
+/// lives on the request detail page.
 class _RequestCard extends StatelessWidget {
   const _RequestCard({required this.post, required this.onTap});
 
@@ -359,148 +361,46 @@ class _RequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentSoft,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        AppStrings.sceneLabel(post.sceneTag),
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (post.signedCount > 0)
-                      Text(
-                        AppStrings.appliedCount(post.signedCount),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                  ],
+      padding: const EdgeInsets.only(bottom: 22),
+      child: FeedActivityCard(
+        onTap: onTap,
+        avatarUrl: post.author.avatarUrl,
+        authorName: post.author.name,
+        authorVerified: post.author.isVerified,
+        metaLine: post.author.meta,
+        createdAt: post.createdAt,
+        imageUrl: post.imageUrl,
+        sceneLabel: AppStrings.sceneLabel(post.sceneTag),
+        title: post.title,
+        description: post.description,
+        footerIcon: Iconsax.profile_2user,
+        footerText: post.signedCount > 0
+            ? AppStrings.appliedCount(post.signedCount)
+            : '',
+        action: post.hasApplied
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  post.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  post.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
+                child: const Text(
+                  AppStrings.gigAppliedBadge,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    AppAvatar(
-                      size: 22,
-                      imageUrl: post.author.avatarUrl,
-                      fallbackLetter:
-                          post.author.name.isEmpty ? '?' : post.author.name[0],
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${post.author.name} \u00b7 ${formatTimeAgo(post.createdAt)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-                // No money on the card; the earnings breakdown lives on
-                // the request detail page.
-                Row(
-                  children: <Widget>[
-                    const Spacer(),
-                    if (post.hasApplied)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          AppStrings.gigAppliedBadge,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      )
-                    else
-                      Row(
-                        children: <Widget>[
-                          const Text(
-                            AppStrings.gigPitchCta,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.chevron_right,
-                            size: 16,
-                            color: AppColors.textPrimary,
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+              )
+            : FeedActionPill(
+                key: ValueKey<String>('pitchGig${post.id}'),
+                label: AppStrings.gigPitchCta,
+                onTap: onTap,
+              ),
       ),
     );
   }

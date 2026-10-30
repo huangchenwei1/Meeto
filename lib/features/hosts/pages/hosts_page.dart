@@ -3,9 +3,7 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/time_ago.dart';
-import '../../../shared/widgets/app_avatar.dart';
-import '../../../shared/widgets/app_network_image.dart';
+import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/pages/publish_page.dart';
@@ -192,13 +190,9 @@ class HostsPageState extends State<HostsPage> {
   }
 }
 
-/// One activity pitch, feed-post style: the host header rides on top
-/// (avatar, name, verified mark, demographics + hosting record, time),
-/// and the activity itself sits in an inset box — cover photo left, scene
-/// chip + title + fee and the invite entry right. Only fields we actually
-/// have: no distance, no schedule, no venue — those come later through
-/// the plan flow. Tapping anywhere opens the host's profile; the invite
-/// pill starts the invitation for this pitch's scene.
+/// One activity pitch in the shared feed-post card: host header on top,
+/// activity box below with the rough location in the footer and the
+/// invite pill as the action. Tapping anywhere opens the host's profile.
 class _ProposalTile extends StatelessWidget {
   const _ProposalTile({
     required this.proposal,
@@ -221,194 +215,25 @@ class _ProposalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return FeedActivityCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              AppAvatar(
-                size: 42,
-                imageUrl: proposal.hostAvatarUrl,
-                squircle: true,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Flexible(
-                          child: Text(
-                            proposal.hostName,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (proposal.hostIsVerified) ...<Widget>[
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Iconsax.verify5,
-                            size: 14,
-                            color: AppColors.accent,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _hostMetaLine,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                formatTimeAgo(proposal.createdAt),
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: AppColors.textHint,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // The activity box: what you are actually buying.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              color: AppColors.surface,
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    if (proposal.imageUrl.isNotEmpty)
-                      SizedBox(
-                        width: 112,
-                        child: AppNetworkImage(url: proposal.imageUrl),
-                      ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentSoft,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                AppStrings.sceneLabel(proposal.sceneTag),
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              proposal.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                height: 1.35,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            if (proposal.description.isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 4),
-                              Text(
-                                proposal.description,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 14),
-                            Row(
-                              children: <Widget>[
-                                // Where, roughly. The fee waits for the
-                                // invite sheet; the exact venue for the
-                                // plan flow.
-                                if (proposal.locationLine.isNotEmpty) ...<Widget>[
-                                  const Icon(
-                                    Iconsax.location,
-                                    size: 13,
-                                    color: AppColors.textHint,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      proposal.locationLine,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                const Spacer(),
-                                InkWell(
-                                  key: ValueKey<String>(
-                                    'inviteProposal${proposal.id}',
-                                  ),
-                                  onTap: onInvite,
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.darkCard,
-                                      borderRadius:
-                                          BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      AppStrings.hostInviteCta,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.onDarkPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+      avatarUrl: proposal.hostAvatarUrl,
+      authorName: proposal.hostName,
+      authorVerified: proposal.hostIsVerified,
+      metaLine: _hostMetaLine,
+      createdAt: proposal.createdAt,
+      imageUrl: proposal.imageUrl,
+      sceneLabel: AppStrings.sceneLabel(proposal.sceneTag),
+      title: proposal.title,
+      description: proposal.description,
+      // Where, roughly. The fee waits for the invite sheet; the exact
+      // venue for the plan flow.
+      footerIcon: Iconsax.location,
+      footerText: proposal.locationLine,
+      action: FeedActionPill(
+        key: ValueKey<String>('inviteProposal${proposal.id}'),
+        label: AppStrings.hostInviteCta,
+        onTap: onInvite,
       ),
     );
   }
