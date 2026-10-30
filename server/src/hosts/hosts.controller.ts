@@ -27,6 +27,11 @@ class CreateProposalDto {
   @IsNotEmpty()
   @MaxLength(40)
   sceneTag!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  imageUrl?: string;
 }
 
 class InviteDto {
@@ -74,7 +79,12 @@ export class ProposalsController {
 
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreateProposalDto) {
-    return this.hosts.createProposal(user, dto.title, dto.sceneTag);
+    return this.hosts.createProposal(
+      user,
+      dto.title,
+      dto.sceneTag,
+      dto.imageUrl ?? '',
+    );
   }
 }
 

@@ -68,6 +68,7 @@ model Proposal {
   host      User     @relation(fields: [hostId], references: [id])
   title     String
   sceneTag  String // bound to the host's offered scenes, drives pricing
+  imageUrl  String   @default("") // cover photo, optional
   createdAt DateTime @default(now())
 
   @@index([createdAt])

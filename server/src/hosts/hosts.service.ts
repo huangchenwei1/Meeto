@@ -36,6 +36,7 @@ export interface ProposalDto {
   id: string;
   title: string;
   sceneTag: string;
+  imageUrl: string;
   createdAt: Date;
   host: PublicUser;
   hostCompletedActivities: number;
@@ -108,6 +109,7 @@ export class HostsService {
     caller: User,
     title: string,
     sceneTag: string,
+    imageUrl: string,
   ): Promise<ProposalDto> {
     assertVerified(caller);
     if (caller.role !== Role.host) {
@@ -119,7 +121,7 @@ export class HostsService {
     }
     const [proposal, completed] = await Promise.all([
       this.prisma.proposal.create({
-        data: { hostId: caller.id, title: title.trim(), sceneTag },
+        data: { hostId: caller.id, title: title.trim(), sceneTag, imageUrl },
         include: { host: true },
       }),
       this.prisma.order.count({
@@ -130,6 +132,7 @@ export class HostsService {
       id: proposal.id,
       title: proposal.title,
       sceneTag: proposal.sceneTag,
+      imageUrl: proposal.imageUrl,
       createdAt: proposal.createdAt,
       host: toPublicUser(proposal.host),
       hostCompletedActivities: completed,
@@ -157,6 +160,7 @@ export class HostsService {
       id: p.id,
       title: p.title,
       sceneTag: p.sceneTag,
+      imageUrl: p.imageUrl,
       createdAt: p.createdAt,
       host: toPublicUser(p.host),
       hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,

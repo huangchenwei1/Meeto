@@ -8,6 +8,7 @@ class ProposalCard {
     required this.id,
     required this.title,
     required this.sceneTag,
+    this.imageUrl = '',
     required this.createdAt,
     required this.hostId,
     required this.hostName,
@@ -23,6 +24,7 @@ class ProposalCard {
       id: json['id'] as String,
       title: json['title'] as String,
       sceneTag: json['sceneTag'] as String,
+      imageUrl: resolveMediaUrl(json['imageUrl'] as String? ?? ''),
       createdAt: DateTime.parse(json['createdAt'] as String),
       hostId: host['id'] as String,
       hostName: host['name'] as String,
@@ -36,6 +38,10 @@ class ProposalCard {
   final String id;
   final String title;
   final String sceneTag;
+
+  /// Cover photo; empty when the host posted a text-only pitch.
+  final String imageUrl;
+
   final DateTime createdAt;
   final String hostId;
   final String hostName;

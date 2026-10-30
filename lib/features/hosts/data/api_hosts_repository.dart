@@ -39,11 +39,16 @@ class ApiHostsRepository implements HostsRepository {
   Future<ProposalCard> createProposal({
     required String title,
     required String sceneTag,
+    String imageUrl = '',
   }) async {
     return ProposalCard.fromJson(
       await _client.post(
         '/proposals',
-        body: <String, dynamic>{'title': title, 'sceneTag': sceneTag},
+        body: <String, dynamic>{
+          'title': title,
+          'sceneTag': sceneTag,
+          if (imageUrl.isNotEmpty) 'imageUrl': imageUrl,
+        },
       ) as Map<String, dynamic>,
     );
   }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
+import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/pages/verification_page.dart';
@@ -41,12 +44,47 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         : ScenePricing.config.sceneFees.keys.toList(growable: false);
   }();
   late String _scene = _scenes.first;
+  final ImagePicker _picker = ImagePicker();
+  String _imageUrl = '';
   bool _busy = false;
+
+  /// Photo upload needs the API; mock mode posts text-only pitches.
+  bool get _photoEnabled => AppEnv.useRemoteApi;
 
   @override
   void dispose() {
     _titleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickCover() async {
+    final XFile? picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final ApiClient client = ApiClient(baseUrl: AppEnv.apiBaseUrl);
+      final String url =
+          await client.uploadImage(await picked.readAsBytes(), picked.name);
+      if (mounted) {
+        setState(() => _imageUrl = url);
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.momentPhotoFailed)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 
   Future<void> _publish() async {
@@ -56,7 +94,11 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
     }
     setState(() => _busy = true);
     try {
-      await widget.repository.createProposal(title: title, sceneTag: _scene);
+      await widget.repository.createProposal(
+        title: title,
+        sceneTag: _scene,
+        imageUrl: _imageUrl,
+      );
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -107,6 +149,38 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
                 hintText: AppStrings.proposalTitleHint,
               ),
             ),
+            if (_photoEnabled) ...<Widget>[
+              const SizedBox(height: 8),
+              // Optional cover photo: one image, replaced on re-pick.
+              InkWell(
+                key: const ValueKey<String>('proposalAddPhoto'),
+                onTap: _busy ? null : _pickCover,
+                borderRadius: BorderRadius.circular(12),
+                child: _imageUrl.isEmpty
+                    ? Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(
+                          Iconsax.gallery_add,
+                          color: AppColors.textHint,
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          resolveMediaUrl(_imageUrl),
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+              ),
+            ],
             const SizedBox(height: 18),
             const Text(
               AppStrings.proposalSceneLabel,

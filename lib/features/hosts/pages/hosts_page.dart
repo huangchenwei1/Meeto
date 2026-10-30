@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/pages/publish_page.dart';
@@ -190,9 +190,11 @@ class HostsPageState extends State<HostsPage> {
   }
 }
 
-/// One activity pitch: the idea headlines, scene + fee qualify it, and
-/// the host signs it at the bottom. Tapping the card opens the host's
-/// profile; the invite pill starts the invitation for this pitch's scene.
+/// One activity pitch, cover photo left and idea right, signed by the
+/// host at the bottom. No price on the card — the fee shows up in the
+/// invite sheet, at the moment of decision. Tapping the card opens the
+/// host's profile; the invite pill starts the invitation for this
+/// pitch's scene.
 class _ProposalTile extends StatelessWidget {
   const _ProposalTile({
     required this.proposal,
@@ -218,53 +220,67 @@ class _ProposalTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              proposal.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 15.5,
-                fontWeight: FontWeight.w800,
-                height: 1.4,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    AppStrings.sceneLabel(proposal.sceneTag),
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                if (proposal.imageUrl.isNotEmpty) ...<Widget>[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AppNetworkImage(
+                      url: proposal.imageUrl,
+                      width: 84,
+                      height: 84,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '\u20b1${ScenePricing.feeForScene(proposal.sceneTag)}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.accent,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  formatTimeAgo(proposal.createdAt),
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.textHint,
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        proposal.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          height: 1.4,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      Row(
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              AppStrings.sceneLabel(proposal.sceneTag),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            formatTimeAgo(proposal.createdAt),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
