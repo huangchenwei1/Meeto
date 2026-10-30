@@ -23,6 +23,11 @@ class CreateProposalDto {
   @MaxLength(80)
   title!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  description?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(40)
@@ -87,6 +92,7 @@ export class ProposalsController {
     return this.hosts.createProposal(
       user,
       dto.title,
+      dto.description ?? '',
       dto.sceneTag,
       dto.imageUrl ?? '',
       dto.area ?? '',

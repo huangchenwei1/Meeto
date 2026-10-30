@@ -16,6 +16,7 @@ abstract interface class HostsRepository {
   /// cover photo, already uploaded; [area] the optional rough area.
   Future<ProposalCard> createProposal({
     required String title,
+    String description = '',
     required String sceneTag,
     String imageUrl = '',
     String area = '',
@@ -127,6 +128,7 @@ class MockHostsRepository implements HostsRepository {
     ProposalCard(
       id: 'proposal-101',
       title: '\u5468\u4e94\u665a Poblacion \u5929\u53f0\u9152\u5427\uff0c\u5e26\u4f60\u559d\u61c2\u672c\u5730\u7cbe\u917f',
+      description: '认识几家本地精酿厂牌，从酒单讲到酿法，微醺收尾',
       sceneTag: 'Bar',
       imageUrl:
           'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
@@ -143,6 +145,7 @@ class MockHostsRepository implements HostsRepository {
     ProposalCard(
       id: 'proposal-102',
       title: '\u53bb Legazpi \u4e66\u5e97\u91cc\u7684\u9690\u85cf\u5496\u5561\u9986\uff0c\u5750\u4e00\u4e2a\u5b89\u9759\u7684\u4e0b\u5348',
+      description: '书店里的隐藏咖啡吧台，豆子好，人少安静，适合聊天',
       sceneTag: 'Coffee',
       imageUrl:
           'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
@@ -159,6 +162,7 @@ class MockHostsRepository implements HostsRepository {
     ProposalCard(
       id: 'proposal-103',
       title: '\u5c0f\u4e1c\u4eac 12 \u5ea7\u677f\u524d\u65e5\u6599\uff0c\u6211\u77e5\u9053\u6d77\u80c6\u54ea\u5929\u6700\u65b0\u9c9c',
+      description: '板前只有 12 个座位，主厨是老朋友，当天最新鲜的交给他',
       sceneTag: 'Dinner',
       imageUrl:
           'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
@@ -175,6 +179,7 @@ class MockHostsRepository implements HostsRepository {
     ProposalCard(
       id: 'proposal-104',
       title: '\u53bb\u770b\u4e00\u573a\u5bfc\u6f14\u526a\u8f91\u7248\uff0c\u6563\u573a\u540e\u627e\u5bb6\u751c\u54c1\u5e97\u804a\u5230\u6253\u70ca',
+      description: '选片选座我来，散场后的甜品店也订好，只管来',
       sceneTag: 'Movie',
       imageUrl:
           'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
@@ -208,6 +213,7 @@ class MockHostsRepository implements HostsRepository {
   @override
   Future<ProposalCard> createProposal({
     required String title,
+    String description = '',
     required String sceneTag,
     String imageUrl = '',
     String area = '',
@@ -217,6 +223,7 @@ class MockHostsRepository implements HostsRepository {
     final ProposalCard created = ProposalCard(
       id: 'proposal-new-$_sequence',
       title: title,
+      description: description,
       sceneTag: sceneTag,
       imageUrl: imageUrl,
       area: area,

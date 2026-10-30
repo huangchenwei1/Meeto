@@ -293,6 +293,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
     title: '周五晚 Poblacion 天台酒吧，带你喝懂本地精酿',
+    description: '认识几家本地精酿厂牌，从酒单讲到酿法，微醺收尾',
     createdAt: hoursAgo(2),
   },
   {
@@ -303,6 +304,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
     title: '去 Legazpi 书店里的隐藏咖啡馆，坐一个安静的下午',
+    description: '书店里的隐藏咖啡吧台，豆子好，人少安静，适合聊天',
     createdAt: hoursAgo(5),
   },
   {
@@ -313,6 +315,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
     title: '小东京 12 座板前日料，我知道海胆哪天最新鲜',
+    description: '板前只有 12 个座位，主厨是老朋友，当天最新鲜的交给他',
     createdAt: hoursAgo(9),
   },
   {
@@ -323,6 +326,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
     title: '去看一场导演剪辑版，散场后找家甜品店聊到打烊',
+    description: '选片选座我来，散场后的甜品店也订好，只管来',
     createdAt: hoursAgo(20),
   },
   {
@@ -333,6 +337,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
     title: 'Salcedo 周末市集 + 手冲豆单盲品，咖啡入门局',
+    description: '从浅烘到深烘盲品四支豆子，喝完你就有自己的答案了',
     createdAt: hoursAgo(30),
   },
   {
@@ -343,6 +348,7 @@ const PROPOSALS = [
     imageUrl:
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
     title: '下班后的奶茶散步局，沿 Ayala Triangle 走到天黑',
+    description: '一杯奶茶的时间，沿着绿道慢慢走，把一周的班味散掉',
     createdAt: hoursAgo(44),
   },
 ];
@@ -438,7 +444,11 @@ async function main() {
     await prisma.proposal.upsert({
       where: { id: proposal.id },
       // Existing rows get the cover-photo + area backfill on reseed.
-      update: { imageUrl: proposal.imageUrl, area: proposal.area },
+      update: {
+        imageUrl: proposal.imageUrl,
+        area: proposal.area,
+        description: proposal.description,
+      },
       create: proposal,
     });
   }

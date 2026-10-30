@@ -334,6 +334,18 @@ class _ProposalTile extends StatelessWidget {
                                 color: AppColors.textPrimary,
                               ),
                             ),
+                            if (proposal.description.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 4),
+                              Text(
+                                proposal.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 14),
                             Row(
                               children: <Widget>[

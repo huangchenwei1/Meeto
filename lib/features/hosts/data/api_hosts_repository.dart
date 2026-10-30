@@ -38,6 +38,7 @@ class ApiHostsRepository implements HostsRepository {
   @override
   Future<ProposalCard> createProposal({
     required String title,
+    String description = '',
     required String sceneTag,
     String imageUrl = '',
     String area = '',
@@ -48,6 +49,7 @@ class ApiHostsRepository implements HostsRepository {
         body: <String, dynamic>{
           'title': title,
           'sceneTag': sceneTag,
+          if (description.isNotEmpty) 'description': description,
           if (imageUrl.isNotEmpty) 'imageUrl': imageUrl,
           if (area.isNotEmpty) 'area': area,
         },

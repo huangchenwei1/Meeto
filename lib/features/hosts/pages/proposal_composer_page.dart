@@ -7,13 +7,15 @@ import '../../../core/constants/scene_pricing.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/hosts_repository.dart';
 
-/// Host-side composer for an activity pitch: one loose idea line plus the
-/// scene it belongs to (which drives the platform fee shown to users).
-/// Deliberately minimal — no time or place; those come later through the
-/// standard order plan flow.
+/// Host-side composer for an activity pitch: scene, title and description
+/// — the same field set as the users' request composer, so both sides of
+/// the board read identically — plus the supply-side extras (cover photo,
+/// rough area). No time or place; those come later through the standard
+/// order plan flow.
 class ProposalComposerPage extends StatefulWidget {
   const ProposalComposerPage({
     super.key,
@@ -33,6 +35,7 @@ class ProposalComposerPage extends StatefulWidget {
 
 class _ProposalComposerPageState extends State<ProposalComposerPage> {
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
   // Only priced scene tags qualify (callers may pass interest tags for
   // hosts without a published scene list).
   late final List<String> _scenes = () {
@@ -55,6 +58,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
   @override
   void dispose() {
     _titleController.dispose();
+    _descController.dispose();
     super.dispose();
   }
 
@@ -97,6 +101,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
     try {
       await widget.repository.createProposal(
         title: title,
+        description: _descController.text.trim(),
         sceneTag: _scene,
         imageUrl: _imageUrl,
         area: _area,
@@ -138,106 +143,75 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
       appBar: AppBar(title: const Text(AppStrings.proposalComposerTitle)),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: <Widget>[
+            // Scene -> title -> description: same order and widgets as the
+            // users' request composer.
+            const FormFieldLabel(AppStrings.proposalSceneLabel),
+            ScenePriceChips(
+              scenes: _scenes,
+              selected: _scene,
+              onSelect: (String scene) => setState(() => _scene = scene),
+              keyPrefix: 'proposalScene',
+            ),
+            const FormFieldLabel(AppStrings.publishFieldTitle),
             TextField(
               key: const ValueKey<String>('proposalTitleField'),
               controller: _titleController,
               maxLength: 80,
-              minLines: 2,
-              maxLines: 3,
-              autofocus: true,
               decoration: const InputDecoration(
                 hintText: AppStrings.proposalTitleHint,
               ),
             ),
+            const FormFieldLabel(
+              AppStrings.publishFieldDesc,
+              hint: AppStrings.publishFieldDescHint,
+            ),
+            TextField(
+              key: const ValueKey<String>('proposalDescField'),
+              controller: _descController,
+              maxLength: 300,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: AppStrings.proposalDescHint,
+              ),
+            ),
             if (_photoEnabled) ...<Widget>[
-              const SizedBox(height: 8),
+              const FormFieldLabel(AppStrings.proposalCoverLabel),
               // Optional cover photo: one image, replaced on re-pick.
-              InkWell(
-                key: const ValueKey<String>('proposalAddPhoto'),
-                onTap: _busy ? null : _pickCover,
-                borderRadius: BorderRadius.circular(12),
-                child: _imageUrl.isEmpty
-                    ? Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const Icon(
-                          Iconsax.gallery_add,
-                          color: AppColors.textHint,
-                        ),
-                      )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          resolveMediaUrl(_imageUrl),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  key: const ValueKey<String>('proposalAddPhoto'),
+                  onTap: _busy ? null : _pickCover,
+                  borderRadius: BorderRadius.circular(12),
+                  child: _imageUrl.isEmpty
+                      ? Container(
                           width: 90,
                           height: 90,
-                          fit: BoxFit.cover,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: const Icon(
+                            Iconsax.gallery_add,
+                            color: AppColors.textHint,
+                          ),
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            resolveMediaUrl(_imageUrl),
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      ),
+                ),
               ),
             ],
-            const SizedBox(height: 18),
-            const Text(
-              AppStrings.proposalSceneLabel,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                for (final String scene in _scenes)
-                  InkWell(
-                    key: ValueKey<String>('proposalScene$scene'),
-                    onTap: () => setState(() => _scene = scene),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _scene == scene
-                            ? AppColors.darkCard
-                            : AppColors.surface,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${AppStrings.sceneLabel(scene)} \u00b7 '
-                        '\u20b1${ScenePricing.feeForScene(scene)}',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: _scene == scene
-                              ? AppColors.onDarkPrimary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              AppStrings.proposalAreaLabel,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
+            const FormFieldLabel(AppStrings.proposalAreaLabel),
             Wrap(
               spacing: 8,
               runSpacing: 8,

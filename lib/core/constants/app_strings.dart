@@ -387,6 +387,8 @@ abstract final class AppStrings {
   // Proposal composer (host side)
   static const String proposalComposerTitle = '发布活动提案';
   static const String proposalTitleHint = '想带大家去做什么？比如：去听一场 live';
+  static const String proposalDescHint = '例如：店里安静、豆子好，适合慢慢聊……';
+  static const String proposalCoverLabel = '封面图（选填）';
   static const String proposalSceneLabel = '活动场景';
   static const String proposalAreaLabel = '活动区域（选填）';
   static const String proposalPublishCta = '发布';

@@ -7,6 +7,7 @@ class ProposalCard {
   const ProposalCard({
     required this.id,
     required this.title,
+    this.description = '',
     required this.sceneTag,
     this.imageUrl = '',
     this.area = '',
@@ -25,6 +26,7 @@ class ProposalCard {
     return ProposalCard(
       id: json['id'] as String,
       title: json['title'] as String,
+      description: json['description'] as String? ?? '',
       sceneTag: json['sceneTag'] as String,
       imageUrl: resolveMediaUrl(json['imageUrl'] as String? ?? ''),
       area: json['area'] as String? ?? '',
@@ -41,6 +43,10 @@ class ProposalCard {
 
   final String id;
   final String title;
+
+  /// Optional elaboration, mirrors demand posts.
+  final String description;
+
   final String sceneTag;
 
   /// Cover photo; empty when the host posted a text-only pitch.

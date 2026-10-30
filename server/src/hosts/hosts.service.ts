@@ -35,6 +35,7 @@ export interface HostCardDto {
 export interface ProposalDto {
   id: string;
   title: string;
+  description: string;
   sceneTag: string;
   imageUrl: string;
   area: string;
@@ -109,6 +110,7 @@ export class HostsService {
   async createProposal(
     caller: User,
     title: string,
+    description: string,
     sceneTag: string,
     imageUrl: string,
     area: string,
@@ -126,6 +128,7 @@ export class HostsService {
         data: {
           hostId: caller.id,
           title: title.trim(),
+          description: description.trim(),
           sceneTag,
           imageUrl,
           area,
@@ -139,6 +142,7 @@ export class HostsService {
     return {
       id: proposal.id,
       title: proposal.title,
+      description: proposal.description,
       sceneTag: proposal.sceneTag,
       imageUrl: proposal.imageUrl,
       area: proposal.area,
@@ -168,6 +172,7 @@ export class HostsService {
     return proposals.map((p) => ({
       id: p.id,
       title: p.title,
+      description: p.description,
       sceneTag: p.sceneTag,
       imageUrl: p.imageUrl,
       area: p.area,

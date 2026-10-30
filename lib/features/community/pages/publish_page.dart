@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/money.dart';
-import '../data/community_repository.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
+import '../data/community_repository.dart';
 
 /// Full-screen form to publish a new activity request: scene, title and
-/// description only. Time and place are deliberately absent — the selected
-/// host proposes the concrete plan after the match (the plan flow).
+/// description only — the same field set as the hosts' pitch composer, so
+/// both sides of the board read identically. Time and place are
+/// deliberately absent: the selected host proposes the concrete plan after
+/// the match (the plan flow). The platform fee rides on the scene chips.
 ///
 /// Pops with `true` when a post was published.
 class PublishPage extends StatefulWidget {
@@ -109,57 +110,22 @@ class _PublishPageState extends State<PublishPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: <Widget>[
-          const _FieldLabel(AppStrings.publishScene),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _scenes.map((String scene) {
-              final bool selected = scene == _selectedScene;
-              return InkWell(
-                onTap: () => setState(() => _selectedScene = scene),
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.textPrimary
-                        : AppColors.background,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.textPrimary
-                          : AppColors.border,
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    AppStrings.sceneLabel(scene),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: selected
-                          ? AppColors.background
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+          const FormFieldLabel(AppStrings.publishScene),
+          ScenePriceChips(
+            scenes: _scenes,
+            selected: _selectedScene,
+            onSelect: (String scene) =>
+                setState(() => _selectedScene = scene),
+            keyPrefix: 'publishScene',
           ),
-          const SizedBox(height: 14),
-          _MatchFeeCard(
-            fee: ScenePricing.feeForScene(_selectedScene ?? 'Coffee'),
-          ),
-          const _FieldLabel(AppStrings.publishFieldTitle),
+          const FormFieldLabel(AppStrings.publishFieldTitle),
           TextField(
             controller: _titleController,
             decoration: const InputDecoration(
               hintText: AppStrings.publishPhTitle,
             ),
           ),
-          const _FieldLabel(
+          const FormFieldLabel(
             AppStrings.publishFieldDesc,
             hint: AppStrings.publishFieldDescHint,
           ),
@@ -198,102 +164,6 @@ class _PublishPageState extends State<PublishPage> {
             _submitting ? AppStrings.publishSuccess : AppStrings.publishSubmit,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Read-only service fee preview: pricing is platform-set per scene, so the
-/// poster cannot edit it. The poster always pays the full fee.
-class _MatchFeeCard extends StatelessWidget {
-  const _MatchFeeCard({required this.fee});
-
-  final int fee;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Icon(Iconsax.shield_tick, size: 17, color: AppColors.accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    const Text(
-                      AppStrings.tipLabel,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      MoneyFormat.format(fee),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                const Text(
-                  AppStrings.publishTipPayNote,
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.label, {this.hint});
-
-  final String label;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 9),
-      child: Row(
-        children: <Widget>[
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          if (hint != null) ...<Widget>[
-            const SizedBox(width: 6),
-            Text(
-              hint!,
-              style: const TextStyle(fontSize: 11, color: AppColors.textHint),
-            ),
-          ],
-        ],
       ),
     );
   }
