@@ -282,6 +282,53 @@ const APPLICATIONS = [
   },
 ];
 
+// Supply-side activity pitches from hosts: the user home feed. Loose on
+// purpose (no time/place) — the concrete plan comes after matching.
+const PROPOSALS = [
+  {
+    id: 'proposal-001',
+    hostId: 'host-205',
+    sceneTag: 'Bar',
+    title: '周五晚 Poblacion 天台酒吧，带你喝懂本地精酿',
+    createdAt: hoursAgo(2),
+  },
+  {
+    id: 'proposal-002',
+    hostId: 'host-201',
+    sceneTag: 'Coffee',
+    title: '去 Legazpi 书店里的隐藏咖啡馆，坐一个安静的下午',
+    createdAt: hoursAgo(5),
+  },
+  {
+    id: 'proposal-003',
+    hostId: 'host-202',
+    sceneTag: 'Dinner',
+    title: '小东京 12 座板前日料，我知道海胆哪天最新鲜',
+    createdAt: hoursAgo(9),
+  },
+  {
+    id: 'proposal-004',
+    hostId: 'host-203',
+    sceneTag: 'Movie',
+    title: '去看一场导演剪辑版，散场后找家甜品店聊到打烊',
+    createdAt: hoursAgo(20),
+  },
+  {
+    id: 'proposal-005',
+    hostId: 'host-204',
+    sceneTag: 'Coffee',
+    title: 'Salcedo 周末市集 + 手冲豆单盲品，咖啡入门局',
+    createdAt: hoursAgo(30),
+  },
+  {
+    id: 'proposal-006',
+    hostId: 'host-203',
+    sceneTag: 'Tea',
+    title: '下班后的奶茶散步局，沿 Ayala Triangle 走到天黑',
+    createdAt: hoursAgo(44),
+  },
+];
+
 // The escrow order backing the in-progress seeded activity (post-003).
 const ORDERS = [
   {
@@ -367,6 +414,13 @@ async function main() {
       where: { id: application.id },
       update: {},
       create: application,
+    });
+  }
+  for (const proposal of PROPOSALS) {
+    await prisma.proposal.upsert({
+      where: { id: proposal.id },
+      update: {},
+      create: proposal,
     });
   }
   for (const order of ORDERS) {

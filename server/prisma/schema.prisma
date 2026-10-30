@@ -54,6 +54,23 @@ model User {
   messages       Message[]
   invitationsSent     Invitation[] @relation("inviter")
   invitationsReceived Invitation[] @relation("invitedHost")
+  proposals           Proposal[]
+}
+
+// A HOST's standing activity pitch ("let's catch a live gig"), the supply
+// side of the two-sided board: demand posts live in the gig hall, proposals
+// lead the user home feed. Deliberately loose — no time or place — because
+// users buy the idea; the concrete plan still comes through the standard
+// order plan flow after the invitation is accepted and paid.
+model Proposal {
+  id        String   @id @default(cuid())
+  hostId    String
+  host      User     @relation(fields: [hostId], references: [id])
+  title     String
+  sceneTag  String // bound to the host's offered scenes, drives pricing
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // A USER directly invites a HOST from the host directory. Accepting is the

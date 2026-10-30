@@ -1313,6 +1313,60 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
+  describe('proposals: host activity pitches lead the user home feed', () => {
+    it('serves the feed newest first with host credentials', async () => {
+      const res = await api()
+        .get('/proposals')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(res.body.length).toBeGreaterThanOrEqual(6);
+      // Newest first.
+      const times = res.body.map((p: { createdAt: string }) =>
+        Date.parse(p.createdAt),
+      );
+      expect([...times].sort((a: number, b: number) => b - a)).toEqual(times);
+      // The card carries the signature line data: host + track record.
+      const pitch = res.body.find(
+        (p: { host: { id: string } }) => p.host.id === NOEL,
+      );
+      expect(pitch).toBeDefined();
+      expect(pitch.sceneTag).toBe('Bar');
+      expect(pitch.host.role).toBe('HOST');
+      expect(typeof pitch.hostCompletedActivities).toBe('number');
+    });
+
+    it('only hosts publish, and only within their offered scenes', async () => {
+      await api()
+        .post('/proposals')
+        .set('X-User-Id', ANDREA)
+        .send({ title: 'Users cannot pitch', sceneTag: 'Coffee' })
+        .expect(403);
+
+      // Bianca offers Coffee/Tea, so a Bar pitch is rejected.
+      const offScene = await api()
+        .post('/proposals')
+        .set('X-User-Id', BIANCA)
+        .send({ title: 'Rooftop crawl', sceneTag: 'Bar' })
+        .expect(409);
+      expect(offScene.body.message).toBe('SCENE_NOT_OFFERED');
+
+      const created = await api()
+        .post('/proposals')
+        .set('X-User-Id', BIANCA)
+        .send({ title: 'Morning filter tasting in Salcedo', sceneTag: 'Coffee' })
+        .expect(201);
+      expect(created.body.host.id).toBe(BIANCA);
+
+      // The fresh pitch leads the feed.
+      const feed = await api()
+        .get('/proposals')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(feed.body[0].id).toBe(created.body.id);
+      expect(feed.body[0].title).toBe('Morning filter tasting in Salcedo');
+    });
+  });
+
   describe('community moments: non-transactional recaps', () => {
     it('both roles can post moments; they mix into the feed', async () => {
       const userMoment = await api()

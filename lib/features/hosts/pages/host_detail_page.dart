@@ -3,12 +3,11 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
-import '../../auth/pages/verification_page.dart';
 import '../data/hosts_repository.dart';
 import '../models/host_card.dart';
+import '../widgets/invite_flow.dart';
 
 /// Host profile + the direct invitation entry (user side).
 class HostDetailPage extends StatefulWidget {
@@ -50,56 +49,18 @@ class _HostDetailPageState extends State<HostDetailPage> {
   }
 
   /// Invitation confirm sheet for one scene, opened from the activity
-  /// price list. The scene is fixed by the row the user tapped; only the
-  /// optional note and the fee confirmation remain.
+  /// price list. The scene is fixed by the row the user tapped; the whole
+  /// sheet-and-send flow is shared with the proposal feed.
   Future<void> _openInviteSheet(String scene) async {
-    final HostCard host = _host!;
-    // The sheet owns its text controller (disposed by its own State after
-    // the route fully unmounts); disposing right after the await crashes
-    // the exit animation ('_dependents.isEmpty'). Pops the note to send.
-    final String? note = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _InviteSheet(hostName: host.name, scene: scene),
-    );
-    if (note == null || !mounted) {
-      return;
-    }
-    await _sendInvite(scene, note);
-  }
-
-  Future<void> _sendInvite(String sceneTag, String note) async {
     setState(() => _busy = true);
     try {
-      await widget.repository.invite(
+      await runInviteFlow(
+        context,
+        repository: widget.repository,
         hostId: widget.hostId,
-        sceneTag: sceneTag,
-        note: note,
+        hostName: _host!.name,
+        scene: scene,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.inviteSentSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      if (!mounted) {
-        return;
-      }
-      if (e.verificationRequired) {
-        final bool verified = await promptVerification(context);
-        if (verified && mounted) {
-          setState(() => _busy = false);
-          return _sendInvite(sceneTag, note);
-        }
-      } else {
-        final String message = e.statusCode == 409
-            ? AppStrings.inviteAlreadyPendingSnack
-            : e.message;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -355,121 +316,6 @@ class _ActivityPriceList extends StatelessWidget {
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Invitation confirm sheet for one fixed scene. A proper StatefulWidget
-/// so the note controller is disposed by the sheet's own State after the
-/// route fully unmounts. Pops the (possibly empty) note text on send.
-class _InviteSheet extends StatefulWidget {
-  const _InviteSheet({required this.hostName, required this.scene});
-
-  final String hostName;
-  final String scene;
-
-  @override
-  State<_InviteSheet> createState() => _InviteSheetState();
-}
-
-class _InviteSheetState extends State<_InviteSheet> {
-  final TextEditingController _noteController = TextEditingController();
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final String fee = '\u20b1${ScenePricing.feeForScene(widget.scene)}';
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            AppStrings.inviteSheetTitle(widget.hostName),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.textPrimary,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  AppStrings.sceneLabel(widget.scene),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onDarkPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                fee,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            key: const ValueKey<String>('inviteNoteField'),
-            controller: _noteController,
-            maxLength: 300,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              hintText: AppStrings.inviteNoteHint,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            AppStrings.inviteFeeNote(fee),
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey<String>('inviteSendButton'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.darkCard,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              onPressed: () =>
-                  Navigator.of(context).pop(_noteController.text.trim()),
-              child: const Text(AppStrings.inviteSendCta),
-            ),
-          ),
         ],
       ),
     );

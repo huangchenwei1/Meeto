@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../orders/models/live_order.dart';
 import '../models/host_card.dart';
+import '../models/proposal_card.dart';
 import 'hosts_repository.dart';
 
 class ApiHostsRepository implements HostsRepository {
@@ -21,6 +22,29 @@ class ApiHostsRepository implements HostsRepository {
   Future<HostCard> fetchHost(String hostId) async {
     return HostCard.fromJson(
       await _client.get('/hosts/$hostId') as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<List<ProposalCard>> fetchProposals() async {
+    final List<dynamic> json =
+        await _client.get('/proposals') as List<dynamic>;
+    return json
+        .cast<Map<String, dynamic>>()
+        .map(ProposalCard.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ProposalCard> createProposal({
+    required String title,
+    required String sceneTag,
+  }) async {
+    return ProposalCard.fromJson(
+      await _client.post(
+        '/proposals',
+        body: <String, dynamic>{'title': title, 'sceneTag': sceneTag},
+      ) as Map<String, dynamic>,
     );
   }
 

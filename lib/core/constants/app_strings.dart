@@ -381,8 +381,15 @@ abstract final class AppStrings {
   // Host directory + direct invitations
   static const String tabHosts = '首页';
   static const String tabCommunity = '社区';
-  static const String hostsTitle = '找主持人';
-  static const String hostsEmpty = '暂时没有主持人';
+  static const String hostsTitle = '发现活动';
+  static const String hostsEmpty = '还没有活动提案';
+
+  // Proposal composer (host side)
+  static const String proposalComposerTitle = '发布活动提案';
+  static const String proposalTitleHint = '想带大家去做什么？比如：去听一场 live';
+  static const String proposalSceneLabel = '活动场景';
+  static const String proposalPublishCta = '发布';
+  static const String proposalPostedSnack = '提案已发布';
   static String hostCompletedLabel(int count) => '$count 次主持';
   static const String hostNewLabel = '新人主持';
   static const String hostRecentPlanLabel = '近期方案';

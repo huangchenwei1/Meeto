@@ -29,6 +29,18 @@ export interface HostCardDto {
   recentProposals: string[];
 }
 
+/// Feed card for a host's activity pitch: the proposal is the product,
+/// the host is the signature line. Fee display is resolved client-side
+/// from the live pricing config (orders snapshot it at acceptance).
+export interface ProposalDto {
+  id: string;
+  title: string;
+  sceneTag: string;
+  createdAt: Date;
+  host: PublicUser;
+  hostCompletedActivities: number;
+}
+
 export interface InvitationDto {
   id: string;
   sceneTag: string;
@@ -87,6 +99,68 @@ export class HostsService {
       throw new NotFoundException('Host not found');
     }
     return this.toHostCard(host);
+  }
+
+  /// A host publishes an activity pitch to the user home feed. Scene
+  /// validation mirrors [invite]: the pitch must be within the host's
+  /// offered scenes because the invitation it attracts will be.
+  async createProposal(
+    caller: User,
+    title: string,
+    sceneTag: string,
+  ): Promise<ProposalDto> {
+    assertVerified(caller);
+    if (caller.role !== Role.host) {
+      throw new ForbiddenException('Only hosts can publish proposals');
+    }
+    const offered = parseScenes(caller.hostScenesJson);
+    if (offered.length > 0 && !offered.includes(sceneTag)) {
+      throw new ConflictException('SCENE_NOT_OFFERED');
+    }
+    const [proposal, completed] = await Promise.all([
+      this.prisma.proposal.create({
+        data: { hostId: caller.id, title: title.trim(), sceneTag },
+        include: { host: true },
+      }),
+      this.prisma.order.count({
+        where: { earnerId: caller.id, status: OrderStatus.completed },
+      }),
+    ]);
+    return {
+      id: proposal.id,
+      title: proposal.title,
+      sceneTag: proposal.sceneTag,
+      createdAt: proposal.createdAt,
+      host: toPublicUser(proposal.host),
+      hostCompletedActivities: completed,
+    };
+  }
+
+  /// The user home feed: newest pitches first. Completed-activity counts
+  /// are batched so the feed stays one query per table.
+  async proposalFeed(): Promise<ProposalDto[]> {
+    const proposals = await this.prisma.proposal.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { host: true },
+    });
+    const hostIds = [...new Set(proposals.map((p) => p.hostId))];
+    const counts = await this.prisma.order.groupBy({
+      by: ['earnerId'],
+      where: { earnerId: { in: hostIds }, status: OrderStatus.completed },
+      _count: { _all: true },
+    });
+    const completedByHost = new Map(
+      counts.map((c) => [c.earnerId, c._count._all]),
+    );
+    return proposals.map((p) => ({
+      id: p.id,
+      title: p.title,
+      sceneTag: p.sceneTag,
+      createdAt: p.createdAt,
+      host: toPublicUser(p.host),
+      hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,
+    }));
   }
 
   /// A user invites a host directly. The invitation carries the rough

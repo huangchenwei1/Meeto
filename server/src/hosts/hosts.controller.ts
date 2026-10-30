@@ -17,6 +17,18 @@ import {
 import { AuthGuard, CurrentUser } from '../common/auth.guard.js';
 import { HostsService } from './hosts.service.js';
 
+class CreateProposalDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(40)
+  sceneTag!: string;
+}
+
 class InviteDto {
   @IsString()
   @IsNotEmpty()
@@ -46,6 +58,23 @@ export class HostsController {
   @Get(':id')
   getHost(@Param('id') id: string) {
     return this.hosts.getHost(id);
+  }
+}
+
+@Controller('proposals')
+@UseGuards(AuthGuard)
+export class ProposalsController {
+  constructor(private readonly hosts: HostsService) {}
+
+  /// User home feed: hosts' activity pitches, newest first.
+  @Get()
+  feed() {
+    return this.hosts.proposalFeed();
+  }
+
+  @Post()
+  create(@CurrentUser() user: User, @Body() dto: CreateProposalDto) {
+    return this.hosts.createProposal(user, dto.title, dto.sceneTag);
   }
 }
 

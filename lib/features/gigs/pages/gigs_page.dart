@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
@@ -14,6 +15,7 @@ import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/models/host_card.dart';
+import '../../hosts/pages/proposal_composer_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
@@ -122,6 +124,23 @@ class GigsPageState extends State<GigsPage> {
     return open;
   }
 
+  Future<void> _openProposalComposer() async {
+    final bool? posted = await Navigator.of(context).push(
+      MaterialPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (_) => ProposalComposerPage(
+          repository: widget.hostsRepository,
+          offeredScenes: _myScenes,
+        ),
+      ),
+    );
+    if ((posted ?? false) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.proposalPostedSnack)),
+      );
+    }
+  }
+
   Future<void> _openRequest(ActivityPost post) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -223,6 +242,31 @@ class GigsPageState extends State<GigsPage> {
             ),
           ],
         ),
+        actions: <Widget>[
+          // Publish an activity pitch to the user home feed — the supply
+          // side mirror of the users' post-a-request entry.
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              key: const ValueKey<String>('postProposalButton'),
+              onTap: _openProposalComposer,
+              customBorder: const CircleBorder(),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: AppColors.darkCard,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Iconsax.add,
+                  size: 20,
+                  color: AppColors.onDarkPrimary,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())

@@ -1,12 +1,22 @@
 import '../../orders/models/live_order.dart';
 import '../models/host_card.dart';
+import '../models/proposal_card.dart';
 
-/// Host directory + direct invitations.
+/// Host directory + activity proposals + direct invitations.
 abstract interface class HostsRepository {
   /// Directory of hosts, best credentials first.
   Future<List<HostCard>> fetchHosts();
 
   Future<HostCard> fetchHost(String hostId);
+
+  /// User home feed: hosts' activity pitches, newest first.
+  Future<List<ProposalCard>> fetchProposals();
+
+  /// Publishes an activity pitch (host side).
+  Future<ProposalCard> createProposal({
+    required String title,
+    required String sceneTag,
+  });
 
   /// Sends a direct invitation (user side). The concrete plan still comes
   /// from the host after payment via the standard plan flow.
@@ -110,6 +120,57 @@ class MockHostsRepository implements HostsRepository {
     ),
   ];
 
+  static final List<ProposalCard> _proposals = <ProposalCard>[
+    ProposalCard(
+      id: 'proposal-101',
+      title: '\u5468\u4e94\u665a Poblacion \u5929\u53f0\u9152\u5427\uff0c\u5e26\u4f60\u559d\u61c2\u672c\u5730\u7cbe\u917f',
+      sceneTag: 'Bar',
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      hostId: 'host-205',
+      hostName: 'Noel',
+      hostAvatarUrl: 'https://i.pravatar.cc/150?img=53',
+      hostMeta: '\u7537 \u00b7 30',
+      hostIsVerified: true,
+      hostCompletedActivities: 18,
+    ),
+    ProposalCard(
+      id: 'proposal-102',
+      title: '\u53bb Legazpi \u4e66\u5e97\u91cc\u7684\u9690\u85cf\u5496\u5561\u9986\uff0c\u5750\u4e00\u4e2a\u5b89\u9759\u7684\u4e0b\u5348',
+      sceneTag: 'Coffee',
+      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+      hostId: 'host-201',
+      hostName: 'Bianca',
+      hostAvatarUrl: 'https://i.pravatar.cc/150?img=44',
+      hostMeta: '\u5973 \u00b7 26',
+      hostIsVerified: true,
+      hostCompletedActivities: 12,
+    ),
+    ProposalCard(
+      id: 'proposal-103',
+      title: '\u5c0f\u4e1c\u4eac 12 \u5ea7\u677f\u524d\u65e5\u6599\uff0c\u6211\u77e5\u9053\u6d77\u80c6\u54ea\u5929\u6700\u65b0\u9c9c',
+      sceneTag: 'Dinner',
+      createdAt: DateTime.now().subtract(const Duration(hours: 9)),
+      hostId: 'host-202',
+      hostName: 'Kat',
+      hostAvatarUrl: 'https://i.pravatar.cc/150?img=31',
+      hostMeta: '\u5973 \u00b7 28',
+      hostIsVerified: true,
+      hostCompletedActivities: 21,
+    ),
+    ProposalCard(
+      id: 'proposal-104',
+      title: '\u53bb\u770b\u4e00\u573a\u5bfc\u6f14\u526a\u8f91\u7248\uff0c\u6563\u573a\u540e\u627e\u5bb6\u751c\u54c1\u5e97\u804a\u5230\u6253\u70ca',
+      sceneTag: 'Movie',
+      createdAt: DateTime.now().subtract(const Duration(hours: 20)),
+      hostId: 'host-203',
+      hostName: 'Liza',
+      hostAvatarUrl: 'https://i.pravatar.cc/150?img=25',
+      hostMeta: '\u5973 \u00b7 25',
+      hostIsVerified: true,
+      hostCompletedActivities: 15,
+    ),
+  ];
+
   final List<InvitationRecord> _sent = <InvitationRecord>[];
   int _sequence = 0;
 
@@ -117,6 +178,35 @@ class MockHostsRepository implements HostsRepository {
   Future<List<HostCard>> fetchHosts() async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     return List<HostCard>.of(_hosts);
+  }
+
+  @override
+  Future<List<ProposalCard>> fetchProposals() async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return List<ProposalCard>.of(_proposals);
+  }
+
+  @override
+  Future<ProposalCard> createProposal({
+    required String title,
+    required String sceneTag,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    _sequence += 1;
+    final ProposalCard created = ProposalCard(
+      id: 'proposal-new-$_sequence',
+      title: title,
+      sceneTag: sceneTag,
+      createdAt: DateTime.now(),
+      hostId: 'host-you',
+      hostName: 'You',
+      hostAvatarUrl: '',
+      hostMeta: '',
+      hostIsVerified: true,
+      hostCompletedActivities: 0,
+    );
+    _proposals.insert(0, created);
+    return created;
   }
 
   @override

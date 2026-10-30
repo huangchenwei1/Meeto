@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/scene_pricing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/pages/publish_page.dart';
 import '../data/hosts_repository.dart';
-import '../models/host_card.dart';
+import '../models/proposal_card.dart';
+import '../widgets/invite_flow.dart';
 import 'host_detail_page.dart';
 
-/// Host directory (user side, first tab). Deliberately activity-led:
-/// hosting record and plan pitches headline each card, not photos. Also
-/// carries the "post a request" entry — the other way to get hosted when
-/// no listed host fits.
+/// User home (first tab): the activity proposal feed. Hosts pitch loose
+/// activity ideas ("let's catch a live gig"); users buy the idea, not the
+/// person — the host rides along as the signature line. Inviting from a
+/// pitch enters the standard invitation -> payment -> plan flow. Also
+/// carries the "post a request" entry, the demand-side mirror.
 class HostsPage extends StatefulWidget {
   const HostsPage({
     super.key,
@@ -30,7 +34,7 @@ class HostsPage extends StatefulWidget {
 }
 
 class HostsPageState extends State<HostsPage> {
-  List<HostCard> _hosts = <HostCard>[];
+  List<ProposalCard> _proposals = <ProposalCard>[];
   bool _loading = true;
 
   @override
@@ -41,10 +45,11 @@ class HostsPageState extends State<HostsPage> {
 
   Future<void> reload() async {
     try {
-      final List<HostCard> hosts = await widget.repository.fetchHosts();
+      final List<ProposalCard> proposals =
+          await widget.repository.fetchProposals();
       if (mounted) {
         setState(() {
-          _hosts = hosts;
+          _proposals = proposals;
           _loading = false;
         });
       }
@@ -77,7 +82,7 @@ class HostsPageState extends State<HostsPage> {
                     ),
                   ),
                   // Post-a-request entry, kept as a quiet icon so the
-                  // host list stays the hero of the page.
+                  // proposal feed stays the hero of the page.
                   InkWell(
                     key: const ValueKey<String>('postRequestButton'),
                     onTap: _openPublish,
@@ -102,35 +107,44 @@ class HostsPageState extends State<HostsPage> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _hosts.isEmpty
-                      ? const Center(
-                          child: Text(
-                            AppStrings.hostsEmpty,
-                            style: TextStyle(color: AppColors.textHint),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: reload,
-                          child: ListView.separated(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                            // +1: the shared guidelines banner leads the
-                            // list, same as on the community tab.
-                            itemCount: _hosts.length + 1,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (BuildContext context, int index) {
-                              if (index == 0) {
-                                return const GuidelinesBanner();
-                              }
-                              final HostCard host = _hosts[index - 1];
-                              return _HostTile(
-                                host: host,
-                                onTap: () => _openHost(host),
-                              );
-                            },
-                          ),
-                        ),
+                  : RefreshIndicator(
+                      onRefresh: reload,
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                        // +1: the shared guidelines banner leads the list,
+                        // same as on the community tab.
+                        itemCount: _proposals.isEmpty
+                            ? 2
+                            : _proposals.length + 1,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (BuildContext context, int index) {
+                          if (index == 0) {
+                            return const GuidelinesBanner();
+                          }
+                          if (_proposals.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.only(top: 120),
+                              child: Center(
+                                child: Text(
+                                  AppStrings.hostsEmpty,
+                                  style:
+                                      TextStyle(color: AppColors.textHint),
+                                ),
+                              ),
+                            );
+                          }
+                          final ProposalCard proposal =
+                              _proposals[index - 1];
+                          return _ProposalTile(
+                            proposal: proposal,
+                            onTap: () => _openHost(proposal.hostId),
+                            onInvite: () => _invite(proposal),
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -138,21 +152,34 @@ class HostsPageState extends State<HostsPage> {
     );
   }
 
-  Future<void> _openHost(HostCard host) async {
+  /// Inviting from a pitch: the scene is fixed by the proposal, and the
+  /// pitch title travels as the default note so the host sees which idea
+  /// the invitation came from.
+  Future<void> _invite(ProposalCard proposal) async {
+    await runInviteFlow(
+      context,
+      repository: widget.repository,
+      hostId: proposal.hostId,
+      hostName: proposal.hostName,
+      scene: proposal.sceneTag,
+      defaultNote: proposal.title,
+    );
+  }
+
+  Future<void> _openHost(String hostId) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => HostDetailPage(
           repository: widget.repository,
-          hostId: host.id,
-          initial: host,
+          hostId: hostId,
         ),
       ),
     );
     reload();
   }
 
-  /// The complementary path to direct invitations: post a request and let
-  /// hosts pitch their plans (tracked afterwards in My Posts).
+  /// The complementary path to proposals: post a request and let hosts
+  /// pitch their plans (tracked afterwards in My Posts).
   Future<void> _openPublish() async {
     await Navigator.of(context).push(
       MaterialPageRoute<bool>(
@@ -163,18 +190,19 @@ class HostsPageState extends State<HostsPage> {
   }
 }
 
-/// One host, identity-first like a contact card: a three-line header
-/// (name + verified mark, demographics, hosting record as the accent
-/// stat) with an invite pill on the trailing edge, a short bio, then the
-/// scenes they can host. The whole card opens the detail page, where the
-/// invite is actually priced per scene. Deliberately activity-led: no
-/// photo walls, no raw pitch quotes, and no made-up stats — only fields
-/// we actually have.
-class _HostTile extends StatelessWidget {
-  const _HostTile({required this.host, required this.onTap});
+/// One activity pitch: the idea headlines, scene + fee qualify it, and
+/// the host signs it at the bottom. Tapping the card opens the host's
+/// profile; the invite pill starts the invitation for this pitch's scene.
+class _ProposalTile extends StatelessWidget {
+  const _ProposalTile({
+    required this.proposal,
+    required this.onTap,
+    required this.onInvite,
+  });
 
-  final HostCard host;
+  final ProposalCard proposal;
   final VoidCallback onTap;
+  final VoidCallback onInvite;
 
   @override
   Widget build(BuildContext context) {
@@ -190,10 +218,70 @@ class _HostTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            Text(
+              proposal.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w800,
+                height: 1.4,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: <Widget>[
-                AppAvatar(size: 56, imageUrl: host.avatarUrl, squircle: true),
-                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4.5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    AppStrings.sceneLabel(proposal.sceneTag),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '\u20b1${ScenePricing.feeForScene(proposal.sceneTag)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  formatTimeAgo(proposal.createdAt),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            // Signature line: who is behind the pitch, with the one trust
+            // stat we can back with data.
+            Row(
+              children: <Widget>[
+                AppAvatar(
+                  size: 36,
+                  imageUrl: proposal.hostAvatarUrl,
+                  squircle: true,
+                ),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,49 +290,35 @@ class _HostTile extends StatelessWidget {
                         children: <Widget>[
                           Flexible(
                             child: Text(
-                              host.name,
+                              proposal.hostName,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
                               ),
                             ),
                           ),
-                          // Verified mark: icon only, the badge speaks
-                          // for itself on a card this dense.
-                          if (host.isVerified) ...<Widget>[
-                            const SizedBox(width: 6),
+                          if (proposal.hostIsVerified) ...<Widget>[
+                            const SizedBox(width: 4),
                             const Icon(
                               Iconsax.verify5,
-                              size: 15,
+                              size: 13,
                               color: AppColors.accent,
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 1),
                       Text(
-                        host.city.isEmpty
-                            ? host.meta
-                            : '${host.meta} \u00b7 ${host.city}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      // Hosting record as the accent stat: the one trust
-                      // signal we can actually back with data.
-                      Text(
-                        host.completedActivities > 0
+                        proposal.hostCompletedActivities > 0
                             ? AppStrings.hostCompletedLabel(
-                                host.completedActivities,
+                                proposal.hostCompletedActivities,
                               )
                             : AppStrings.hostNewLabel,
                         style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.accent,
                         ),
                       ),
@@ -252,11 +326,9 @@ class _HostTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Invite entry: lands on the detail page where the
-                // scene price list turns the intent into an order.
                 InkWell(
-                  key: ValueKey<String>('inviteHost${host.id}'),
-                  onTap: onTap,
+                  key: ValueKey<String>('inviteProposal${proposal.id}'),
+                  onTap: onInvite,
                   borderRadius: BorderRadius.circular(999),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -279,51 +351,6 @@ class _HostTile extends StatelessWidget {
                 ),
               ],
             ),
-            if (host.bio.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 11),
-              Text(
-                host.bio,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-            // The scenes this host offers (picked at registration) — the
-            // same list the detail page prices up. Never interest tags.
-            if (host.hostScenes.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 11),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: host.hostScenes
-                    .take(4)
-                    .map(
-                      (String scene) => Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          AppStrings.sceneLabel(scene),
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ],
           ],
         ),
       ),
