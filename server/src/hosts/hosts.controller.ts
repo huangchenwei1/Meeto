@@ -32,6 +32,11 @@ class CreateProposalDto {
   @IsString()
   @MaxLength(500)
   imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  area?: string;
 }
 
 class InviteDto {
@@ -84,6 +89,7 @@ export class ProposalsController {
       dto.title,
       dto.sceneTag,
       dto.imageUrl ?? '',
+      dto.area ?? '',
     );
   }
 }

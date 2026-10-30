@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
@@ -338,22 +337,27 @@ class _ProposalTile extends StatelessWidget {
                             const SizedBox(height: 14),
                             Row(
                               children: <Widget>[
-                                Text(
-                                  AppStrings.tipLabel,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
+                                // Where, roughly. The fee waits for the
+                                // invite sheet; the exact venue for the
+                                // plan flow.
+                                if (proposal.locationLine.isNotEmpty) ...<Widget>[
+                                  const Icon(
+                                    Iconsax.location,
+                                    size: 13,
+                                    color: AppColors.textHint,
                                   ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '\u20b1${ScenePricing.feeForScene(proposal.sceneTag)}',
-                                  style: const TextStyle(
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      proposal.locationLine,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                                 const Spacer(),
                                 InkWell(
                                   key: ValueKey<String>(

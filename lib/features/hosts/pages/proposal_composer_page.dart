@@ -46,6 +46,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
   late String _scene = _scenes.first;
   final ImagePicker _picker = ImagePicker();
   String _imageUrl = '';
+  String _area = '';
   bool _busy = false;
 
   /// Photo upload needs the API; mock mode posts text-only pitches.
@@ -98,6 +99,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         title: title,
         sceneTag: _scene,
         imageUrl: _imageUrl,
+        area: _area,
       );
       if (mounted) {
         Navigator.of(context).pop(true);
@@ -218,6 +220,53 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
                           color: _scene == scene
+                              ? AppColors.onDarkPrimary
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              AppStrings.proposalAreaLabel,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final String area in AppStrings.manilaAreas)
+                  InkWell(
+                    key: ValueKey<String>('proposalArea$area'),
+                    // Tap again to clear: the area is optional.
+                    onTap: () => setState(
+                      () => _area = _area == area ? '' : area,
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _area == area
+                            ? AppColors.darkCard
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        area,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: _area == area
                               ? AppColors.onDarkPrimary
                               : AppColors.textSecondary,
                         ),

@@ -1332,6 +1332,7 @@ describe('Meeto API (e2e)', () => {
       expect(pitch).toBeDefined();
       expect(pitch.sceneTag).toBe('Bar');
       expect(pitch.imageUrl).toContain('https://');
+      expect(pitch.area).toBe('Poblacion');
       expect(pitch.host.role).toBe('HOST');
       expect(typeof pitch.hostCompletedActivities).toBe('number');
     });

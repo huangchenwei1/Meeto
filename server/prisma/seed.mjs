@@ -289,6 +289,7 @@ const PROPOSALS = [
     id: 'proposal-001',
     hostId: 'host-205',
     sceneTag: 'Bar',
+    area: 'Poblacion',
     imageUrl:
       'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
     title: '周五晚 Poblacion 天台酒吧，带你喝懂本地精酿',
@@ -298,6 +299,7 @@ const PROPOSALS = [
     id: 'proposal-002',
     hostId: 'host-201',
     sceneTag: 'Coffee',
+    area: 'Legazpi Village',
     imageUrl:
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
     title: '去 Legazpi 书店里的隐藏咖啡馆，坐一个安静的下午',
@@ -307,6 +309,7 @@ const PROPOSALS = [
     id: 'proposal-003',
     hostId: 'host-202',
     sceneTag: 'Dinner',
+    area: 'Little Tokyo',
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
     title: '小东京 12 座板前日料，我知道海胆哪天最新鲜',
@@ -316,6 +319,7 @@ const PROPOSALS = [
     id: 'proposal-004',
     hostId: 'host-203',
     sceneTag: 'Movie',
+    area: 'Rockwell',
     imageUrl:
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
     title: '去看一场导演剪辑版，散场后找家甜品店聊到打烊',
@@ -325,6 +329,7 @@ const PROPOSALS = [
     id: 'proposal-005',
     hostId: 'host-204',
     sceneTag: 'Coffee',
+    area: 'Salcedo Village',
     imageUrl:
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
     title: 'Salcedo 周末市集 + 手冲豆单盲品，咖啡入门局',
@@ -334,6 +339,7 @@ const PROPOSALS = [
     id: 'proposal-006',
     hostId: 'host-203',
     sceneTag: 'Tea',
+    area: 'Ayala Triangle',
     imageUrl:
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
     title: '下班后的奶茶散步局，沿 Ayala Triangle 走到天黑',
@@ -431,8 +437,8 @@ async function main() {
   for (const proposal of PROPOSALS) {
     await prisma.proposal.upsert({
       where: { id: proposal.id },
-      // Existing rows get the cover-photo backfill on reseed.
-      update: { imageUrl: proposal.imageUrl },
+      // Existing rows get the cover-photo + area backfill on reseed.
+      update: { imageUrl: proposal.imageUrl, area: proposal.area },
       create: proposal,
     });
   }

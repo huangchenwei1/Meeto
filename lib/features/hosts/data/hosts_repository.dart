@@ -13,11 +13,12 @@ abstract interface class HostsRepository {
   Future<List<ProposalCard>> fetchProposals();
 
   /// Publishes an activity pitch (host side). [imageUrl] is the optional
-  /// cover photo, already uploaded.
+  /// cover photo, already uploaded; [area] the optional rough area.
   Future<ProposalCard> createProposal({
     required String title,
     required String sceneTag,
     String imageUrl = '',
+    String area = '',
   });
 
   /// Sends a direct invitation (user side). The concrete plan still comes
@@ -129,11 +130,13 @@ class MockHostsRepository implements HostsRepository {
       sceneTag: 'Bar',
       imageUrl:
           'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
+      area: 'Poblacion',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       hostId: 'host-205',
       hostName: 'Noel',
       hostAvatarUrl: 'https://i.pravatar.cc/150?img=53',
       hostMeta: '\u7537 \u00b7 30',
+      hostCity: 'Manila',
       hostIsVerified: true,
       hostCompletedActivities: 18,
     ),
@@ -143,11 +146,13 @@ class MockHostsRepository implements HostsRepository {
       sceneTag: 'Coffee',
       imageUrl:
           'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
+      area: 'Legazpi Village',
       createdAt: DateTime.now().subtract(const Duration(hours: 5)),
       hostId: 'host-201',
       hostName: 'Bianca',
       hostAvatarUrl: 'https://i.pravatar.cc/150?img=44',
       hostMeta: '\u5973 \u00b7 26',
+      hostCity: 'Manila',
       hostIsVerified: true,
       hostCompletedActivities: 12,
     ),
@@ -157,11 +162,13 @@ class MockHostsRepository implements HostsRepository {
       sceneTag: 'Dinner',
       imageUrl:
           'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
+      area: 'Little Tokyo',
       createdAt: DateTime.now().subtract(const Duration(hours: 9)),
       hostId: 'host-202',
       hostName: 'Kat',
       hostAvatarUrl: 'https://i.pravatar.cc/150?img=31',
       hostMeta: '\u5973 \u00b7 28',
+      hostCity: 'Manila',
       hostIsVerified: true,
       hostCompletedActivities: 21,
     ),
@@ -171,11 +178,13 @@ class MockHostsRepository implements HostsRepository {
       sceneTag: 'Movie',
       imageUrl:
           'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
+      area: 'Rockwell',
       createdAt: DateTime.now().subtract(const Duration(hours: 20)),
       hostId: 'host-203',
       hostName: 'Liza',
       hostAvatarUrl: 'https://i.pravatar.cc/150?img=25',
       hostMeta: '\u5973 \u00b7 25',
+      hostCity: 'Manila',
       hostIsVerified: true,
       hostCompletedActivities: 15,
     ),
@@ -201,6 +210,7 @@ class MockHostsRepository implements HostsRepository {
     required String title,
     required String sceneTag,
     String imageUrl = '',
+    String area = '',
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     _sequence += 1;
@@ -209,6 +219,7 @@ class MockHostsRepository implements HostsRepository {
       title: title,
       sceneTag: sceneTag,
       imageUrl: imageUrl,
+      area: area,
       createdAt: DateTime.now(),
       hostId: 'host-you',
       hostName: 'You',

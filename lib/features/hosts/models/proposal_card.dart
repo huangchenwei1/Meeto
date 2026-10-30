@@ -9,11 +9,13 @@ class ProposalCard {
     required this.title,
     required this.sceneTag,
     this.imageUrl = '',
+    this.area = '',
     required this.createdAt,
     required this.hostId,
     required this.hostName,
     required this.hostAvatarUrl,
     required this.hostMeta,
+    this.hostCity = '',
     required this.hostIsVerified,
     required this.hostCompletedActivities,
   });
@@ -25,11 +27,13 @@ class ProposalCard {
       title: json['title'] as String,
       sceneTag: json['sceneTag'] as String,
       imageUrl: resolveMediaUrl(json['imageUrl'] as String? ?? ''),
+      area: json['area'] as String? ?? '',
       createdAt: DateTime.parse(json['createdAt'] as String),
       hostId: host['id'] as String,
       hostName: host['name'] as String,
       hostAvatarUrl: resolveMediaUrl(host['avatarUrl'] as String? ?? ''),
       hostMeta: host['meta'] as String? ?? '',
+      hostCity: host['city'] as String? ?? '',
       hostIsVerified: host['isVerified'] as bool? ?? false,
       hostCompletedActivities: json['hostCompletedActivities'] as int? ?? 0,
     );
@@ -42,11 +46,22 @@ class ProposalCard {
   /// Cover photo; empty when the host posted a text-only pitch.
   final String imageUrl;
 
+  /// Rough area of the pitch (e.g. "Poblacion"); the exact venue comes
+  /// later via the order plan flow.
+  final String area;
+
   final DateTime createdAt;
   final String hostId;
   final String hostName;
   final String hostAvatarUrl;
   final String hostMeta;
+  final String hostCity;
   final bool hostIsVerified;
   final int hostCompletedActivities;
+
+  /// "Manila · Poblacion" — whichever parts exist.
+  String get locationLine => <String>[
+        if (hostCity.isNotEmpty) hostCity,
+        if (area.isNotEmpty) area,
+      ].join(' \u00b7 ');
 }

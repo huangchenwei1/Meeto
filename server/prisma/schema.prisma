@@ -69,6 +69,9 @@ model Proposal {
   title     String
   sceneTag  String // bound to the host's offered scenes, drives pricing
   imageUrl  String   @default("") // cover photo, optional
+  // Rough area of the pitch (e.g. "Poblacion", "BGC"), picked from a fixed
+  // list client-side. The exact venue still comes via the order plan flow.
+  area      String   @default("")
   createdAt DateTime @default(now())
 
   @@index([createdAt])

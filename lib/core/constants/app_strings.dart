@@ -388,8 +388,23 @@ abstract final class AppStrings {
   static const String proposalComposerTitle = '发布活动提案';
   static const String proposalTitleHint = '想带大家去做什么？比如：去听一场 live';
   static const String proposalSceneLabel = '活动场景';
+  static const String proposalAreaLabel = '活动区域（选填）';
   static const String proposalPublishCta = '发布';
   static const String proposalPostedSnack = '提案已发布';
+
+  /// Rough Metro Manila areas a pitch can point at; proper nouns stay in
+  /// their local form. The exact venue comes via the order plan flow.
+  static const List<String> manilaAreas = <String>[
+    'Makati',
+    'BGC',
+    'Poblacion',
+    'Ortigas',
+    'Quezon City',
+    'Ermita',
+    'Salcedo Village',
+    'Legazpi Village',
+    'Rockwell',
+  ];
   static String hostCompletedLabel(int count) => '$count 次主持';
   static const String hostNewLabel = '新人主持';
   static const String hostRecentPlanLabel = '近期方案';
