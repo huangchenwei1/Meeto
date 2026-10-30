@@ -388,33 +388,19 @@ abstract final class AppStrings {
   // Publish: structured time and place pickers
   static const String publishPickTime = 'Pick a date & time';
 
-  // Meet flow (API mode order room)
+  // Order room (API mode)
   static const String peerPhoneLabel = 'Phone';
   static const String phoneCopied = 'Phone number copied';
-  static String distanceApart(String km) => 'You are $km km apart';
-  static const String distanceWaiting =
-      'Distance appears when both share location';
-  static const String confirmMeetCta = "We met \u2014 confirm";
-  static const String meetWaitingPeer =
-      'Confirmed. Waiting for the other side to confirm the meet';
-  static const String notTogetherHint =
-      'You two do not seem to be at the same place yet. Try again when you are together.';
-  static const String metHeadline = 'Meet confirmed';
-  static String metSettleEarnerSub(String time, String amount) =>
-      '$amount releases to you at $time. Enjoy!';
-  static String metSettlePayerSub(String time) =>
-      'The fee releases to your host at $time';
-  static const String disputeCta = 'Report a problem';
-  static const String disputeConfirmTitle = 'Report a problem?';
-  static const String disputeConfirmBody =
-      'This freezes the payout until our team reviews the meet-up. Use it only if something went wrong.';
-  static const String disputeConfirmYes = 'Report';
-  static const String disputeConfirmNo = 'Back';
-  static const String disputedHeadline = 'Under review';
-  static const String disputedSub =
-      'A problem was reported. The payout is frozen while our team reviews it.';
-  static const String locationNeededHint =
-      'Location access is needed to confirm you met in person';
+  static const String orderDetailsCta = 'Details';
+  static const String orderFeeLabel = 'Service fee';
+  static const String orderPayoutLabel = 'Host payout';
+  static const String completeCta = 'Activity completed';
+  static const String completeConfirmTitle = 'Complete this activity?';
+  static const String completeConfirmBody =
+      'The service fee will be released to your host. Do this once the '
+      'activity has happened.';
+  static const String completeConfirmYes = 'Complete';
+  static const String completeConfirmNo = 'Back';
 
   // Gig hall (host-side work surface)
   static const String tabGigs = 'Requests';
@@ -494,6 +480,8 @@ abstract final class AppStrings {
   static const String planEditCta = 'Change';
   static const String planWaitingHost =
       'Waiting for the host to propose the plan';
+  static const String chatOpensWithPlanNote =
+      'Chat opens when the plan card is sent';
   static const String planAwaitingConfirm =
       'Waiting for confirmation from the poster';
   static const String planConfirmCta = 'Confirm plan';
@@ -522,12 +510,8 @@ abstract final class AppStrings {
       '$name paid the service fee. The plan is on!';
   static String notifyOrderCancelled(String name) =>
       '$name cancelled the plan';
-  static String notifyOrderMet(String name) =>
-      '$name confirmed you met. Payout timer started';
   static const String notifyOrderSettled =
       'Your earnings have been released to your wallet';
-  static String notifyOrderDisputed(String name) =>
-      '$name reported a problem with the meet-up';
   static const String timeJustNow = 'Just now';
   static String timeMinutesAgo(int m) => '${m}m ago';
   static String timeHoursAgo(int h) => '${h}h ago';

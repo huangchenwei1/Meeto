@@ -138,34 +138,14 @@ model Order {
   payer           User     @relation("payer", fields: [payerId], references: [id])
   earnerId        String // always the selected host
   earner          User     @relation("earner", fields: [earnerId], references: [id])
-  status          String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT | ACTIVE | MET | COMPLETED | CANCELLED | DISPUTED
+  status          String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED
   feeMinor        Int
   commissionMinor Int // round(feeMinor * rateBp / 10000), fixed at creation
   netMinor        Int // feeMinor - commissionMinor (exact sum guaranteed)
 
-  // Live location snapshots, shared only while the order is ACTIVE/MET so
-  // the parties can coordinate (distance display) and the meet check works.
-  payerLat        Float?
-  payerLng        Float?
-  payerLocatedAt  DateTime?
-  earnerLat       Float?
-  earnerLng       Float?
-  earnerLocatedAt DateTime?
-
-  // One-tap meet confirmation per side, with the GPS fix taken at tap time.
-  // When both exist and are within the colocation radius the order becomes
-  // MET and the settlement timer starts (lazy auto-settle after the delay).
-  payerMetAt      DateTime?
-  payerMetLat     Float?
-  payerMetLng     Float?
-  earnerMetAt     DateTime?
-  earnerMetLat    Float?
-  earnerMetLng    Float?
-  metAt           DateTime?
-
   // The concrete plan: the host proposes place + time after payment, the
-  // poster confirms. Confirmed values override the post's rough intent for
-  // display and the meet-up venue. Re-proposing clears the confirmation.
+  // poster confirms. Chat stays locked until the plan is proposed (the
+  // plan card opens the conversation). Re-proposing clears confirmation.
   planPlace       String    @default("")
   planLat         Float     @default(0)
   planLng         Float     @default(0)
@@ -173,9 +153,10 @@ model Order {
   planProposedAt  DateTime?
   planConfirmedAt DateTime?
 
-  // A dispute freezes auto-settlement for manual resolution.
-  disputedAt      DateTime?
-  disputedById    String    @default("")
+  // Settlement: the poster completes the activity single-sidedly, or the
+  // escrow auto-settles once the confirmed plan time plus the grace delay
+  // has passed (lazy, on reads).
+  completedAt     DateTime?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

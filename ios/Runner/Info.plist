@@ -4,8 +4,6 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Meeto shares your distance with your matched date and verifies you met in person.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Meeto needs photo access so you can set your profile picture and photos.</string>
 	<key>CFBundleDevelopmentRegion</key>

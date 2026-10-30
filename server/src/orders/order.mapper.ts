@@ -1,5 +1,4 @@
 import type { Message, Order, Post, User } from '@prisma/client';
-import { distanceKm, meetSettleDelayMs } from '../common/geo.util.js';
 import { OrderStatus } from '../common/enums.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 
@@ -22,15 +21,6 @@ export interface OrderDto {
   /// (ACTIVE and later), so the parties can coordinate directly.
   payerPhone: string;
   earnerPhone: string;
-  /// Distance between the latest location snapshots; null until both sides
-  /// have reported a location.
-  distanceKm: number | null;
-  /// Latest location snapshots, shared with both participants while the
-  /// date is being coordinated (map display); null until reported.
-  payerLat: number | null;
-  payerLng: number | null;
-  earnerLat: number | null;
-  earnerLng: number | null;
   /// Activity context so clients can present the order as a concrete plan
   /// (title · place · time) rather than a bare chat. Place and time are the
   /// EFFECTIVE values: set once the plan is confirmed, empty/zero/null
@@ -41,36 +31,26 @@ export interface OrderDto {
   placeLat: number;
   placeLng: number;
   /// The host's proposed plan awaiting / after the poster's confirmation.
+  /// Chat stays locked until the plan is proposed.
   planPlace: string;
   planLat: number;
   planLng: number;
   planAt: Date | null;
   planProposedAt: Date | null;
   planConfirmedAt: Date | null;
-  payerMetAt: Date | null;
-  earnerMetAt: Date | null;
-  metAt: Date | null;
-  /// When the escrow auto-settles (metAt + delay); null before MET.
-  settleAt: Date | null;
-  disputed: boolean;
+  /// Set when the escrow settled (poster completion or auto-settle).
+  completedAt: Date | null;
   createdAt: Date;
 }
 
 const PHONE_DISCLOSED_STATUSES: ReadonlySet<string> = new Set([
   OrderStatus.active,
-  OrderStatus.met,
   OrderStatus.completed,
-  OrderStatus.disputed,
 ]);
 
 export function toOrderDto(order: OrderWithParties): OrderDto {
   const disclosePhones = PHONE_DISCLOSED_STATUSES.has(order.status);
   const planConfirmed = order.planConfirmedAt !== null;
-  const hasBothLocations =
-    order.payerLat !== null &&
-    order.payerLng !== null &&
-    order.earnerLat !== null &&
-    order.earnerLng !== null;
   return {
     id: order.id,
     postId: order.postId,
@@ -82,18 +62,6 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     netMinor: order.netMinor,
     payerPhone: disclosePhones ? order.payer.phone : '',
     earnerPhone: disclosePhones ? order.earner.phone : '',
-    distanceKm: hasBothLocations
-      ? distanceKm(
-          order.payerLat!,
-          order.payerLng!,
-          order.earnerLat!,
-          order.earnerLng!,
-        )
-      : null,
-    payerLat: order.payerLat,
-    payerLng: order.payerLng,
-    earnerLat: order.earnerLat,
-    earnerLng: order.earnerLng,
     postTitle: order.post.title,
     scheduledAt: planConfirmed ? order.planAt : null,
     place: planConfirmed ? order.planPlace : '',
@@ -105,13 +73,7 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     planAt: order.planAt,
     planProposedAt: order.planProposedAt,
     planConfirmedAt: order.planConfirmedAt,
-    payerMetAt: order.payerMetAt,
-    earnerMetAt: order.earnerMetAt,
-    metAt: order.metAt,
-    settleAt: order.metAt
-      ? new Date(order.metAt.getTime() + meetSettleDelayMs())
-      : null,
-    disputed: order.disputedAt !== null,
+    completedAt: order.completedAt,
     createdAt: order.createdAt,
   };
 }

@@ -12,9 +12,7 @@ export const NotificationType = {
   selected: 'SELECTED',
   orderPaid: 'ORDER_PAID',
   orderCancelled: 'ORDER_CANCELLED',
-  orderMet: 'ORDER_MET',
   orderSettled: 'ORDER_SETTLED',
-  orderDisputed: 'ORDER_DISPUTED',
   planProposed: 'PLAN_PROPOSED',
   planConfirmed: 'PLAN_CONFIRMED',
   inviteReceived: 'INVITE_RECEIVED',
@@ -80,10 +78,8 @@ export type ApplicationStatus =
 export const OrderStatus = {
   awaitingPayment: 'AWAITING_PAYMENT',
   active: 'ACTIVE',
-  met: 'MET',
   completed: 'COMPLETED',
   cancelled: 'CANCELLED',
-  disputed: 'DISPUTED',
 } as const;
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 

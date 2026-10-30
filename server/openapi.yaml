@@ -83,11 +83,9 @@ components:
       enum: [AWAITING_PAYMENT, ACTIVE, COMPLETED, CANCELLED]
       description: |
         AWAITING_PAYMENT -> ACTIVE (payer escrows the fee)
-        ACTIVE -> COMPLETED (both parties confirm; settlement runs)
+        ACTIVE -> COMPLETED (poster completes, or the confirmed plan
+        auto-settles after the grace delay)
         AWAITING_PAYMENT|ACTIVE -> CANCELLED (full refund if escrowed)
-    PersonStage:
-      type: string
-      enum: [READY, EN_ROUTE, ARRIVED]
     WithdrawalStatus:
       type: string
       enum: [PENDING, PAID]
@@ -175,24 +173,42 @@ components:
       type: object
       required:
         [id, postId, payer, earner, status, feeMinor, commissionMinor,
-         netMinor, payerStage, earnerStage]
+         netMinor]
       properties:
         id: { type: string }
         postId: { type: string }
         payer:
           allOf: [{ $ref: '#/components/schemas/User' }]
-          description: Always the male side.
+          description: The poster; escrows the fee and completes the order.
         earner:
           allOf: [{ $ref: '#/components/schemas/User' }]
-          description: Always the female side; receives netMinor on settle.
+          description: The host; receives netMinor on settlement.
         status: { $ref: '#/components/schemas/OrderStatus' }
         feeMinor: { type: integer }
         commissionMinor: { type: integer }
         netMinor: { type: integer }
-        payerStage: { $ref: '#/components/schemas/PersonStage' }
-        earnerStage: { $ref: '#/components/schemas/PersonStage' }
-        payerCompleted: { type: boolean }
-        earnerCompleted: { type: boolean }
+        payerPhone:
+          type: string
+          description: Disclosed to participants once escrowed; '' before.
+        earnerPhone: { type: string }
+        postTitle: { type: string }
+        scheduledAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Effective time; null until the plan is confirmed.
+        place:
+          type: string
+          description: Effective place; '' until the plan is confirmed.
+        placeLat: { type: number }
+        placeLng: { type: number }
+        planPlace: { type: string }
+        planLat: { type: number }
+        planLng: { type: number }
+        planAt: { type: string, format: date-time, nullable: true }
+        planProposedAt: { type: string, format: date-time, nullable: true }
+        planConfirmedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
     WalletSummary:
       type: object
@@ -483,43 +499,65 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
         '409': { $ref: '#/components/responses/Error' }
-  /orders/{id}/depart:
+  /orders/{id}/plan:
     post:
       tags: [orders]
-      summary: Caller departs (READY -> EN_ROUTE)
+      summary: >
+        Host proposes (or re-proposes) the concrete plan: place + time.
+        ACTIVE orders only. The first proposal opens the order chat;
+        re-proposing clears a previous confirmation.
       parameters: [{ $ref: '#/components/parameters/id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [place, scheduledAt]
+              properties:
+                place: { type: string, maxLength: 160 }
+                placeLat: { type: number }
+                placeLng: { type: number }
+                scheduledAt: { type: string, format: date-time }
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Plan proposed; chat open, awaiting poster confirmation
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
-  /orders/{id}/arrive:
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /orders/{id}/plan/confirm:
     post:
       tags: [orders]
-      summary: Caller checks in (EN_ROUTE -> ARRIVED)
+      summary: Poster confirms the proposed plan (locks place + time)
       parameters: [{ $ref: '#/components/parameters/id' }]
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Plan confirmed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /orders/{id}/complete:
     post:
       tags: [orders]
       summary: >
-        Caller confirms completion (both must have arrived). When both
-        parties have confirmed, settlement runs atomically: escrow releases,
-        the earner's wallet receives netMinor, the platform books
-        commissionMinor.
+        Poster single-sidedly marks the activity as done (ACTIVE orders
+        only). Settlement runs atomically: escrow releases, the earner's
+        wallet receives netMinor, the platform books commissionMinor. A
+        confirmed plan also auto-settles AUTO_SETTLE_DELAY_MS after the
+        plan time as a fallback.
       parameters: [{ $ref: '#/components/parameters/id' }]
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Completed and settled
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /orders/{id}/cancel:
     post:
       tags: [orders]
@@ -537,7 +575,10 @@ paths:
   /orders/{id}/messages:
     post:
       tags: [orders]
-      summary: Send an order-scoped chat message (participants only)
+      summary: >
+        Send an order-scoped chat message (participants only). 409
+        PAYMENT_REQUIRED before escrow; 409 PLAN_REQUIRED until the host
+        has proposed the plan (the plan card opens the chat).
       parameters: [{ $ref: '#/components/parameters/id' }]
       requestBody:
         required: true

@@ -15,11 +15,6 @@ class LiveOrder {
     required this.netPesos,
     required this.payerPhone,
     required this.earnerPhone,
-    required this.distanceKm,
-    required this.payerLat,
-    required this.payerLng,
-    required this.earnerLat,
-    required this.earnerLng,
     required this.postTitle,
     required this.scheduledAt,
     required this.place,
@@ -31,11 +26,7 @@ class LiveOrder {
     required this.planAt,
     required this.planProposedAt,
     required this.planConfirmedAt,
-    required this.payerMetAt,
-    required this.earnerMetAt,
-    required this.metAt,
-    required this.settleAt,
-    required this.disputed,
+    required this.completedAt,
     required this.createdAt,
   });
 
@@ -53,11 +44,6 @@ class LiveOrder {
       netPesos: minorToPesos(json['netMinor'] as int),
       payerPhone: json['payerPhone'] as String? ?? '',
       earnerPhone: json['earnerPhone'] as String? ?? '',
-      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
-      payerLat: (json['payerLat'] as num?)?.toDouble(),
-      payerLng: (json['payerLng'] as num?)?.toDouble(),
-      earnerLat: (json['earnerLat'] as num?)?.toDouble(),
-      earnerLng: (json['earnerLng'] as num?)?.toDouble(),
       postTitle: json['postTitle'] as String? ?? '',
       scheduledAt: parseDate(json['scheduledAt']),
       place: json['place'] as String? ?? '',
@@ -69,11 +55,7 @@ class LiveOrder {
       planAt: parseDate(json['planAt']),
       planProposedAt: parseDate(json['planProposedAt']),
       planConfirmedAt: parseDate(json['planConfirmedAt']),
-      payerMetAt: parseDate(json['payerMetAt']),
-      earnerMetAt: parseDate(json['earnerMetAt']),
-      metAt: parseDate(json['metAt']),
-      settleAt: parseDate(json['settleAt']),
-      disputed: json['disputed'] as bool? ?? false,
+      completedAt: parseDate(json['completedAt']),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -83,7 +65,7 @@ class LiveOrder {
   final PostAuthor payer;
   final PostAuthor earner;
 
-  /// AWAITING_PAYMENT | ACTIVE | MET | COMPLETED | CANCELLED | DISPUTED
+  /// AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED
   final String status;
   final int feePesos;
   final int commissionPesos;
@@ -93,31 +75,20 @@ class LiveOrder {
   final String payerPhone;
   final String earnerPhone;
 
-  /// Distance between the parties' latest location fixes; null until both
-  /// sides have reported one.
-  final double? distanceKm;
-
-  /// Latest location fixes, shared with both parties for the map readout.
-  final double? payerLat;
-  final double? payerLng;
-  final double? earnerLat;
-  final double? earnerLng;
-
-  /// Date context from the post: scene title and scheduled time, so the
-  /// order can be presented as a concrete date rather than a bare chat.
+  /// Date context from the post so the order can be presented as a
+  /// concrete activity rather than a bare chat.
   final String postTitle;
-  final DateTime? scheduledAt;
 
-  /// EFFECTIVE venue and time: the confirmed plan overrides the post's
-  /// rough intent server-side (zeros/empty mean nothing structured yet).
+  /// EFFECTIVE venue and time: set once the plan is confirmed
+  /// (zeros/empty/null mean nothing structured yet).
+  final DateTime? scheduledAt;
   final String place;
   final double placeLat;
   final double placeLng;
 
-  bool get hasVenueLocation => placeLat != 0 || placeLng != 0;
-
-  /// The host's proposed plan (empty/null until proposed). Confirmed when
-  /// [planConfirmedAt] is set; re-proposing clears the confirmation.
+  /// The host's proposed plan (empty/null until proposed). The first
+  /// proposal opens the chat; confirmed when [planConfirmedAt] is set;
+  /// re-proposing clears the confirmation.
   final String planPlace;
   final double planLat;
   final double planLng;
@@ -128,13 +99,8 @@ class LiveOrder {
   bool get planProposed => planProposedAt != null;
   bool get planConfirmed => planConfirmedAt != null;
 
-  final DateTime? payerMetAt;
-  final DateTime? earnerMetAt;
-  final DateTime? metAt;
-
-  /// When the escrow auto-settles to the earner (metAt + platform delay).
-  final DateTime? settleAt;
-  final bool disputed;
+  /// Set when the escrow settled (poster completion or auto-settle).
+  final DateTime? completedAt;
   final DateTime createdAt;
 
   bool isPayer(String userId) => payer.id == userId;
@@ -143,12 +109,6 @@ class LiveOrder {
 
   String peerPhoneOf(String userId) =>
       isPayer(userId) ? earnerPhone : payerPhone;
-
-  bool metConfirmedBy(String userId) =>
-      (isPayer(userId) ? payerMetAt : earnerMetAt) != null;
-
-  bool metConfirmedByPeer(String userId) =>
-      (isPayer(userId) ? earnerMetAt : payerMetAt) != null;
 
   static PostAuthor _party(Map<String, dynamic> json) {
     return PostAuthor(

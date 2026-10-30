@@ -102,12 +102,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return AppStrings.notifyOrderPaid(item.actorName);
       case 'ORDER_CANCELLED':
         return AppStrings.notifyOrderCancelled(item.actorName);
-      case 'ORDER_MET':
-        return AppStrings.notifyOrderMet(item.actorName);
       case 'ORDER_SETTLED':
         return AppStrings.notifyOrderSettled;
-      case 'ORDER_DISPUTED':
-        return AppStrings.notifyOrderDisputed(item.actorName);
       case 'PLAN_PROPOSED':
         return AppStrings.notifyPlanProposed(item.actorName);
       case 'PLAN_CONFIRMED':

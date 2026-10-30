@@ -16,7 +16,7 @@ void main() {
   });
 
   group('MockOrdersRepository state machine', () {
-    test('pay -> plan -> meet -> settle mirrors the server flow', () async {
+    test('pay -> plan -> complete mirrors the server flow', () async {
       final MockOrdersRepository repository = MockOrdersRepository();
 
       // Seeded demo orders: one in progress, one completed.
@@ -47,36 +47,31 @@ void main() {
       expect(updated.planConfirmed, isTrue);
       expect(updated.place, 'Greenbelt Cinema');
 
-      // Meet: I confirm, the simulated peer follows, escrow starts settling.
-      updated = await repository.confirmMeet(active.id, lat: 14.55, lng: 121);
-      expect(updated.metConfirmedBy('user-100'), isTrue);
-      await Future<void>.delayed(const Duration(milliseconds: 1700));
-      updated = await repository.getOrder(active.id);
-      expect(updated.status, 'MET');
-      expect(updated.metAt, isNotNull);
-      expect(updated.settleAt, isNotNull);
-
       // Messages persist per order.
       await repository.sendMessage(active.id, 'See you there!');
       final List<OrderMessage> messages =
           await repository.listMessages(active.id);
       expect(messages.last.text, 'See you there!');
       expect(messages.last.senderId, 'user-100');
+
+      // The poster completes single-sidedly; the escrow settles.
+      updated = await repository.complete(active.id);
+      expect(updated.status, 'COMPLETED');
+      expect(updated.completedAt, isNotNull);
     });
 
-    test('cancel and dispute are terminal side exits', () async {
+    test('cancel is a terminal side exit; seeds carry completedAt', () async {
       final MockOrdersRepository repository = MockOrdersRepository();
       final List<LiveOrder> orders = await repository.listMine();
       final LiveOrder active =
           orders.firstWhere((LiveOrder o) => o.status == 'ACTIVE');
 
-      final LiveOrder disputed = await repository.dispute(active.id);
-      expect(disputed.status, 'DISPUTED');
-      expect(disputed.disputed, isTrue);
+      final LiveOrder cancelled = await repository.cancel(active.id);
+      expect(cancelled.status, 'CANCELLED');
 
       final LiveOrder completed =
           orders.firstWhere((LiveOrder o) => o.status == 'COMPLETED');
-      expect(completed.settleAt, isNotNull);
+      expect(completed.completedAt, isNotNull);
     });
   });
 }

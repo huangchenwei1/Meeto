@@ -29,18 +29,6 @@ class SendMessageDto {
   text!: string;
 }
 
-class LocationDto {
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  lat!: number;
-
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  lng!: number;
-}
-
 class PlanDto {
   @IsString()
   @IsNotEmpty()
@@ -86,24 +74,6 @@ export class OrdersController {
     return this.ordersService.pay(user, id);
   }
 
-  @Post(':id/location')
-  updateLocation(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-    @Body() dto: LocationDto,
-  ): Promise<OrderDto> {
-    return this.ordersService.updateLocation(user, id, dto.lat, dto.lng);
-  }
-
-  @Post(':id/meet')
-  confirmMeet(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-    @Body() dto: LocationDto,
-  ): Promise<OrderDto> {
-    return this.ordersService.confirmMeet(user, id, dto.lat, dto.lng);
-  }
-
   @Post(':id/plan')
   proposePlan(
     @CurrentUser() user: User,
@@ -121,12 +91,12 @@ export class OrdersController {
     return this.ordersService.confirmPlan(user, id);
   }
 
-  @Post(':id/dispute')
-  dispute(
+  @Post(':id/complete')
+  complete(
     @CurrentUser() user: User,
     @Param('id') id: string,
   ): Promise<OrderDto> {
-    return this.ordersService.dispute(user, id);
+    return this.ordersService.complete(user, id);
   }
 
   @Post(':id/cancel')

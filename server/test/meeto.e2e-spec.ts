@@ -665,6 +665,15 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(201);
       expect(res.body.status).toBe('ACTIVE');
+
+      // Paid but no plan yet: chat stays locked until the host delivers
+      // the plan card.
+      const locked = await api()
+        .post(`/orders/${orderId}/messages`)
+        .set('X-User-Id', ANDREA)
+        .send({ text: 'hi before the plan' })
+        .expect(409);
+      expect(locked.body.message).toBe('PLAN_REQUIRED');
       // Double payment rejected.
       await api()
         .post(`/orders/${orderId}/payment`)
@@ -790,73 +799,38 @@ describe('Meeto API (e2e)', () => {
       expect(afterRes.body[0].text).toBe('Looking forward to it');
     });
 
-    it('phones are disclosed after escrow; locations drive the distance readout', async () => {
+    it('phones are disclosed to the participants after escrow', async () => {
       const order = await api()
         .get(`/orders/${orderId}`)
         .set('X-User-Id', JAMES)
         .expect(200);
       expect(order.body.payerPhone).toMatch(/^\+63/);
       expect(order.body.earnerPhone).toMatch(/^\+63/);
-      expect(order.body.distanceKm).toBeNull();
-
-      // Makati CBD, roughly 1.3 km apart.
-      await api()
-        .post(`/orders/${orderId}/location`)
-        .set('X-User-Id', JAMES)
-        .send({ lat: 14.5547, lng: 121.0244 })
-        .expect(201);
-      const located = await api()
-        .post(`/orders/${orderId}/location`)
-        .set('X-User-Id', ANDREA)
-        .send({ lat: 14.5657, lng: 121.0288 })
-        .expect(201);
-      expect(located.body.distanceKm).toBeGreaterThan(1);
-      expect(located.body.distanceKm).toBeLessThan(2);
     });
 
-    it('one-tap meet confirmation requires GPS colocation', async () => {
-      // James confirms from across the city first.
-      const far = await api()
-        .post(`/orders/${orderId}/meet`)
+    it('the poster single-sidedly completes; the escrow settles', async () => {
+      // Only the poster can complete, not the host.
+      await api()
+        .post(`/orders/${orderId}/complete`)
         .set('X-User-Id', JAMES)
-        .send({ lat: 14.7, lng: 121.1 })
-        .expect(201);
-      expect(far.body.status).toBe('ACTIVE');
-      expect(far.body.earnerMetAt).not.toBeNull();
+        .expect(403);
 
-      // Andrea confirms at the cafe; fixes are too far apart -> rejected.
-      const rejected = await api()
-        .post(`/orders/${orderId}/meet`)
+      const done = await api()
+        .post(`/orders/${orderId}/complete`)
         .set('X-User-Id', ANDREA)
-        .send({ lat: 14.5547, lng: 121.0244 })
-        .expect(409);
-      expect(rejected.body.message).toBe('NOT_TOGETHER');
-
-      // James re-taps once actually at the cafe (~15 m away) -> MET.
-      const met = await api()
-        .post(`/orders/${orderId}/meet`)
-        .set('X-User-Id', JAMES)
-        .send({ lat: 14.5548, lng: 121.0245 })
         .expect(201);
-      expect(met.body.status).toBe('MET');
-      expect(met.body.metAt).not.toBeNull();
-      expect(met.body.settleAt).not.toBeNull();
+      expect(done.body.status).toBe('COMPLETED');
+      expect(done.body.completedAt).not.toBeNull();
 
-      // A met order can no longer be cancelled; money is protected.
+      // A completed order can no longer be cancelled or re-completed.
       await api()
         .post(`/orders/${orderId}/cancel`)
         .set('X-User-Id', JAMES)
         .expect(409);
-    });
-
-    it('auto-settles on the next read once the delay elapsed', async () => {
-      process.env.MEET_SETTLE_DELAY_MS = '0';
-      const order = await api()
-        .get(`/orders/${orderId}`)
+      await api()
+        .post(`/orders/${orderId}/complete`)
         .set('X-User-Id', ANDREA)
-        .expect(200);
-      process.env.MEET_SETTLE_DELAY_MS = '3600000';
-      expect(order.body.status).toBe('COMPLETED');
+        .expect(409);
 
       // Balanced books: escrow emptied, earner paid net, platform booked
       // the commission.
@@ -969,14 +943,14 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('dispute: freezes auto-settlement', () => {
+  describe('auto-settle fallback: the host always gets paid', () => {
     let orderId: string;
 
-    it('met order can be disputed by a participant', async () => {
+    it('a paid order with a confirmed plan in the past settles on read', async () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Dinner', title: 'Dispute flow' })
+        .send({ sceneTag: 'Dinner', title: 'Auto-settle flow' })
         .expect(201);
       await api()
         .post(`/posts/${post.body.id}/applications`)
@@ -997,46 +971,42 @@ describe('Meeto API (e2e)', () => {
         .post(`/orders/${orderId}/payment`)
         .set('X-User-Id', MIGUEL)
         .expect(201);
-
-      // Dispute requires MET.
       await api()
-        .post(`/orders/${orderId}/dispute`)
-        .set('X-User-Id', MIGUEL)
-        .expect(409);
-
-      await api()
-        .post(`/orders/${orderId}/meet`)
-        .set('X-User-Id', MIGUEL)
-        .send({ lat: 14.55, lng: 121.02 })
-        .expect(201);
-      await api()
-        .post(`/orders/${orderId}/meet`)
+        .post(`/orders/${orderId}/plan`)
         .set('X-User-Id', KAT)
-        .send({ lat: 14.5501, lng: 121.0201 })
+        .send({
+          place: 'Toyo Eatery, Makati',
+          scheduledAt: '2026-01-10T19:00:00.000Z',
+        })
         .expect(201);
 
-      const disputed = await api()
-        .post(`/orders/${orderId}/dispute`)
-        .set('X-User-Id', MIGUEL)
-        .expect(201);
-      expect(disputed.body.status).toBe('DISPUTED');
-    });
-
-    it('a disputed order never auto-settles', async () => {
-      process.env.MEET_SETTLE_DELAY_MS = '0';
-      const order = await api()
+      // An unconfirmed plan never auto-settles, however old it is.
+      process.env.AUTO_SETTLE_DELAY_MS = '0';
+      const unconfirmed = await api()
         .get(`/orders/${orderId}`)
         .set('X-User-Id', KAT)
         .expect(200);
-      process.env.MEET_SETTLE_DELAY_MS = '3600000';
-      expect(order.body.status).toBe('DISPUTED');
+      expect(unconfirmed.body.status).toBe('ACTIVE');
 
-      // Escrow still holds the fee; nothing was paid out.
+      // Confirmed plan time + grace delay elapsed -> settles lazily.
+      await api()
+        .post(`/orders/${orderId}/plan/confirm`)
+        .set('X-User-Id', MIGUEL)
+        .expect(201);
+      const settled = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', KAT)
+        .expect(200);
+      delete process.env.AUTO_SETTLE_DELAY_MS;
+      expect(settled.body.status).toBe('COMPLETED');
+      expect(settled.body.completedAt).not.toBeNull();
+
+      // Escrow emptied into net payout + commission for this order too.
       const escrow = await prisma.ledgerEntry.aggregate({
         where: { account: 'PLATFORM_ESCROW', orderId },
         _sum: { amountMinor: true },
       });
-      expect(escrow._sum.amountMinor).toBe(100000);
+      expect(escrow._sum.amountMinor).toBe(0);
     });
   });
 

@@ -2,9 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
@@ -17,7 +14,17 @@ import 'payment_page.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/pages/verification_page.dart';
 
-/// Order room: server-authoritative date status plus order-scoped chat.
+/// Order room. The flow mirrors the server state machine:
+///
+/// 1. AWAITING_PAYMENT — the poster escrows the fee; no contact channel.
+/// 2. ACTIVE, no plan yet — the planning phase: the host builds the plan
+///    alone; there is NO chat until the plan card is sent.
+/// 3. Plan proposed — the plan card opens the conversation (it renders as
+///    the first element of the chat); the poster confirms the plan. A slim
+///    info strip carries place / time / fee, expandable for phone and the
+///    fee breakdown.
+/// 4. The poster taps "Activity completed" to release the escrow (a
+///    confirmed plan also auto-settles server-side after a grace delay).
 ///
 /// Both parties act from their own devices; peer-side changes arrive via
 /// short polling (a push/IM channel later replaces the polling without
@@ -45,9 +52,9 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
   final ScrollController _scrollController = ScrollController();
   Timer? _pollTimer;
   bool _busy = false;
+  bool _detailsExpanded = false;
 
   String get _myId => AuthSession.currentUserId;
-  int _pollTick = 0;
 
   @override
   void initState() {
@@ -57,48 +64,37 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
   }
 
-  /// Best-effort GPS fix; returns null when permission is denied or the
-  /// fix fails (callers decide whether that blocks the action).
-  Future<Position?> _getPosition() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      return await Geolocator.getCurrentPosition();
-    } on Exception {
-      return null;
-    }
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  /// Shares the caller's location while coordination matters (ACTIVE/MET),
-  /// roughly every 4th poll tick (~12s).
-  Future<void> _shareLocationIfDue() async {
-    final LiveOrder? order = _order;
-    if (order == null ||
-        (order.status != 'ACTIVE' && order.status != 'MET') ||
-        _pollTick % 4 != 1) {
-      return;
-    }
-    final Position? position = await _getPosition();
-    if (position == null) {
-      return;
-    }
+  Future<void> _poll() async {
     try {
-      final LiveOrder updated = await widget.repository.updateLocation(
-        widget.orderId,
-        lat: position.latitude,
-        lng: position.longitude,
-      );
-      if (mounted) {
-        setState(() => _order = updated);
+      final LiveOrder order = await widget.repository.getOrder(widget.orderId);
+      final List<OrderMessage> fresh = order.planProposed
+          ? await widget.repository.listMessages(
+              widget.orderId,
+              afterId: _messages.isEmpty ? null : _messages.last.id,
+            )
+          : const <OrderMessage>[];
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _order = order;
+        if (fresh.isNotEmpty) {
+          _messages.addAll(fresh);
+        }
+      });
+      if (fresh.isNotEmpty) {
+        _scrollToBottom();
       }
     } on Exception {
-      // Best effort; the next due tick retries.
+      // Transient network/poll failure; the next tick retries.
     }
   }
 
@@ -270,37 +266,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
 
   String _formatPlanTime(DateTime at) => _formatPlanDateTime(context, at);
 
-  Future<void> _confirmMeet() async {
-    setState(() => _busy = true);
-    try {
-      final Position? position = await _getPosition();
-      if (position == null) {
-        _showError(AppStrings.locationNeededHint);
-        return;
-      }
-      final LiveOrder order = await widget.repository.confirmMeet(
-        widget.orderId,
-        lat: position.latitude,
-        lng: position.longitude,
-      );
-      if (mounted) {
-        setState(() => _order = order);
-      }
-    } on ApiException catch (e) {
-      if (e.message.contains('NOT_TOGETHER')) {
-        _showError(AppStrings.notTogetherHint);
-      } else {
-        _showError(e.message);
-      }
-    } on Exception {
-      _showError('Network error, try again');
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
   Future<void> _openPayment() async {
     final LiveOrder? current = _order;
     if (current == null) {
@@ -319,63 +284,27 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     }
   }
 
-  Future<void> _confirmDispute() async {
+  /// Poster-only: marks the activity done and releases the escrow.
+  Future<void> _confirmComplete() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text(AppStrings.disputeConfirmTitle),
-        content: const Text(AppStrings.disputeConfirmBody),
+        title: const Text(AppStrings.completeConfirmTitle),
+        content: const Text(AppStrings.completeConfirmBody),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(AppStrings.disputeConfirmNo),
+            child: const Text(AppStrings.completeConfirmNo),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              AppStrings.disputeConfirmYes,
-              style: TextStyle(color: Colors.redAccent),
-            ),
+            child: const Text(AppStrings.completeConfirmYes),
           ),
         ],
       ),
     );
     if (confirmed ?? false) {
-      await _runAction(widget.repository.dispute);
-    }
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _inputController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _poll() async {
-    _pollTick += 1;
-    unawaited(_shareLocationIfDue());
-    try {
-      final LiveOrder order = await widget.repository.getOrder(widget.orderId);
-      final List<OrderMessage> fresh = await widget.repository.listMessages(
-        widget.orderId,
-        afterId: _messages.isEmpty ? null : _messages.last.id,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _order = order;
-        if (fresh.isNotEmpty) {
-          _messages.addAll(fresh);
-        }
-      });
-      if (fresh.isNotEmpty) {
-        _scrollToBottom();
-      }
-    } on Exception {
-      // Transient network/poll failure; the next tick retries.
+      await _runAction(widget.repository.complete);
     }
   }
 
@@ -435,14 +364,11 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     });
   }
 
-  bool _showMap(LiveOrder order) {
-    final bool coordinating =
-        order.status == 'ACTIVE' || order.status == 'MET';
-    final bool hasAnyLocation =
-        (order.payerLat != null && order.payerLng != null) ||
-        (order.earnerLat != null && order.earnerLng != null) ||
-        order.hasVenueLocation;
-    return coordinating && hasAnyLocation;
+  void _copyPhone(String phone) {
+    Clipboard.setData(ClipboardData(text: phone));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.phoneCopied)),
+    );
   }
 
   void _showError(String message) {
@@ -486,100 +412,261 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
           ],
         ),
       ),
-      body: Column(
-        children: <Widget>[
-          _StatusCard(
-            order: order,
-            myId: _myId,
-            busy: _busy,
-            onPay: _openPayment,
-            onConfirmMeet: _confirmMeet,
-            onDispute: _confirmDispute,
-            onCopyPhone: (String phone) {
-              Clipboard.setData(ClipboardData(text: phone));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text(AppStrings.phoneCopied)),
+      body: _body(order),
+    );
+  }
+
+  Widget _body(LiveOrder order) {
+    switch (order.status) {
+      case 'AWAITING_PAYMENT':
+        return _paymentPhase(order);
+      case 'CANCELLED':
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text(
+              AppStrings.cancelledNote,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            ),
+          ),
+        );
+      default:
+        return order.planProposed ? _chatPhase(order) : _planningPhase(order);
+    }
+  }
+
+  /// AWAITING_PAYMENT: the poster escrows; no contact channel exists yet.
+  Widget _paymentPhase(LiveOrder order) {
+    final bool iAmPayer = order.isPayer(_myId);
+    return Column(
+      children: <Widget>[
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                AppStrings.statusAwaitingPayment,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                iAmPayer
+                    ? AppStrings.tipPayNote
+                    : AppStrings.waitingForPayment,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              if (iAmPayer) ...<Widget>[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.darkCard,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _busy ? null : _openPayment,
+                    child: Text(
+                      AppStrings.payCta('\u20b1${order.feePesos}'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Expanded(
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(Icons.lock_outline, size: 15, color: AppColors.textHint),
+                SizedBox(width: 6),
+                Text(
+                  AppStrings.chatLockedNote,
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// ACTIVE before any plan: the host builds the plan alone; no chat.
+  Widget _planningPhase(LiveOrder order) {
+    final bool iAmHost = !order.isPayer(_myId);
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(
+                    Icons.edit_calendar_outlined,
+                    size: 44,
+                    color: AppColors.textHint,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    order.postTitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    iAmHost
+                        ? AppStrings.planHostPrompt
+                        : AppStrings.planWaitingHost,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  if (iAmHost) ...<Widget>[
+                    const SizedBox(height: 18),
+                    FilledButton(
+                      key: const ValueKey<String>('planProposeButton'),
+                      onPressed: _busy ? null : _proposePlan,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.darkCard,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 26,
+                          vertical: 13,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Text(AppStrings.planProposeCta),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(Icons.lock_outline, size: 15, color: AppColors.textHint),
+                SizedBox(width: 6),
+                Text(
+                  AppStrings.chatOpensWithPlanNote,
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Plan proposed: the chat is open, the plan card leads the conversation.
+  Widget _chatPhase(LiveOrder order) {
+    final bool chatOpen = order.status == 'ACTIVE';
+    return Column(
+      children: <Widget>[
+        _InfoStrip(
+          order: order,
+          myId: _myId,
+          busy: _busy,
+          expanded: _detailsExpanded,
+          onToggle: () =>
+              setState(() => _detailsExpanded = !_detailsExpanded),
+          onCopyPhone: _copyPhone,
+          onComplete: _confirmComplete,
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(16),
+            itemCount: _messages.length + 1,
+            itemBuilder: (BuildContext context, int index) {
+              if (index == 0) {
+                return _PlanCard(
+                  order: order,
+                  myId: _myId,
+                  busy: _busy,
+                  onPropose: _proposePlan,
+                  onConfirm: _confirmPlan,
+                );
+              }
+              final OrderMessage message = _messages[index - 1];
+              return _MessageBubble(
+                text: message.text,
+                isMine: message.senderId == _myId,
               );
             },
           ),
-          if (order.status == 'ACTIVE' ||
-              order.status == 'MET' ||
-              order.status == 'COMPLETED')
-            _PlanCard(
-              order: order,
-              myId: _myId,
-              busy: _busy,
-              onPropose: _proposePlan,
-              onConfirm: _confirmPlan,
-            ),
-          if (_showMap(order))
-            _OrderMap(order: order, myId: _myId),
-          const Divider(),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (BuildContext context, int index) {
-                final OrderMessage message = _messages[index];
-                return _MessageBubble(
-                  text: message.text,
-                  isMine: message.senderId == _myId,
-                );
-              },
-            ),
-          ),
+        ),
+        if (chatOpen || order.status == 'COMPLETED')
           SafeArea(
             top: false,
-            child: order.status == 'AWAITING_PAYMENT'
-                // The paywall: no contact channel before the fee is escrowed
-                // (the server enforces the same rule).
-                ? const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 10, 16, 14),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Icon(Icons.lock_outline,
-                            size: 15, color: AppColors.textHint),
-                        SizedBox(width: 6),
-                        Text(
-                          AppStrings.chatLockedNote,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: TextField(
-                            controller: _inputController,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _send(),
-                            decoration: const InputDecoration(
-                              hintText: AppStrings.messageInputHint,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        IconButton.filled(
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.darkCard,
-                          ),
-                          onPressed: _send,
-                          icon: const Icon(Icons.send_rounded, size: 20),
-                        ),
-                      ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _inputController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: const InputDecoration(
+                        hintText: AppStrings.messageInputHint,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  IconButton.filled(
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.darkCard,
+                    ),
+                    onPressed: _send,
+                    icon: const Icon(Icons.send_rounded, size: 20),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -591,8 +678,203 @@ String _formatPlanDateTime(BuildContext context, DateTime at) {
       '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }
 
-/// The concrete plan: the host proposes place + time, the poster confirms.
-/// Shown while the order is active (and read-only afterwards).
+/// Slim header: place · time · fee in one line, expandable to lightweight
+/// details (peer phone, fee breakdown, and the poster's complete action).
+class _InfoStrip extends StatelessWidget {
+  const _InfoStrip({
+    required this.order,
+    required this.myId,
+    required this.busy,
+    required this.expanded,
+    required this.onToggle,
+    required this.onCopyPhone,
+    required this.onComplete,
+  });
+
+  final LiveOrder order;
+  final String myId;
+  final bool busy;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onCopyPhone;
+  final VoidCallback onComplete;
+
+  bool get _iAmPayer => order.isPayer(myId);
+
+  String _summaryLine(BuildContext context) {
+    final List<String> parts = <String>[
+      if (order.planPlace.isNotEmpty) order.planPlace,
+      if (order.planAt != null) _formatPlanDateTime(context, order.planAt!),
+      '\u20b1${order.feePesos}',
+    ];
+    return parts.join('  \u00b7  ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          InkWell(
+            key: const ValueKey<String>('orderDetailsToggle'),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    order.status == 'COMPLETED'
+                        ? Icons.check_circle_outline
+                        : Icons.event_outlined,
+                    size: 16,
+                    color: order.status == 'COMPLETED'
+                        ? AppColors.accent
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      order.status == 'COMPLETED'
+                          ? (_iAmPayer
+                              ? AppStrings.settledPayerNote(
+                                  '\u20b1${order.feePesos}')
+                              : AppStrings.settledEarnerNote(
+                                  '\u20b1${order.netPesos}'))
+                          : _summaryLine(context),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppColors.textHint,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded) _details(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _details(BuildContext context) {
+    final String phone = order.peerPhoneOf(myId);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _detailRow(
+            AppStrings.orderFeeLabel,
+            '\u20b1${order.feePesos}',
+          ),
+          _detailRow(
+            AppStrings.orderPayoutLabel,
+            '\u20b1${order.netPesos}',
+          ),
+          if (phone.isNotEmpty)
+            InkWell(
+              key: const ValueKey<String>('peerPhoneRow'),
+              onTap: () => onCopyPhone(phone),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: <Widget>[
+                    const SizedBox(
+                      width: 110,
+                      child: Text(
+                        AppStrings.peerPhoneLabel,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      phone,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.copy_rounded,
+                      size: 13,
+                      color: AppColors.textHint,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (_iAmPayer && order.status == 'ACTIVE') ...<Widget>[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const ValueKey<String>('completeButton'),
+                onPressed: busy ? null : onComplete,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.darkCard,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Text(AppStrings.completeCta),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The plan card: the first element of the conversation. The host edits,
+/// the poster confirms; read-only once the order completes.
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.order,
@@ -616,7 +898,7 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.border),
@@ -661,468 +943,74 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          if (!order.planProposed)
-            _buildEmptyState()
-          else
-            _buildPlanBody(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    if (_iAmHost && _editable) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            AppStrings.planHostPrompt,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            key: const ValueKey<String>('planProposeButton'),
-            onPressed: busy ? null : onPropose,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              foregroundColor: AppColors.onDarkPrimary,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            child: const Text(AppStrings.planProposeCta),
-          ),
-        ],
-      );
-    }
-    return const Text(
-      AppStrings.planWaitingHost,
-      style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
-    );
-  }
-
-  Widget _buildPlanBody(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          order.planPlace,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        if (order.planAt != null) ...<Widget>[
-          const SizedBox(height: 3),
           Text(
-            _formatPlanDateTime(context, order.planAt!),
+            order.planPlace,
             style: const TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-        if (_editable && !order.planConfirmed) ...<Widget>[
-          const SizedBox(height: 10),
-          if (_iAmHost)
-            Row(
-              children: <Widget>[
-                const Expanded(
-                  child: Text(
-                    AppStrings.planAwaitingConfirm,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textHint,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  key: const ValueKey<String>('planEditButton'),
-                  onPressed: busy ? null : onPropose,
-                  child: const Text(AppStrings.planEditCta),
-                ),
-              ],
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                key: const ValueKey<String>('planConfirmButton'),
-                onPressed: busy ? null : onConfirm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.textPrimary,
-                  foregroundColor: AppColors.onDarkPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                child: const Text(AppStrings.planConfirmCta),
-              ),
-            ),
-        ] else if (_editable && order.planConfirmed && _iAmHost) ...<Widget>[
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              key: const ValueKey<String>('planEditButton'),
-              onPressed: busy ? null : onPropose,
-              child: const Text(AppStrings.planEditCta),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({
-    required this.order,
-    required this.myId,
-    required this.busy,
-    required this.onPay,
-    required this.onConfirmMeet,
-    required this.onDispute,
-    required this.onCopyPhone,
-  });
-
-  final LiveOrder order;
-  final String myId;
-  final bool busy;
-  final VoidCallback onPay;
-  final VoidCallback onConfirmMeet;
-  final VoidCallback onDispute;
-  final ValueChanged<String> onCopyPhone;
-
-  bool get _iAmPayer => order.isPayer(myId);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            _headline(),
-            style: const TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            _subline(),
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          if (_showContactRow()) _contactRow(),
-          ..._actions(),
-        ],
-      ),
-    );
-  }
-
-  String _headline() {
-    switch (order.status) {
-      case 'AWAITING_PAYMENT':
-        return AppStrings.statusAwaitingPayment;
-      case 'ACTIVE':
-        return AppStrings.escrowHeldNote('\u20b1${order.feePesos}');
-      case 'MET':
-        return AppStrings.metHeadline;
-      case 'DISPUTED':
-        return AppStrings.disputedHeadline;
-      case 'COMPLETED':
-        return _iAmPayer
-            ? AppStrings.settledPayerNote('\u20b1${order.feePesos}')
-            : AppStrings.settledEarnerNote('\u20b1${order.netPesos}');
-      default:
-        return AppStrings.cancelledNote;
-    }
-  }
-
-  String _subline() {
-    switch (order.status) {
-      case 'AWAITING_PAYMENT':
-        return _iAmPayer
-            ? AppStrings.tipPayNote
-            : AppStrings.waitingForPayment;
-      case 'ACTIVE':
-        final double? km = order.distanceKm;
-        return km == null
-            ? AppStrings.distanceWaiting
-            : AppStrings.distanceApart(km.toStringAsFixed(1));
-      case 'MET':
-        final String time = _settleTimeLabel();
-        return _iAmPayer
-            ? AppStrings.metSettlePayerSub(time)
-            : AppStrings.metSettleEarnerSub(time, '\u20b1${order.netPesos}');
-      case 'DISPUTED':
-        return AppStrings.disputedSub;
-      default:
-        return AppStrings.escrowSub;
-    }
-  }
-
-  String _settleTimeLabel() {
-    final DateTime? settleAt = order.settleAt;
-    if (settleAt == null) {
-      return '';
-    }
-    final DateTime local = settleAt.toLocal();
-    final String hh = local.hour.toString().padLeft(2, '0');
-    final String mm = local.minute.toString().padLeft(2, '0');
-    return '$hh:$mm';
-  }
-
-  bool _showContactRow() {
-    final String phone = order.peerPhoneOf(myId);
-    return phone.isNotEmpty &&
-        (order.status == 'ACTIVE' || order.status == 'MET');
-  }
-
-  Widget _contactRow() {
-    final String phone = order.peerPhoneOf(myId);
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: InkWell(
-        key: const ValueKey<String>('peerPhoneRow'),
-        onTap: () => onCopyPhone(phone),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: <Widget>[
-              const Icon(Icons.call_outlined,
-                  size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                '${AppStrings.peerPhoneLabel} $phone',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              const Icon(Icons.copy_rounded,
-                  size: 15, color: AppColors.textHint),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _actions() {
-    final List<Widget> actions = <Widget>[];
-    final Widget? primary = _primaryAction();
-    if (primary != null) {
-      actions
-        ..add(const SizedBox(height: 12))
-        ..add(primary);
-    }
-    if (order.status == 'ACTIVE' && order.metConfirmedBy(myId)) {
-      actions
-        ..add(const SizedBox(height: 8))
-        ..add(
-          const Text(
-            AppStrings.meetWaitingPeer,
-            style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
-          ),
-        );
-    }
-    // Cancellation is intentionally not exposed in the client for now; the
-    // cancellation policy is still being designed. The server endpoint stays
-    // available for internal cleanup.
-    if (order.status == 'MET') {
-      actions
-        ..add(const SizedBox(height: 4))
-        ..add(
-          Center(
-            child: TextButton(
-              key: const ValueKey<String>('disputeButton'),
-              onPressed: busy ? null : onDispute,
-              child: const Text(
-                AppStrings.disputeCta,
-                style: TextStyle(color: Colors.redAccent, fontSize: 13),
+          if (order.planAt != null) ...<Widget>[
+            const SizedBox(height: 3),
+            Text(
+              _formatPlanDateTime(context, order.planAt!),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
               ),
             ),
-          ),
-        );
-    }
-    return actions;
-  }
-
-  Widget? _primaryAction() {
-    final (String, VoidCallback)? spec = _primarySpec();
-    if (spec == null) {
-      return null;
-    }
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.darkCard,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: busy ? null : spec.$2,
-        child: Text(
-          spec.$1,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-
-  (String, VoidCallback)? _primarySpec() {
-    if (order.status == 'AWAITING_PAYMENT' && _iAmPayer) {
-      return (AppStrings.payCta('\u20b1${order.feePesos}'), onPay);
-    }
-    if (order.status == 'ACTIVE' && !order.metConfirmedBy(myId)) {
-      return (AppStrings.confirmMeetCta, onConfirmMeet);
-    }
-    return null;
-  }
-}
-
-/// Live positions of both parties on an OpenStreetMap view. Rebuilt (and the
-/// camera re-fitted) whenever either side's fix moves meaningfully; a map
-/// vendor swap later only touches this widget.
-class _OrderMap extends StatelessWidget {
-  const _OrderMap({required this.order, required this.myId});
-
-  final LiveOrder order;
-  final String myId;
-
-  @override
-  Widget build(BuildContext context) {
-    final LatLng? payerPoint =
-        order.payerLat != null && order.payerLng != null
-            ? LatLng(order.payerLat!, order.payerLng!)
-            : null;
-    final LatLng? earnerPoint =
-        order.earnerLat != null && order.earnerLng != null
-            ? LatLng(order.earnerLat!, order.earnerLng!)
-            : null;
-    final LatLng? venuePoint = order.hasVenueLocation
-        ? LatLng(order.placeLat, order.placeLng)
-        : null;
-    final List<LatLng> points = <LatLng>[
-      ?payerPoint,
-      ?earnerPoint,
-      ?venuePoint,
-    ];
-    final String cameraKey = points
-        .map((LatLng p) =>
-            '${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)}')
-        .join('|');
-    return Container(
-      height: 170,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-      child: FlutterMap(
-        key: ValueKey<String>(cameraKey),
-        options: MapOptions(
-          initialCameraFit: points.length == 2
-              ? CameraFit.coordinates(
-                  coordinates: points,
-                  padding: const EdgeInsets.all(44),
-                  maxZoom: 16,
-                )
-              : CameraFit.coordinates(
-                  coordinates: points,
-                  maxZoom: 15,
-                ),
-          interactionOptions: const InteractionOptions(
-            flags: InteractiveFlag.none,
-          ),
-        ),
-        children: <Widget>[
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.meeto',
-          ),
-          MarkerLayer(
-            markers: <Marker>[
-              if (venuePoint != null) _venueMarker(venuePoint),
-              if (payerPoint != null)
-                _marker(payerPoint, order.payer, order.payer.id == myId),
-              if (earnerPoint != null)
-                _marker(earnerPoint, order.earner, order.earner.id == myId),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Date venue pin (anchored at its bottom tip like a classic map pin).
-  Marker _venueMarker(LatLng point) {
-    return Marker(
-      point: point,
-      width: 34,
-      height: 34,
-      alignment: Alignment.topCenter,
-      child: const Icon(
-        Icons.location_pin,
-        size: 34,
-        color: Colors.redAccent,
-        shadows: <Shadow>[Shadow(color: Colors.black38, blurRadius: 4)],
-      ),
-    );
-  }
-
-  Marker _marker(LatLng point, PostAuthor party, bool isMe) {
-    return Marker(
-      point: point,
-      width: 42,
-      height: 42,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isMe ? AppColors.darkCard : Colors.white,
-            width: 2.5,
-          ),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(color: Colors.black26, blurRadius: 6),
           ],
-        ),
-        child: AppAvatar(
-          size: 37,
-          imageUrl: party.avatarUrl,
-          fallbackLetter: party.name.isEmpty ? '?' : party.name[0],
-        ),
+          if (_editable && !order.planConfirmed) ...<Widget>[
+            const SizedBox(height: 10),
+            if (_iAmHost)
+              Row(
+                children: <Widget>[
+                  const Expanded(
+                    child: Text(
+                      AppStrings.planAwaitingConfirm,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    key: const ValueKey<String>('planEditButton'),
+                    onPressed: busy ? null : onPropose,
+                    child: const Text(AppStrings.planEditCta),
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey<String>('planConfirmButton'),
+                  onPressed: busy ? null : onConfirm,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.textPrimary,
+                    foregroundColor: AppColors.onDarkPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text(AppStrings.planConfirmCta),
+                ),
+              ),
+          ] else if (_editable && order.planConfirmed && _iAmHost) ...<Widget>[
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                key: const ValueKey<String>('planEditButton'),
+                onPressed: busy ? null : onPropose,
+                child: const Text(AppStrings.planEditCta),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

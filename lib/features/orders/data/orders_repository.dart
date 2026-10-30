@@ -22,7 +22,8 @@ abstract interface class OrdersRepository {
   /// The payer moves the service fee into escrow; the order goes ACTIVE.
   Future<LiveOrder> pay(String orderId);
 
-  /// The host proposes (or re-proposes) the concrete plan.
+  /// The host proposes (or re-proposes) the concrete plan. The first
+  /// proposal opens the order chat.
   Future<LiveOrder> proposePlan(
     String orderId, {
     required String place,
@@ -36,21 +37,9 @@ abstract interface class OrdersRepository {
 
   Future<LiveOrder> cancel(String orderId);
 
-  Future<LiveOrder> dispute(String orderId);
-
-  /// Shares the caller's current location (distance readout for the peer).
-  Future<LiveOrder> updateLocation(
-    String orderId, {
-    required double lat,
-    required double lng,
-  });
-
-  /// One-tap meet confirmation with the GPS fix taken at tap time.
-  Future<LiveOrder> confirmMeet(
-    String orderId, {
-    required double lat,
-    required double lng,
-  });
+  /// The poster single-sidedly marks the activity as done; the escrow
+  /// settles to the host immediately.
+  Future<LiveOrder> complete(String orderId);
 
   Future<OrderMessage> sendMessage(String orderId, String text);
 
@@ -58,15 +47,12 @@ abstract interface class OrdersRepository {
 }
 
 /// Local order state machine for the demo build. Mirrors the server rules:
-/// AWAITING_PAYMENT -> (pay) ACTIVE -> (both meet) MET -> (settle delay)
-/// COMPLETED, with cancel/dispute side exits. The peer's reactions are
-/// simulated with short timers.
+/// AWAITING_PAYMENT -> (pay) ACTIVE -> (poster completes) COMPLETED, with
+/// cancel as the side exit and chat locked until the plan is proposed.
 class MockOrdersRepository implements OrdersRepository {
   MockOrdersRepository() {
     _seed();
   }
-
-  static const Duration _settleDelay = Duration(minutes: 1);
 
   final Map<String, _MockOrder> _orders = <String, _MockOrder>{};
   final List<String> _ids = <String>[];
@@ -129,10 +115,7 @@ class MockOrdersRepository implements OrdersRepository {
       ..planAt = now.subtract(const Duration(days: 5))
       ..planProposedAt = now.subtract(const Duration(days: 7))
       ..planConfirmedAt = now.subtract(const Duration(days: 7))
-      ..payerMetAt = now.subtract(const Duration(days: 5))
-      ..earnerMetAt = now.subtract(const Duration(days: 5))
-      ..metAt = now.subtract(const Duration(days: 5))
-      ..settleAt = now.subtract(const Duration(days: 5));
+      ..completedAt = now.subtract(const Duration(days: 5));
     _say(done, _bianca.id, 'That was a lovely afternoon, thank you!');
   }
 
@@ -146,9 +129,6 @@ class MockOrdersRepository implements OrdersRepository {
       postTitle: post.title,
       feePesos: post.budgetAmount,
       createdAt: DateTime.now(),
-      // Empty until the host's plan is confirmed, mirroring the server.
-      place: '',
-      scheduledAt: null,
     );
     return _toLive(order);
   }
@@ -159,8 +139,6 @@ class MockOrdersRepository implements OrdersRepository {
     required String postTitle,
     required int feePesos,
     required DateTime createdAt,
-    String place = '',
-    DateTime? scheduledAt,
   }) {
     final _MockOrder order = _MockOrder(
       id: 'order-${++_orderSequence}',
@@ -169,8 +147,6 @@ class MockOrdersRepository implements OrdersRepository {
       earner: earner,
       feePesos: feePesos,
       postTitle: postTitle,
-      place: place,
-      scheduledAt: scheduledAt,
       createdAt: createdAt,
     );
     _orders[order.id] = order;
@@ -195,6 +171,7 @@ class MockOrdersRepository implements OrdersRepository {
     final int net = ScenePricing.netEarnings(o.feePesos);
     final bool unlocked =
         o.status != 'AWAITING_PAYMENT' && o.status != 'CANCELLED';
+    final bool planConfirmed = o.planConfirmedAt != null;
     return LiveOrder(
       id: o.id,
       postId: o.postId,
@@ -206,29 +183,18 @@ class MockOrdersRepository implements OrdersRepository {
       netPesos: net,
       payerPhone: unlocked ? '+63 917 000 0100' : '',
       earnerPhone: unlocked ? '+63 917 000 0201' : '',
-      distanceKm: null,
-      payerLat: o.payerLat,
-      payerLng: o.payerLng,
-      earnerLat: o.earnerLat,
-      earnerLng: o.earnerLng,
       postTitle: o.postTitle,
-      scheduledAt: o.planConfirmedAt != null ? o.planAt : o.scheduledAt,
-      place: o.planConfirmedAt != null && o.planPlace.isNotEmpty
-          ? o.planPlace
-          : o.place,
-      placeLat: o.planLat,
-      placeLng: o.planLng,
+      scheduledAt: planConfirmed ? o.planAt : null,
+      place: planConfirmed ? o.planPlace : '',
+      placeLat: planConfirmed ? o.planLat : 0,
+      placeLng: planConfirmed ? o.planLng : 0,
       planPlace: o.planPlace,
       planLat: o.planLat,
       planLng: o.planLng,
       planAt: o.planAt,
       planProposedAt: o.planProposedAt,
       planConfirmedAt: o.planConfirmedAt,
-      payerMetAt: o.payerMetAt,
-      earnerMetAt: o.earnerMetAt,
-      metAt: o.metAt,
-      settleAt: o.settleAt,
-      disputed: o.disputed,
+      completedAt: o.completedAt,
       createdAt: o.createdAt,
     );
   }
@@ -300,77 +266,12 @@ class MockOrdersRepository implements OrdersRepository {
   }
 
   @override
-  Future<LiveOrder> dispute(String orderId) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    final _MockOrder order = _of(orderId)
-      ..disputed = true
-      ..status = 'DISPUTED';
-    return _toLive(order);
-  }
-
-  @override
-  Future<LiveOrder> updateLocation(
-    String orderId, {
-    required double lat,
-    required double lng,
-  }) async {
-    final _MockOrder order = _of(orderId);
-    if (order.payer.id == AuthSession.currentUserId) {
-      order
-        ..payerLat = lat
-        ..payerLng = lng;
-    } else {
-      order
-        ..earnerLat = lat
-        ..earnerLng = lng;
-    }
-    return _toLive(order);
-  }
-
-  @override
-  Future<LiveOrder> confirmMeet(
-    String orderId, {
-    required double lat,
-    required double lng,
-  }) async {
+  Future<LiveOrder> complete(String orderId) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    final _MockOrder order = _of(orderId);
-    final bool iAmPayer = order.payer.id == AuthSession.currentUserId;
-    final DateTime now = DateTime.now();
-    if (iAmPayer) {
-      order.payerMetAt = now;
-    } else {
-      order.earnerMetAt = now;
-    }
-    // Simulated peer: confirms shortly after me, then the escrow settles
-    // after the demo delay (server behavior in miniature).
-    Timer(const Duration(milliseconds: 1500), () {
-      if (iAmPayer) {
-        order.earnerMetAt ??= DateTime.now();
-      } else {
-        order.payerMetAt ??= DateTime.now();
-      }
-      _settleIfMet(order);
-    });
-    _settleIfMet(order);
+    final _MockOrder order = _of(orderId)
+      ..status = 'COMPLETED'
+      ..completedAt = DateTime.now();
     return _toLive(order);
-  }
-
-  void _settleIfMet(_MockOrder order) {
-    if (order.payerMetAt == null ||
-        order.earnerMetAt == null ||
-        order.metAt != null) {
-      return;
-    }
-    order
-      ..status = 'MET'
-      ..metAt = DateTime.now()
-      ..settleAt = DateTime.now().add(_settleDelay);
-    Timer(_settleDelay, () {
-      if (order.status == 'MET' && !order.disputed) {
-        order.status = 'COMPLETED';
-      }
-    });
   }
 
   @override
@@ -405,8 +306,6 @@ class _MockOrder {
     required this.earner,
     required this.feePesos,
     required this.postTitle,
-    required this.place,
-    required this.scheduledAt,
     required this.createdAt,
   });
 
@@ -416,8 +315,6 @@ class _MockOrder {
   final PostAuthor earner;
   final int feePesos;
   final String postTitle;
-  final String place;
-  final DateTime? scheduledAt;
   final DateTime createdAt;
 
   String status = 'AWAITING_PAYMENT';
@@ -427,14 +324,6 @@ class _MockOrder {
   DateTime? planAt;
   DateTime? planProposedAt;
   DateTime? planConfirmedAt;
-  DateTime? payerMetAt;
-  DateTime? earnerMetAt;
-  DateTime? metAt;
-  DateTime? settleAt;
-  bool disputed = false;
-  double? payerLat;
-  double? payerLng;
-  double? earnerLat;
-  double? earnerLng;
+  DateTime? completedAt;
   final List<OrderMessage> messages = <OrderMessage>[];
 }

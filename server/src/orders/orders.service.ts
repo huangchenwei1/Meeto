@@ -15,11 +15,7 @@ import {
   PaymentStatus,
   PostStatus,
 } from '../common/enums.js';
-import {
-  COLOCATION_RADIUS_KM,
-  distanceKm,
-  meetSettleDelayMs,
-} from '../common/geo.util.js';
+import { autoSettleDelayMs } from '../common/settlement.util.js';
 import { LedgerService } from '../ledger/ledger.service.js';
 import { PAYMENT_PROVIDER } from '../payments/payment.provider.js';
 import type { PaymentProvider } from '../payments/payment.provider.js';
@@ -31,13 +27,13 @@ import type { OrderDto, OrderWithParties } from './order.mapper.js';
 
 /// Server-authoritative order state machine.
 ///
-///   AWAITING_PAYMENT --pay(escrow)--> ACTIVE
-///     (phones disclosed; live location shared for the distance display)
-///   ACTIVE: each side taps "confirm meet" once, sending a GPS fix. When
-///     both fixes are within COLOCATION_RADIUS_KM --> MET (meet timestamp).
-///   MET --(MEET_SETTLE_DELAY elapsed, lazy check on reads)--> COMPLETED
-///     (escrow released to the earner, commission booked)
-///   MET --dispute--> DISPUTED (freezes auto-settlement, manual resolution)
+///   AWAITING_PAYMENT --pay(escrow)--> ACTIVE (planning: no chat yet)
+///   ACTIVE: the host proposes the plan (place + time); the plan card
+///     opens the order chat; the poster confirms the plan.
+///   ACTIVE --poster taps "completed"--> COMPLETED (escrow released to
+///     the earner, commission booked)
+///   ACTIVE --(confirmed planAt + AUTO_SETTLE_DELAY elapsed, lazy check
+///     on reads)--> COMPLETED (fallback so the host always gets paid)
 ///   AWAITING_PAYMENT | ACTIVE --cancel--> CANCELLED
 ///           (full refund if escrowed; the post reopens)
 ///
@@ -135,124 +131,22 @@ export class OrdersService {
     return toOrderDto(updated);
   }
 
-  /// Updates the caller's live location snapshot (shared with the peer as
-  /// a distance readout while the order is ACTIVE or MET).
-  async updateLocation(
-    caller: User,
-    orderId: string,
-    lat: number,
-    lng: number,
-  ): Promise<OrderDto> {
+  /// The poster single-sidedly marks the activity as done; the escrow
+  /// settles immediately (ACTIVE orders only).
+  async complete(caller: User, orderId: string): Promise<OrderDto> {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
-    if (
-      order.status !== OrderStatus.active &&
-      order.status !== OrderStatus.met
-    ) {
-      throw new ConflictException('Location sharing is not active');
+    if (order.payerId !== caller.id) {
+      throw new ForbiddenException('Only the poster completes the activity');
     }
-    const isPayer = order.payerId === caller.id;
-    const updated = await this.prisma.order.update({
-      where: { id: order.id },
-      data: isPayer
-        ? { payerLat: lat, payerLng: lng, payerLocatedAt: new Date() }
-        : { earnerLat: lat, earnerLng: lng, earnerLocatedAt: new Date() },
-      include: { payer: true, earner: true, post: true },
-    });
-    return toOrderDto(updated);
-  }
-
-  /// One-tap meet confirmation with the GPS fix taken at tap time. When
-  /// both sides have confirmed within the colocation radius the order
-  /// becomes MET and the auto-settlement timer starts. Re-tapping updates
-  /// the caller's fix (e.g. after moving closer).
-  async confirmMeet(
-    caller: User,
-    orderId: string,
-    lat: number,
-    lng: number,
-  ): Promise<OrderDto> {
-    const order = await this.findParticipantOrderOrThrow(caller, orderId);
     if (order.status !== OrderStatus.active) {
-      throw new ConflictException('Order is not awaiting a meet');
+      throw new ConflictException('Order is not active');
     }
-    const isPayer = order.payerId === caller.id;
-    const now = new Date();
-    let updated = await this.prisma.order.update({
-      where: { id: order.id },
-      data: isPayer
-        ? { payerMetAt: now, payerMetLat: lat, payerMetLng: lng }
-        : { earnerMetAt: now, earnerMetLat: lat, earnerMetLng: lng },
-      include: { payer: true, earner: true, post: true },
-    });
-
-    const bothConfirmed =
-      updated.payerMetAt !== null && updated.earnerMetAt !== null;
-    if (!bothConfirmed) {
-      return toOrderDto(updated);
-    }
-    const apart = distanceKm(
-      updated.payerMetLat!,
-      updated.payerMetLng!,
-      updated.earnerMetLat!,
-      updated.earnerMetLng!,
-    );
-    if (apart > COLOCATION_RADIUS_KM) {
-      // Both tapped but the fixes are too far apart; the caller's fix is
-      // kept so either side can simply re-tap once they are together.
-      throw new ConflictException('NOT_TOGETHER');
-    }
-    updated = await this.prisma.$transaction(async (tx) => {
-      await this.notifications.notify(tx, {
-        userId: isPayer ? order.earnerId : order.payerId,
-        type: NotificationType.orderMet,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
-      return tx.order.update({
-        where: { id: order.id },
-        data: { status: OrderStatus.met, metAt: now },
-        include: { payer: true, earner: true, post: true },
-      });
-    });
-    return toOrderDto(updated);
+    return toOrderDto(await this.settle(order));
   }
 
-  /// Freezes auto-settlement for manual resolution (e.g. the date ended
-  /// right after the meet confirmation). MET orders only.
-  async dispute(caller: User, orderId: string): Promise<OrderDto> {
-    const order = await this.findParticipantOrderOrThrow(caller, orderId);
-    if (order.status !== OrderStatus.met) {
-      throw new ConflictException('Only met orders can be disputed');
-    }
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await this.notifications.notify(tx, {
-        userId: order.payerId === caller.id ? order.earnerId : order.payerId,
-        type: NotificationType.orderDisputed,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
-      return tx.order.update({
-        where: { id: order.id },
-        data: {
-          status: OrderStatus.disputed,
-          disputedAt: new Date(),
-          disputedById: caller.id,
-        },
-        include: { payer: true, earner: true, post: true },
-      });
-    });
-    return toOrderDto(updated);
-  }
-
-  /// Lazy auto-settlement: a MET order whose delay elapsed settles on the
-  /// next read (clients poll orders constantly, so this needs no scheduler).
   /// The host proposes (or re-proposes) the concrete plan: place + time.
-  /// Allowed once the order is ACTIVE (paid) and until the meet-up is
-  /// confirmed. Re-proposing clears a previous confirmation.
+  /// Allowed while the order is ACTIVE (paid). Re-proposing clears a
+  /// previous confirmation. The first proposal opens the order chat.
   async proposePlan(
     caller: User,
     orderId: string,
@@ -328,28 +222,34 @@ export class OrdersService {
     return toOrderDto(updated);
   }
 
+  /// Lazy fallback settlement: an ACTIVE order whose confirmed plan time
+  /// plus the grace delay has passed settles on the next read (clients
+  /// poll orders constantly, so this needs no scheduler). Protects the
+  /// host when the poster never taps "completed".
   private async maybeSettle(
     order: OrderWithParties,
   ): Promise<OrderWithParties> {
     if (
-      order.status !== OrderStatus.met ||
-      order.metAt === null ||
-      order.disputedAt !== null ||
-      order.metAt.getTime() + meetSettleDelayMs() > Date.now()
+      order.status !== OrderStatus.active ||
+      order.planConfirmedAt === null ||
+      order.planAt === null ||
+      order.planAt.getTime() + autoSettleDelayMs() > Date.now()
     ) {
       return order;
     }
+    return this.settle(order);
+  }
+
+  /// Releases the escrow to the earner and books the commission. Shared by
+  /// the poster's explicit completion and the lazy auto-settle fallback.
+  private async settle(order: OrderWithParties): Promise<OrderWithParties> {
     return this.prisma.$transaction(async (tx) => {
-      // Re-check inside the transaction: a concurrent read may have settled
-      // or a dispute may have landed between the check and now.
+      // Re-check inside the transaction: a concurrent read may have
+      // settled (or a cancel may have landed) between the check and now.
       const current = await tx.order.findUnique({
         where: { id: order.id },
       });
-      if (
-        !current ||
-        current.status !== OrderStatus.met ||
-        current.disputedAt !== null
-      ) {
+      if (!current || current.status !== OrderStatus.active) {
         return (await tx.order.findUnique({
           where: { id: order.id },
           include: { payer: true, earner: true, post: true },
@@ -389,7 +289,7 @@ export class OrdersService {
       });
       return tx.order.update({
         where: { id: order.id },
-        data: { status: OrderStatus.completed },
+        data: { status: OrderStatus.completed, completedAt: new Date() },
         include: { payer: true, earner: true, post: true },
       });
     });
@@ -454,8 +354,7 @@ export class OrdersService {
     return toOrderDto(updated);
   }
 
-  /// Sends an order-scoped chat message (participants only, any status —
-  /// parties may still coordinate right after matching or around a cancel).
+  /// Sends an order-scoped chat message (participants only).
   async sendMessage(caller: User, orderId: string, text: string) {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
     // The paywall: no contact channel of any kind before the fee is
@@ -465,6 +364,11 @@ export class OrdersService {
       order.status === OrderStatus.cancelled
     ) {
       throw new ConflictException('PAYMENT_REQUIRED');
+    }
+    // The plan card opens the conversation: the host must deliver the
+    // plan before either side can chat.
+    if (order.status === OrderStatus.active && order.planProposedAt === null) {
+      throw new ConflictException('PLAN_REQUIRED');
     }
     const message = await this.prisma.message.create({
       data: { orderId: order.id, senderId: caller.id, text },

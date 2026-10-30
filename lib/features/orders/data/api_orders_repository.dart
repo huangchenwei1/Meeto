@@ -69,35 +69,7 @@ class ApiOrdersRepository implements OrdersRepository {
   Future<LiveOrder> cancel(String orderId) => _action(orderId, 'cancel');
 
   @override
-  Future<LiveOrder> dispute(String orderId) => _action(orderId, 'dispute');
-
-  @override
-  Future<LiveOrder> updateLocation(
-    String orderId, {
-    required double lat,
-    required double lng,
-  }) async {
-    return LiveOrder.fromJson(
-      await _client.post(
-        '/orders/$orderId/location',
-        body: <String, dynamic>{'lat': lat, 'lng': lng},
-      ) as Map<String, dynamic>,
-    );
-  }
-
-  @override
-  Future<LiveOrder> confirmMeet(
-    String orderId, {
-    required double lat,
-    required double lng,
-  }) async {
-    return LiveOrder.fromJson(
-      await _client.post(
-        '/orders/$orderId/meet',
-        body: <String, dynamic>{'lat': lat, 'lng': lng},
-      ) as Map<String, dynamic>,
-    );
-  }
+  Future<LiveOrder> complete(String orderId) => _action(orderId, 'complete');
 
   @override
   Future<OrderMessage> sendMessage(String orderId, String text) async {
