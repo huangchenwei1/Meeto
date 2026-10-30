@@ -169,10 +169,12 @@ class HostsPageState extends State<HostsPage> {
   }
 }
 
-/// One host, in three clean layers: identity (avatar, name, hosting
-/// record badge), a two-line bio, and the scenes they can host, with the
-/// price-list entry as the card's single call to action. Deliberately
-/// activity-led: no photo walls, no raw pitch quotes.
+/// One host, identity-first like a contact card: a three-line header
+/// (name + verified mark, demographics, hosting record as the accent
+/// stat), a short bio, then the scenes they can host. The whole card
+/// opens the detail page; the footer is a compact "View activities"
+/// affordance. Deliberately activity-led: no photo walls, no raw pitch
+/// quotes, and no made-up stats — only fields we actually have.
 class _HostTile extends StatelessWidget {
   const _HostTile({required this.host, required this.onTap});
 
@@ -185,7 +187,7 @@ class _HostTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 11),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(16),
@@ -195,7 +197,7 @@ class _HostTile extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                AppAvatar(size: 48, imageUrl: host.avatarUrl),
+                AppAvatar(size: 56, imageUrl: host.avatarUrl),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -208,18 +210,27 @@ class _HostTile extends StatelessWidget {
                               host.name,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
                                 color: AppColors.textPrimary,
                               ),
                             ),
                           ),
                           if (host.isVerified) ...<Widget>[
-                            const SizedBox(width: 5),
+                            const SizedBox(width: 6),
                             const Icon(
                               Iconsax.verify5,
-                              size: 15,
+                              size: 14,
                               color: AppColors.accent,
+                            ),
+                            const SizedBox(width: 3),
+                            const Text(
+                              AppStrings.verifiedLabel,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                              ),
                             ),
                           ],
                         ],
@@ -234,11 +245,24 @@ class _HostTile extends StatelessWidget {
                           color: AppColors.textHint,
                         ),
                       ),
+                      const SizedBox(height: 3),
+                      // Hosting record as the accent stat: the one trust
+                      // signal we can actually back with data.
+                      Text(
+                        host.completedActivities > 0
+                            ? AppStrings.hostCompletedLabel(
+                                host.completedActivities,
+                              )
+                            : AppStrings.hostNewLabel,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accent,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                _RecordBadge(count: host.completedActivities),
               ],
             ),
             if (host.bio.isNotEmpty) ...<Widget>[
@@ -254,27 +278,30 @@ class _HostTile extends StatelessWidget {
                 ),
               ),
             ],
-            if (host.tags.isNotEmpty) ...<Widget>[
+            // The scenes this host offers (picked at registration) — the
+            // same list the detail page prices up. Never interest tags.
+            if (host.hostScenes.isNotEmpty) ...<Widget>[
               const SizedBox(height: 11),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: host.tags
+                children: host.hostScenes
                     .take(4)
                     .map(
-                      (String tag) => Container(
+                      (String scene) => Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
+                          horizontal: 10,
+                          vertical: 4.5,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          tag,
+                          scene,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -283,57 +310,30 @@ class _HostTile extends StatelessWidget {
                     .toList(growable: false),
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: 11),
             const Divider(height: 1),
-            const SizedBox(height: 9),
-            // Entry to the host's activity price list on the detail page.
+            const SizedBox(height: 8),
+            // Compact entry to the host's activity price list.
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: const <Widget>[
-                Expanded(
-                  child: Text(
-                    AppStrings.hostSeeActivities,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accent,
-                    ),
+                Text(
+                  AppStrings.hostSeeActivities,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
                   ),
                 ),
+                SizedBox(width: 3),
                 Icon(
                   Iconsax.arrow_right_3,
-                  size: 15,
+                  size: 14,
                   color: AppColors.accent,
                 ),
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Hosting record as a compact badge: the one trust signal on the card.
-class _RecordBadge extends StatelessWidget {
-  const _RecordBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool proven = count > 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: proven ? AppColors.accentSoft : AppColors.surface,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        proven ? AppStrings.hostHostedBadge(count) : AppStrings.hostNewLabel,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: proven ? AppColors.accent : AppColors.textSecondary,
         ),
       ),
     );

@@ -424,9 +424,8 @@ abstract final class AppStrings {
   static String hostCompletedLabel(int count) =>
       count == 1 ? '1 activity hosted' : '$count activities hosted';
   static const String hostNewLabel = 'New host';
-  static String hostHostedBadge(int count) => '$count hosted';
   static const String hostRecentPlanLabel = 'Recent plans';
-  static const String hostSeeActivities = 'See activities they can host';
+  static const String hostSeeActivities = 'View activities';
   static const String hostActivitiesTitle = 'Activities they can host';
   static const String inviteRowCta = 'Invite';
   static String inviteSheetTitle(String name) => 'Invite $name to host';
