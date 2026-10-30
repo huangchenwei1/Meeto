@@ -31,38 +31,6 @@ export class CreatePostDto {
 
   @IsOptional()
   @IsString()
-  timeText?: string;
-
-  @IsOptional()
-  @IsISO8601()
-  scheduledAt?: string;
-
-  @IsOptional()
-  @IsString()
-  place?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  @Type(() => Number)
-  placeLat?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  @Type(() => Number)
-  placeLng?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  distanceKm?: number;
-
-  @IsOptional()
-  @IsString()
   imageUrl?: string;
 }
 

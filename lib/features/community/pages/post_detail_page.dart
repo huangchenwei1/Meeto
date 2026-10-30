@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/geo.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
@@ -55,48 +53,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   late bool _signedUp = widget.post.hasApplied;
   bool _approving = false;
 
-  /// Viewer's real distance to the venue; null hides the distance row
-  /// (no structured venue or location unavailable).
-  double? _venueDistanceKm;
-
   bool get _isMine => _post.author.id == AuthSession.currentUserId;
-
-  @override
-  void initState() {
-    super.initState();
-    _computeVenueDistance();
-  }
-
-  Future<void> _computeVenueDistance() async {
-    if (!_post.hasVenueLocation) {
-      return;
-    }
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final Position position =
-          await Geolocator.getLastKnownPosition() ??
-              await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(() {
-          _venueDistanceKm = distanceKmBetween(
-            position.latitude,
-            position.longitude,
-            _post.placeLat,
-            _post.placeLng,
-          );
-        });
-      }
-    } on Exception {
-      // Distance row stays hidden.
-    }
-  }
 
   /// Collects the required plan pitch, then signs up as a candidate.
   Future<void> _signUp() async {
@@ -426,11 +383,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  _InfoCard(post: _post, venueDistanceKm: _venueDistanceKm),
-                  if (!_isMine) ...<Widget>[
-                    const SizedBox(height: 14),
+                  // No time/place card: the host proposes the concrete
+                  // plan in the order room after matching.
+                  if (!_isMine)
                     _AuthorCard(post: _post, onTap: _openAuthor),
-                  ],
                   const SizedBox(height: 14),
                   const _SafetyNote(),
                 ],
@@ -656,71 +612,6 @@ class _CandidateRow extends StatelessWidget {
               child: const Text(AppStrings.approveCta),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.post, this.venueDistanceKm});
-
-  final ActivityPost post;
-
-  /// Viewer's real distance to the venue; the row is hidden when null.
-  final double? venueDistanceKm;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<(IconData, String, String)> rows = <(IconData, String, String)>[
-      (Iconsax.clock, AppStrings.labelTime, post.timeText),
-      (Iconsax.location, AppStrings.labelPlace, post.place),
-      if (venueDistanceKm != null)
-        (
-          Iconsax.send_2,
-          AppStrings.labelDistance,
-          AppStrings.distanceAway(venueDistanceKm!.toStringAsFixed(1)),
-        ),
-    ];
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: <Widget>[
-          for (int i = 0; i < rows.length; i++) ...<Widget>[
-            if (i > 0) const Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: <Widget>[
-                  Icon(rows[i].$1, size: 17, color: AppColors.textHint),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: 64,
-                    child: Text(
-                      rows[i].$2,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      rows[i].$3,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );

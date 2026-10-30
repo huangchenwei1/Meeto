@@ -186,9 +186,6 @@ const POSTS = [
       'near my office. Looking for a host who knows the specialty coffee ' +
       'scene and can plan a relaxed afternoon: the place, the order, the ' +
       'conversation. Time is flexible this week.',
-    timeText: 'Time flexible',
-    place: 'Place open to ideas',
-    distanceKm: 1.2,
     imageUrl:
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
     feeMinor: 60000,
@@ -205,9 +202,6 @@ const POSTS = [
       'I eat out a lot but keep going back to the same two places. Want a ' +
       'host who can plan a proper Japanese dinner — somewhere I would ' +
       'never find alone. Weeknights after 7 work best. Meal is on me.',
-    timeText: 'Weeknights after 7',
-    place: 'Place open to ideas',
-    distanceKm: 2.8,
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
     feeMinor: 100000,
@@ -227,9 +221,6 @@ const POSTS = [
       'I love movies but hate deciding. Looking for a host to plan the ' +
       'whole evening: which film, which cinema, and where we talk about ' +
       'it after. Saturday afternoon preferred. Tickets and snacks on me.',
-    timeText: 'Saturday afternoon',
-    place: 'Place open to ideas',
-    distanceKm: 4.6,
     imageUrl:
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
     feeMinor: 80000,
@@ -246,9 +237,6 @@ const POSTS = [
       'Work ate my whole month. I want one slow Sunday afternoon: good ' +
       'fruit tea, good cake, zero decisions made by me. Host plans ' +
       'everything, I just show up. Desserts are on me.',
-    timeText: 'Sunday afternoon',
-    place: 'Place open to ideas',
-    distanceKm: 3.9,
     imageUrl:
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
     feeMinor: 65000,

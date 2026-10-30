@@ -8,6 +8,7 @@ import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
@@ -395,7 +396,7 @@ class _RequestCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '${post.author.name} \u00b7 ${post.timeText}',
+                        '${post.author.name} \u00b7 ${formatTimeAgo(post.createdAt)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

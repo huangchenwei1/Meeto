@@ -100,12 +100,8 @@ model Post {
   title       String
   description String   @default("")
   detail      String   @default("")
-  timeText    String   @default("")
-  scheduledAt DateTime?
-  place       String   @default("")
-  placeLat    Float    @default(0)
-  placeLng    Float    @default(0)
-  distanceKm  Float    @default(0)
+  // No time/place here: the concrete schedule lives on the order (the
+  // host proposes planAt/planPlace in the plan flow after matching).
   imageUrl    String   @default("")
   imagesJson  String   @default("[]") // JSON array of photo URLs (moments)
   status      String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED

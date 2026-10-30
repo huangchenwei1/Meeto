@@ -38,12 +38,6 @@ export interface PostDto {
   title: string;
   description: string;
   detail: string;
-  timeText: string;
-  scheduledAt: Date | null;
-  place: string;
-  placeLat: number;
-  placeLng: number;
-  distanceKm: number;
   imageUrl: string;
   images: string[];
   applicantCount: number;
@@ -89,12 +83,6 @@ export class PostsService {
         title: input.title,
         description: input.description ?? '',
         detail: input.detail ?? '',
-        timeText: input.timeText ?? '',
-        scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
-        place: input.place ?? '',
-        placeLat: input.placeLat ?? 0,
-        placeLng: input.placeLng ?? 0,
-        distanceKm: input.distanceKm ?? 0,
         imageUrl: input.imageUrl ?? '',
         feeMinor,
       },
@@ -350,12 +338,6 @@ export class PostsService {
       title: post.title,
       description: post.description,
       detail: post.detail,
-      timeText: post.timeText,
-      scheduledAt: post.scheduledAt,
-      place: post.place,
-      placeLat: post.placeLat,
-      placeLng: post.placeLng,
-      distanceKm: post.distanceKm,
       imageUrl: post.imageUrl,
       images: PostsService.parseImages(post.imagesJson),
       applicantCount: applications.filter(

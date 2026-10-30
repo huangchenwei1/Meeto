@@ -74,8 +74,6 @@ class ApiCommunityRepository implements CommunityRepository {
         'title': input.title,
         'description': input.description,
         'detail': input.description,
-        'timeText': input.timeText,
-        'place': input.place,
         'imageUrl': _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
       },
     ) as Map<String, dynamic>;
@@ -208,11 +206,6 @@ class ApiCommunityRepository implements CommunityRepository {
       detail: (json['detail'] as String).isEmpty
           ? json['description'] as String
           : json['detail'] as String,
-      timeText: json['timeText'] as String,
-      place: json['place'] as String,
-      placeLat: (json['placeLat'] as num?)?.toDouble() ?? 0,
-      placeLng: (json['placeLng'] as num?)?.toDouble() ?? 0,
-      distanceKm: (json['distanceKm'] as num).toDouble(),
       signedCount: json['applicantCount'] as int? ?? 0,
       // Demand cards fall back to the scene image; moments keep whatever
       // photos the author attached (possibly none).

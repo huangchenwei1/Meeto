@@ -17,11 +17,6 @@ class ActivityPost {
     required this.title,
     required this.description,
     required this.detail,
-    required this.timeText,
-    required this.place,
-    this.placeLat = 0,
-    this.placeLng = 0,
-    required this.distanceKm,
     required this.signedCount,
     required this.imageUrl,
     this.images = const <String>[],
@@ -41,11 +36,6 @@ class ActivityPost {
       title: json['title'] as String,
       description: json['description'] as String,
       detail: json['detail'] as String,
-      timeText: json['timeText'] as String,
-      place: json['place'] as String,
-      placeLat: (json['placeLat'] as num?)?.toDouble() ?? 0,
-      placeLng: (json['placeLng'] as num?)?.toDouble() ?? 0,
-      distanceKm: (json['distanceKm'] as num).toDouble(),
       signedCount: json['signedCount'] as int,
       imageUrl: json['imageUrl'] as String,
       images:
@@ -77,22 +67,10 @@ class ActivityPost {
   final String description;
 
   /// Full description shown on the detail page.
+  ///
+  /// No time or place here: the selected host proposes the concrete plan
+  /// on the order after matching.
   final String detail;
-
-  /// Human-readable schedule, e.g. "Saturday 2:00 PM · ~3 hours".
-  final String timeText;
-
-  final String place;
-
-  /// Structured venue coordinates (zeros mean the poster typed a free-form
-  /// place, so no map/distance is available).
-  final double placeLat;
-  final double placeLng;
-
-  /// Whether the venue has real coordinates.
-  bool get hasVenueLocation => placeLat != 0 || placeLng != 0;
-
-  final double distanceKm;
 
   /// Number of candidates who signed up so far.
   final int signedCount;
@@ -122,11 +100,6 @@ class ActivityPost {
   /// Whether a host already took the activity (any post-selection status).
   bool get hasHost => selectedHost != null;
 
-  String get distanceLabel {
-    final bool isWhole = distanceKm == distanceKm.roundToDouble();
-    return isWhole ? distanceKm.toInt().toString() : distanceKm.toString();
-  }
-
   ActivityPost copyWith({
     int? signedCount,
     bool? hasApplied,
@@ -140,11 +113,6 @@ class ActivityPost {
       title: title,
       description: description,
       detail: detail,
-      timeText: timeText,
-      place: place,
-      placeLat: placeLat,
-      placeLng: placeLng,
-      distanceKm: distanceKm,
       signedCount: signedCount ?? this.signedCount,
       imageUrl: imageUrl,
       images: images,
@@ -155,24 +123,5 @@ class ActivityPost {
       status: status ?? this.status,
       selectedHost: selectedHost ?? this.selectedHost,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'id': id,
-      'sceneTag': sceneTag,
-      'title': title,
-      'description': description,
-      'detail': detail,
-      'timeText': timeText,
-      'place': place,
-      'distanceKm': distanceKm,
-      'signedCount': signedCount,
-      'imageUrl': imageUrl,
-      'author': author.toJson(),
-      'createdAt': createdAt.toIso8601String(),
-      'budgetAmount': budgetAmount,
-      'hasApplied': hasApplied,
-    };
   }
 }

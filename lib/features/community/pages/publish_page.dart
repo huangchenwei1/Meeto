@@ -68,9 +68,6 @@ class _PublishPageState extends State<PublishPage> {
           description: _descController.text.trim().isEmpty
               ? AppStrings.publishDefaultDesc
               : _descController.text.trim(),
-          // The host proposes the concrete time and place in the plan flow.
-          timeText: AppStrings.publishDefaultTime,
-          place: AppStrings.publishDefaultPlace,
         ),
       );
     } on ApiException catch (e) {

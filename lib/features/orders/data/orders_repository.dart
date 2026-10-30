@@ -146,7 +146,8 @@ class MockOrdersRepository implements OrdersRepository {
       postTitle: post.title,
       feePesos: post.budgetAmount,
       createdAt: DateTime.now(),
-      place: post.place,
+      // Empty until the host's plan is confirmed, mirroring the server.
+      place: '',
       scheduledAt: null,
     );
     return _toLive(order);

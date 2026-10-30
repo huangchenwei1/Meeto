@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
@@ -103,9 +104,8 @@ class _PostRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String meta = <String>[post.place, post.timeText]
-        .where((String s) => s.isNotEmpty)
-        .join(' \u00b7 ');
+    final String meta =
+        '${post.sceneTag} \u00b7 ${formatTimeAgo(post.createdAt)}';
     return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

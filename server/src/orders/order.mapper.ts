@@ -33,8 +33,8 @@ export interface OrderDto {
   earnerLng: number | null;
   /// Activity context so clients can present the order as a concrete plan
   /// (title · place · time) rather than a bare chat. Place and time are the
-  /// EFFECTIVE values: the confirmed plan overrides the post's rough
-  /// intent (zeros/empty mean nothing structured yet).
+  /// EFFECTIVE values: set once the plan is confirmed, empty/zero/null
+  /// before that (posts carry no structured time or place).
   postTitle: string;
   scheduledAt: Date | null;
   place: string;
@@ -95,10 +95,10 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     earnerLat: order.earnerLat,
     earnerLng: order.earnerLng,
     postTitle: order.post.title,
-    scheduledAt: planConfirmed ? order.planAt : order.post.scheduledAt,
-    place: planConfirmed ? order.planPlace : order.post.place,
-    placeLat: planConfirmed ? order.planLat : order.post.placeLat,
-    placeLng: planConfirmed ? order.planLng : order.post.placeLng,
+    scheduledAt: planConfirmed ? order.planAt : null,
+    place: planConfirmed ? order.planPlace : '',
+    placeLat: planConfirmed ? order.planLat : 0,
+    placeLng: planConfirmed ? order.planLng : 0,
     planPlace: order.planPlace,
     planLat: order.planLat,
     planLng: order.planLng,

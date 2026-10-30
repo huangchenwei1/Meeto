@@ -130,9 +130,6 @@ components:
         title: { type: string }
         description: { type: string }
         detail: { type: string }
-        timeText: { type: string }
-        place: { type: string }
-        distanceKm: { type: number }
         imageUrl: { type: string }
         applicantCount: { type: integer }
         status: { $ref: '#/components/schemas/PostStatus' }
@@ -155,9 +152,6 @@ components:
         title: { type: string }
         description: { type: string }
         detail: { type: string }
-        timeText: { type: string }
-        place: { type: string }
-        distanceKm: { type: number }
         imageUrl: { type: string }
     Application:
       type: object

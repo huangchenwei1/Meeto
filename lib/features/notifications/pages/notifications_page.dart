@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/pages/order_room_page.dart';
@@ -122,20 +123,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  String _timeAgo(DateTime time) {
-    final Duration diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) {
-      return AppStrings.timeJustNow;
-    }
-    if (diff.inHours < 1) {
-      return AppStrings.timeMinutesAgo(diff.inMinutes);
-    }
-    if (diff.inDays < 1) {
-      return AppStrings.timeHoursAgo(diff.inHours);
-    }
-    return AppStrings.timeDaysAgo(diff.inDays);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,7 +164,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
-                          _timeAgo(item.createdAt),
+                          formatTimeAgo(item.createdAt),
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textHint,

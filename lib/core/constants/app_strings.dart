@@ -41,7 +41,6 @@ abstract final class AppStrings {
   static String appliedCount(int count) =>
       count == 1 ? '1 applied' : '$count applied';
   static const String tipLabel = 'Fee';
-  static String distanceAway(String distance) => '$distance km away';
 
   // Community guidelines banner + page
   static const String bannerEyebrow = 'Community';
@@ -96,9 +95,6 @@ abstract final class AppStrings {
       'Breaking these rules can lead to frozen payouts or a permanent ban.';
 
   // Post detail
-  static const String labelTime = 'Time';
-  static const String labelPlace = 'Place';
-  static const String labelDistance = 'Distance';
   static const String safetyNotice =
       'Meeto protects you: both sides are identity-verified, and the whole '
       'activity \u2014 from match to meet-up \u2014 runs under platform '
@@ -140,8 +136,6 @@ abstract final class AppStrings {
   static const String publishSuccess = 'Published! Awaiting sign-ups';
   static const String publishDefaultDesc =
       'Looking for company, relaxed and no pressure';
-  static const String publishDefaultTime = 'Time is flexible';
-  static const String publishDefaultPlace = 'Place open to ideas';
 
   // User profile
   static const String profileTitle = 'Profile';

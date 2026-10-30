@@ -560,19 +560,15 @@ describe('Meeto API (e2e)', () => {
         .send({
           sceneTag: 'Dinner',
           title: 'Japanese dinner downtown',
-          scheduledAt: '2026-11-01T19:00:00.000Z',
-          place: 'Greenbelt 3, Makati',
-          placeLat: 14.5525,
-          placeLng: 121.0208,
         })
         .expect(201);
       postId = res.body.id;
       expect(res.body.feeMinor).toBe(100000);
       expect(res.body.status).toBe('OPEN');
-      expect(res.body.scheduledAt).toBe('2026-11-01T19:00:00.000Z');
-      expect(res.body.place).toBe('Greenbelt 3, Makati');
-      expect(res.body.placeLat).toBeCloseTo(14.5525);
-      expect(res.body.placeLng).toBeCloseTo(121.0208);
+      // Posts carry no structured time or place: the host proposes the
+      // concrete plan on the order after matching.
+      expect(res.body.scheduledAt).toBeUndefined();
+      expect(res.body.place).toBeUndefined();
     });
 
     it('candidates of any gender sign up for free; invalid sign-ups are rejected', async () => {
@@ -705,8 +701,9 @@ describe('Meeto API (e2e)', () => {
         .expect(201);
       expect(proposed.body.planProposedAt).not.toBeNull();
       expect(proposed.body.planConfirmedAt).toBeNull();
-      // Effective place/time still come from the post until confirmation.
-      expect(proposed.body.place).toBe('Greenbelt 3, Makati');
+      // Effective place/time stay empty until the poster confirms.
+      expect(proposed.body.place).toBe('');
+      expect(proposed.body.scheduledAt).toBeNull();
 
       // The poster was notified of the proposal.
       const inbox = await api()

@@ -6,24 +6,19 @@ import '../../orders/data/orders_repository.dart';
 import '../models/activity_post.dart';
 import '../models/post_author.dart';
 
-/// Input payload for publishing a new activity request.
+/// Input payload for publishing a new activity request. No time or place:
+/// the selected host proposes the concrete plan on the order after
+/// matching.
 class CreatePostInput {
   const CreatePostInput({
     required this.sceneTag,
     required this.title,
     required this.description,
-    required this.timeText,
-    required this.place,
   });
 
   final String sceneTag;
   final String title;
   final String description;
-
-  /// Loose, human-readable placeholders at publish time. The concrete
-  /// schedule and venue come from the selected host via the plan flow.
-  final String timeText;
-  final String place;
 }
 
 /// Data source contract for community activity posts.
@@ -199,9 +194,6 @@ class MockCommunityRepository implements CommunityRepository {
             'cafes near my office. Looking for a host who knows the '
             'specialty coffee scene and can plan a relaxed afternoon: the '
             'place, the order, the conversation. Time is flexible this week.',
-        timeText: 'Time flexible',
-        place: 'Place open to ideas',
-        distanceKm: 1.2,
         signedCount: 2,
         imageUrl: _sceneImages['Coffee']!,
         author: _miguel,
@@ -218,9 +210,6 @@ class MockCommunityRepository implements CommunityRepository {
             'Want a host who can plan a proper Japanese dinner \u2014 '
             'somewhere I would never find alone. Weeknights after 7 work '
             'best. Meal is on me.',
-        timeText: 'Weeknights after 7',
-        place: 'Place open to ideas',
-        distanceKm: 2.8,
         signedCount: 1,
         imageUrl: _sceneImages['Dinner']!,
         author: _paolo,
@@ -239,9 +228,6 @@ class MockCommunityRepository implements CommunityRepository {
             'the whole evening: which film, which cinema, and where we talk '
             'about it after. Saturday afternoon preferred. Tickets and '
             'snacks on me.',
-        timeText: 'Saturday afternoon',
-        place: 'Place open to ideas',
-        distanceKm: 4.6,
         signedCount: 1,
         imageUrl: _sceneImages['Movie']!,
         author: _marco,
@@ -259,9 +245,6 @@ class MockCommunityRepository implements CommunityRepository {
             'Work ate my whole month. I want one slow Sunday afternoon: '
             'good fruit tea, good cake, zero decisions made by me. Host '
             'plans everything, I just show up. Desserts are on me.',
-        timeText: 'Sunday afternoon',
-        place: 'Place open to ideas',
-        distanceKm: 3.9,
         signedCount: 0,
         imageUrl: _sceneImages['Tea']!,
         author: _andrea,
@@ -279,9 +262,6 @@ class MockCommunityRepository implements CommunityRepository {
             'Best Sunday in months \u2014 I did not make a single decision '
             'all afternoon.',
         detail: '',
-        timeText: '',
-        place: '',
-        distanceKm: 0,
         signedCount: 0,
         imageUrl:
             'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
@@ -302,9 +282,6 @@ class MockCommunityRepository implements CommunityRepository {
         description: 'Kat planned a dinner at a 12-seat omakase counter I '
             'never knew existed. Worth every peso of the service fee.',
         detail: '',
-        timeText: '',
-        place: '',
-        distanceKm: 0,
         signedCount: 0,
         imageUrl:
             'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
@@ -370,9 +347,6 @@ class MockCommunityRepository implements CommunityRepository {
       title: input.title,
       description: input.description,
       detail: input.description,
-      timeText: input.timeText,
-      place: input.place,
-      distanceKm: 0.5,
       signedCount: 0,
       imageUrl: _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
       author: currentUserAuthor,
@@ -400,9 +374,6 @@ class MockCommunityRepository implements CommunityRepository {
       title: text,
       description: text,
       detail: text,
-      timeText: '',
-      place: '',
-      distanceKm: 0,
       signedCount: 0,
       imageUrl: images.isEmpty ? '' : images.first,
       images: images,

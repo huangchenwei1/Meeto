@@ -18,8 +18,6 @@ void main() {
           sceneTag: 'Dinner',
           title: 'Dinner downtown',
           description: 'Casual dinner',
-          timeText: 'Tonight 8:00 PM',
-          place: 'BGC',
         ),
       );
 
@@ -59,8 +57,6 @@ void main() {
           sceneTag: 'Coffee',
           title: 'Coffee and a walk',
           description: 'Easy afternoon',
-          timeText: 'Saturday 3:00 PM',
-          place: 'Makati',
         ),
       );
       await Future<void>.delayed(const Duration(milliseconds: 1500));
