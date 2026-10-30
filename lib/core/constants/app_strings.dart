@@ -421,10 +421,10 @@ abstract final class AppStrings {
   static const String hostsSubtitle =
       'Pick someone to plan and host your next activity';
   static const String hostsEmpty = 'No hosts available yet';
-  static const String hostsPostRequestCta = 'Post a request';
   static String hostCompletedLabel(int count) =>
       count == 1 ? '1 activity hosted' : '$count activities hosted';
   static const String hostNewLabel = 'New host';
+  static String hostHostedBadge(int count) => '$count hosted';
   static const String hostRecentPlanLabel = 'Recent plans';
   static const String hostSeeActivities = 'See activities they can host';
   static const String hostActivitiesTitle = 'Activities they can host';

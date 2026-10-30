@@ -154,13 +154,13 @@ class _HomeShellState extends State<HomeShell> {
             )
           else
             const NavigationDestination(
-              icon: Icon(Iconsax.people),
-              selectedIcon: Icon(Iconsax.people5),
+              icon: Icon(Iconsax.home_2),
+              selectedIcon: Icon(Iconsax.home_25),
               label: AppStrings.tabHosts,
             ),
           const NavigationDestination(
-            icon: Icon(Iconsax.home_2),
-            selectedIcon: Icon(Iconsax.home_25),
+            icon: Icon(Iconsax.people),
+            selectedIcon: Icon(Iconsax.people5),
             label: AppStrings.tabCommunity,
           ),
           const NavigationDestination(

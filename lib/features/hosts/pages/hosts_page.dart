@@ -88,37 +88,23 @@ class HostsPageState extends State<HostsPage> {
                       ],
                     ),
                   ),
+                  // Post-a-request entry, kept as a quiet icon so the
+                  // host list stays the hero of the page.
                   InkWell(
                     key: const ValueKey<String>('postRequestButton'),
                     onTap: _openPublish,
-                    borderRadius: BorderRadius.circular(999),
+                    customBorder: const CircleBorder(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
+                      width: 38,
+                      height: 38,
+                      decoration: const BoxDecoration(
                         color: AppColors.darkCard,
-                        borderRadius: BorderRadius.circular(999),
+                        shape: BoxShape.circle,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const <Widget>[
-                          Icon(
-                            Iconsax.calendar_add,
-                            size: 15,
-                            color: AppColors.onDarkPrimary,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            AppStrings.hostsPostRequestCta,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.onDarkPrimary,
-                            ),
-                          ),
-                        ],
+                      child: const Icon(
+                        Iconsax.add,
+                        size: 20,
+                        color: AppColors.onDarkPrimary,
                       ),
                     ),
                   ),
@@ -183,6 +169,10 @@ class HostsPageState extends State<HostsPage> {
   }
 }
 
+/// One host, in three clean layers: identity (avatar, name, hosting
+/// record badge), a two-line bio, and the scenes they can host, with the
+/// price-list entry as the card's single call to action. Deliberately
+/// activity-led: no photo walls, no raw pitch quotes.
 class _HostTile extends StatelessWidget {
   const _HostTile({required this.host, required this.onTap});
 
@@ -195,7 +185,7 @@ class _HostTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(16),
@@ -204,9 +194,8 @@ class _HostTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                AppAvatar(size: 52, imageUrl: host.avatarUrl),
+                AppAvatar(size: 48, imageUrl: host.avatarUrl),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -235,7 +224,7 @@ class _HostTile extends StatelessWidget {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         host.city.isEmpty
                             ? host.meta
@@ -245,28 +234,15 @@ class _HostTile extends StatelessWidget {
                           color: AppColors.textHint,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      // Hosting record as the headline stat (activity-led,
-                      // never a photo/price catalog).
-                      Text(
-                        host.completedActivities > 0
-                            ? AppStrings.hostCompletedLabel(
-                                host.completedActivities,
-                              )
-                            : AppStrings.hostNewLabel,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accent,
-                        ),
-                      ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
+                _RecordBadge(count: host.completedActivities),
               ],
             ),
             if (host.bio.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 11),
               Text(
                 host.bio,
                 maxLines: 2,
@@ -278,35 +254,8 @@ class _HostTile extends StatelessWidget {
                 ),
               ),
             ],
-            if (host.recentProposals.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Icon(
-                    Iconsax.map_1,
-                    size: 14,
-                    color: AppColors.textHint,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      host.recentProposals.first,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        height: 1.35,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
             if (host.tags.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 10),
+              const SizedBox(height: 11),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -336,7 +285,7 @@ class _HostTile extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             const Divider(height: 1),
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             // Entry to the host's activity price list on the detail page.
             Row(
               children: const <Widget>[
@@ -358,6 +307,33 @@ class _HostTile extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Hosting record as a compact badge: the one trust signal on the card.
+class _RecordBadge extends StatelessWidget {
+  const _RecordBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool proven = count > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: proven ? AppColors.accentSoft : AppColors.surface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        proven ? AppStrings.hostHostedBadge(count) : AppStrings.hostNewLabel,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: proven ? AppColors.accent : AppColors.textSecondary,
         ),
       ),
     );

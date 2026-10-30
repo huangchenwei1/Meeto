@@ -34,11 +34,10 @@ void main() {
       find.byKey(const ValueKey<String>('postRequestButton')),
       findsOneWidget,
     );
-    expect(find.text(AppStrings.hostsPostRequestCta), findsOneWidget);
 
     // Community tab: the shared sharing wall — moments only, demand posts
     // never show here.
-    await tester.tap(find.byIcon(Iconsax.home_2));
+    await tester.tap(find.byIcon(Iconsax.people));
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.bannerCta), findsOneWidget);
     expect(find.textContaining('omakase counter'), findsOneWidget);

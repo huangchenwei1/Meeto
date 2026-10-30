@@ -35,6 +35,7 @@ abstract final class AppTheme {
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         iconTheme: WidgetStateProperty.resolveWith(
           (Set<WidgetState> states) => IconThemeData(
+            size: 21,
             color: states.contains(WidgetState.selected)
                 ? AppColors.textPrimary
                 : AppColors.textHint,
