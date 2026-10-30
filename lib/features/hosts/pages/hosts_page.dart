@@ -298,7 +298,7 @@ class _HostTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          scene,
+                          AppStrings.sceneLabel(scene),
                           style: const TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,

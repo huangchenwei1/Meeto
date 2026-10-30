@@ -315,7 +315,7 @@ class _ActivityPriceList extends StatelessWidget {
                     const SizedBox(width: 9),
                     Expanded(
                       child: Text(
-                        scenes[i],
+                        AppStrings.sceneLabel(scenes[i]),
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
@@ -418,7 +418,7 @@ class _InviteSheetState extends State<_InviteSheet> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  widget.scene,
+                  AppStrings.sceneLabel(widget.scene),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

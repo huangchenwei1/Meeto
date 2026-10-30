@@ -224,7 +224,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         _showError(e.message);
       }
     } on Exception {
-      _showError('Network error, try again');
+      _showError(AppStrings.errorNetwork);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -248,7 +248,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         _scrollToBottom();
       }
     } on Exception {
-      _showError('Message not sent, try again');
+      _showError(AppStrings.errorMessageNotSent);
     }
   }
 

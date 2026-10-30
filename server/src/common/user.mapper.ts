@@ -67,10 +67,10 @@ export function ageFrom(birthDate: Date | null): number | null {
   return age;
 }
 
-/// "Female · 24" (age omitted until provided). Derived so profile edits
-/// never leave a stale display line behind.
+/// Display line, e.g. "女 · 24" (age omitted until provided). Derived so
+/// profile edits never leave a stale display line behind.
 export function displayMeta(user: User): string {
-  const genderLabel = user.gender === 'FEMALE' ? 'Female' : 'Male';
+  const genderLabel = user.gender === 'FEMALE' ? '\u5973' : '\u7537';
   const age = ageFrom(user.birthDate);
   return age == null ? genderLabel : `${genderLabel} \u00b7 ${age}`;
 }

@@ -343,7 +343,7 @@ class _RequestCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        post.sceneTag,
+                        AppStrings.sceneLabel(post.sceneTag),
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
@@ -497,7 +497,7 @@ class _InvitationCard extends StatelessWidget {
                 child: Text(
                   AppStrings.inviteFromLine(
                     invitation.fromName,
-                    invitation.sceneTag,
+                    AppStrings.sceneLabel(invitation.sceneTag),
                   ),
                   style: const TextStyle(
                     fontSize: 13.5,

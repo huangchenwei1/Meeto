@@ -262,7 +262,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     } on ApiException catch (e) {
       _hint(e.message);
     } on Exception {
-      _hint('Network error, try again');
+      _hint(AppStrings.errorNetwork);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -301,7 +301,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       );
       _registered = true;
     } on Exception catch (e) {
-      _hint(e is AuthException ? e.message : 'Network error, try again');
+      _hint(e is AuthException ? e.message : AppStrings.errorNetwork);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -699,7 +699,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           label: AppStrings.setupHostScenesLabel,
           value: _hostScenes.isEmpty
               ? AppStrings.editNotSet
-              : _hostScenes.join(', '),
+              : _hostScenes.map(AppStrings.sceneLabel).join('、'),
           onTap: () => _openSheet(
             title: AppStrings.setupStepHostScenesTitle,
             fieldsOf: () => <Widget>[_hostSceneChips()],
@@ -1290,7 +1290,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       children: <Widget>[
         for (final String scene in ScenePricing.config.sceneFees.keys)
           _choiceChip(
-            label: scene,
+            label: AppStrings.sceneLabel(scene),
             selected: _hostScenes.contains(scene),
             onTap: () => _refresh(() {
               if (!_hostScenes.add(scene)) {

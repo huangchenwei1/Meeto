@@ -279,7 +279,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          _post.sceneTag,
+                          AppStrings.sceneLabel(_post.sceneTag),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

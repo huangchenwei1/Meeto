@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
@@ -45,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _submitPhone() async {
     final String digits = _phoneController.text.trim();
     if (digits.length < 9) {
-      setState(() => _error = 'Enter your mobile number');
+      setState(() => _error = AppStrings.loginPhoneRequiredHint);
       return;
     }
     await _run(() async {
@@ -91,7 +92,10 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await action();
     } catch (e) {
-      setState(() => _error = e is AuthException ? e.message : 'Something went wrong, try again');
+      setState(
+        () => _error =
+            e is AuthException ? e.message : AppStrings.errorGeneric,
+      );
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -126,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'MEET \u00b7 PLAN \u00b7 EARN',
+                AppStrings.loginTagline,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -157,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
                               _error = null;
                             }),
                     child: const Text(
-                      'Change number',
+                      AppStrings.loginChangeNumber,
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ),
@@ -175,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
       case _LoginStep.phone:
         return <Widget>[
           const Text(
-            'Sign in with your mobile number',
+            AppStrings.loginSignInTitle,
             style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -195,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
       case _LoginStep.code:
         return <Widget>[
           Text(
-            'Enter the code sent to $_phone',
+            AppStrings.loginCodeSentTo(_phone),
             style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -206,7 +210,8 @@ class _LoginPageState extends State<LoginPage> {
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.digitsOnly,
             ],
-            decoration: const InputDecoration(hintText: '6-digit code'),
+            decoration:
+                const InputDecoration(hintText: AppStrings.loginCodeHint),
           ),
           if (_devCode != null) ...<Widget>[
             const SizedBox(height: 10),
@@ -217,7 +222,7 @@ class _LoginPageState extends State<LoginPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Demo build \u00b7 your code is $_devCode',
+                AppStrings.loginDevCodeNote(_devCode!),
                 style: const TextStyle(fontSize: 13, color: AppColors.accent),
               ),
             ),
@@ -229,8 +234,16 @@ class _LoginPageState extends State<LoginPage> {
   Widget _primaryButton() {
     final (String label, Future<void> Function() onTap, String keyName) =
         switch (_step) {
-      _LoginStep.phone => ('Continue', _submitPhone, 'loginContinueButton'),
-      _LoginStep.code => ('Verify', _submitCode, 'otpVerifyButton'),
+      _LoginStep.phone => (
+          AppStrings.loginContinueCta,
+          _submitPhone,
+          'loginContinueButton'
+        ),
+      _LoginStep.code => (
+          AppStrings.loginVerifyCta,
+          _submitCode,
+          'otpVerifyButton'
+        ),
     };
     return SizedBox(
       width: double.infinity,

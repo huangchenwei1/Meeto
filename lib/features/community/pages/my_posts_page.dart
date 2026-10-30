@@ -105,7 +105,8 @@ class _PostRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String meta =
-        '${post.sceneTag} \u00b7 ${formatTimeAgo(post.createdAt)}';
+        '${AppStrings.sceneLabel(post.sceneTag)} \u00b7 '
+        '${formatTimeAgo(post.createdAt)}';
     return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

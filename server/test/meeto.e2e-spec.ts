@@ -464,7 +464,7 @@ describe('Meeto API (e2e)', () => {
         })
         .expect(200);
       // Age is derived from the seeded birth date (24 at seed time).
-      expect(res.body.meta).toMatch(/^Female \u00b7 \d{2}$/);
+      expect(res.body.meta).toMatch(/^\u5973 \u00b7 \d{2}$/);
       expect(res.body.country).toBe('Philippines');
       expect(res.body.city).toBe('Makati');
       expect(res.body.heightCm).toBe(160);

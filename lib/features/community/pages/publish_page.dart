@@ -135,7 +135,7 @@ class _PublishPageState extends State<PublishPage> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    scene,
+                    AppStrings.sceneLabel(scene),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
