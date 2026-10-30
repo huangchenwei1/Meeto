@@ -1,20 +1,17 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/geo.dart';
 import '../../../core/utils/money.dart';
 import '../data/community_repository.dart';
-import '../data/place_search.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/pages/verification_page.dart';
 
-/// Full-screen form to publish a new activity post.
+/// Full-screen form to publish a new activity request: scene, title and
+/// description only. Time and place are deliberately absent — the selected
+/// host proposes the concrete plan after the match (the plan flow).
 ///
 /// Pops with `true` when a post was published.
 class PublishPage extends StatefulWidget {
@@ -29,9 +26,6 @@ class PublishPage extends StatefulWidget {
 class _PublishPageState extends State<PublishPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-
-  DateTime? _scheduledAt;
-  PlaceResult? _place;
 
   List<String> _scenes = <String>[];
   String? _selectedScene;
@@ -61,63 +55,6 @@ class _PublishPageState extends State<PublishPage> {
     });
   }
 
-  static const List<String> _weekdays = <String>[
-    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
-  ];
-  static const List<String> _months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
-  String _formatSchedule(DateTime dt) {
-    final int hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final String minute = dt.minute.toString().padLeft(2, '0');
-    final String ampm = dt.hour < 12 ? 'AM' : 'PM';
-    return '${_weekdays[dt.weekday - 1]}, ${_months[dt.month - 1]} ${dt.day}'
-        ' \u00b7 $hour12:$minute $ampm';
-  }
-
-  Future<void> _pickDateTime() async {
-    final DateTime now = DateTime.now();
-    final DateTime? date = await showDatePicker(
-      context: context,
-      initialDate: _scheduledAt ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 60)),
-    );
-    if (date == null || !mounted) {
-      return;
-    }
-    final TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: _scheduledAt != null
-          ? TimeOfDay.fromDateTime(_scheduledAt!)
-          : const TimeOfDay(hour: 19, minute: 0),
-    );
-    if (time == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _scheduledAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
-  }
-
-  Future<void> _pickPlace() async {
-    final PlaceResult? picked = await showModalBottomSheet<PlaceResult>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) => const _PlaceSearchSheet(),
-    );
-    if (picked != null && mounted) {
-      setState(() => _place = picked);
-    }
-  }
-
   Future<void> _submit() async {
     final String scene = _selectedScene ?? _scenes.first;
     setState(() => _submitting = true);
@@ -131,13 +68,9 @@ class _PublishPageState extends State<PublishPage> {
           description: _descController.text.trim().isEmpty
               ? AppStrings.publishDefaultDesc
               : _descController.text.trim(),
-          timeText: _scheduledAt == null
-              ? AppStrings.publishDefaultTime
-              : _formatSchedule(_scheduledAt!),
-          place: _place?.name ?? AppStrings.publishDefaultPlace,
-          scheduledAt: _scheduledAt,
-          placeLat: _place?.lat,
-          placeLng: _place?.lng,
+          // The host proposes the concrete time and place in the plan flow.
+          timeText: AppStrings.publishDefaultTime,
+          place: AppStrings.publishDefaultPlace,
         ),
       );
     } on ApiException catch (e) {
@@ -240,28 +173,6 @@ class _PublishPageState extends State<PublishPage> {
               hintText: AppStrings.publishPhDesc,
             ),
           ),
-          const _FieldLabel(
-            AppStrings.publishFieldTime,
-            hint: AppStrings.publishOptionalHint,
-          ),
-          _PickerField(
-            key: const ValueKey<String>('timePicker'),
-            icon: Iconsax.clock,
-            value: _scheduledAt == null ? '' : _formatSchedule(_scheduledAt!),
-            placeholder: AppStrings.publishPickTime,
-            onTap: _pickDateTime,
-          ),
-          const _FieldLabel(
-            AppStrings.publishFieldPlace,
-            hint: AppStrings.publishOptionalHint,
-          ),
-          _PickerField(
-            key: const ValueKey<String>('placePicker'),
-            icon: Iconsax.location,
-            value: _place?.name ?? '',
-            placeholder: AppStrings.publishPickPlace,
-            onTap: _pickPlace,
-          ),
         ],
       ),
       bottomNavigationBar: Container(
@@ -289,292 +200,6 @@ class _PublishPageState extends State<PublishPage> {
           child: Text(
             _submitting ? AppStrings.publishSuccess : AppStrings.publishSubmit,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Input-styled tappable row for the structured pickers (time, place).
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    super.key,
-    required this.icon,
-    required this.value,
-    required this.placeholder,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String value;
-  final String placeholder;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool hasValue = value.isNotEmpty;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, size: 17, color: AppColors.textSecondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                hasValue ? value : placeholder,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: hasValue
-                      ? AppColors.textPrimary
-                      : AppColors.textHint,
-                ),
-              ),
-            ),
-            const Icon(
-              Iconsax.arrow_right_3,
-              size: 15,
-              color: AppColors.textHint,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom sheet: type-ahead venue search (OpenStreetMap Nominatim). Falls
-/// back to using the typed text as a free-form place so publishing never
-/// blocks on the search service.
-class _PlaceSearchSheet extends StatefulWidget {
-  const _PlaceSearchSheet();
-
-  @override
-  State<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
-}
-
-class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
-  final PlaceSearch _search = PlaceSearch();
-  final TextEditingController _queryController = TextEditingController();
-  Timer? _debounce;
-  List<PlaceResult> _results = <PlaceResult>[];
-  bool _loading = false;
-  Position? _myPosition;
-
-  @override
-  void initState() {
-    super.initState();
-    _locate();
-  }
-
-  /// Best-effort fix so suggestions are biased to the caller's current city;
-  /// search still works nationwide when location is unavailable.
-  Future<void> _locate() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final Position position =
-          await Geolocator.getLastKnownPosition() ??
-              await Geolocator.getCurrentPosition();
-      if (mounted) {
-        _myPosition = position;
-      }
-    } on Exception {
-      // Keep nationwide search.
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _queryController.dispose();
-    super.dispose();
-  }
-
-  void _onQueryChanged(String query) {
-    _debounce?.cancel();
-    if (query.trim().length < 2) {
-      setState(() => _results = <PlaceResult>[]);
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 450), () async {
-      setState(() => _loading = true);
-      List<PlaceResult> results;
-      try {
-        results = await _search.search(
-          query.trim(),
-          nearLat: _myPosition?.latitude,
-          nearLng: _myPosition?.longitude,
-        );
-      } on Exception {
-        results = <PlaceResult>[];
-      }
-      if (mounted) {
-        setState(() {
-          _results = _sortedByDistance(results);
-          _loading = false;
-        });
-      }
-    });
-  }
-
-  /// Nearest first when the caller's location is known.
-  List<PlaceResult> _sortedByDistance(List<PlaceResult> results) {
-    final Position? position = _myPosition;
-    if (position == null) {
-      return results;
-    }
-    final List<PlaceResult> sorted = List<PlaceResult>.of(results);
-    sorted.sort(
-      (PlaceResult a, PlaceResult b) =>
-          _distanceTo(a)!.compareTo(_distanceTo(b)!),
-    );
-    return sorted;
-  }
-
-  double? _distanceTo(PlaceResult place) {
-    final Position? position = _myPosition;
-    if (position == null) {
-      return null;
-    }
-    return distanceKmBetween(
-      position.latitude,
-      position.longitude,
-      place.lat,
-      place.lng,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final String query = _queryController.text.trim();
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 18, 18, 10),
-              child: Text(
-                AppStrings.placeSearchTitle,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: TextField(
-                controller: _queryController,
-                autofocus: true,
-                onChanged: _onQueryChanged,
-                decoration: InputDecoration(
-                  hintText: AppStrings.placeSearchHint,
-                  prefixIcon: const Icon(Iconsax.search_normal, size: 18),
-                  suffixIcon: _loading
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(6, 4, 6, 20),
-                children: <Widget>[
-                  if (query.isNotEmpty)
-                    ListTile(
-                      leading: const Icon(Iconsax.edit_2, size: 18),
-                      title: Text(
-                        AppStrings.placeSearchUseTyped(query),
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      onTap: () => Navigator.of(context).pop(
-                        PlaceResult(
-                          name: query,
-                          address: query,
-                          lat: 0,
-                          lng: 0,
-                        ),
-                      ),
-                    ),
-                  if (query.length >= 2 && !_loading && _results.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(18),
-                      child: Text(
-                        AppStrings.placeSearchEmpty,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textHint,
-                        ),
-                      ),
-                    ),
-                  ..._results.map(
-                    (PlaceResult place) => ListTile(
-                      leading: const Icon(Iconsax.location, size: 18),
-                      title: Text(
-                        place.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        place.address,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      trailing: _distanceTo(place) == null
-                          ? null
-                          : Text(
-                              AppStrings.distanceAway(
-                                _distanceTo(place)!.toStringAsFixed(1),
-                              ),
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.textHint,
-                              ),
-                            ),
-                      onTap: () => Navigator.of(context).pop(place),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

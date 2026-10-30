@@ -14,22 +14,16 @@ class CreatePostInput {
     required this.description,
     required this.timeText,
     required this.place,
-    this.scheduledAt,
-    this.placeLat,
-    this.placeLng,
   });
 
   final String sceneTag;
   final String title;
   final String description;
+
+  /// Loose, human-readable placeholders at publish time. The concrete
+  /// schedule and venue come from the selected host via the plan flow.
   final String timeText;
   final String place;
-
-  /// Structured schedule and venue (optional; timeText/place stay the
-  /// human-readable display strings).
-  final DateTime? scheduledAt;
-  final double? placeLat;
-  final double? placeLng;
 }
 
 /// Data source contract for community activity posts.

@@ -76,9 +76,6 @@ class ApiCommunityRepository implements CommunityRepository {
         'detail': input.description,
         'timeText': input.timeText,
         'place': input.place,
-        'scheduledAt': ?input.scheduledAt?.toUtc().toIso8601String(),
-        'placeLat': ?input.placeLat,
-        'placeLng': ?input.placeLng,
         'imageUrl': _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
       },
     ) as Map<String, dynamic>;

@@ -130,8 +130,6 @@ abstract final class AppStrings {
   static const String publishFieldDesc = 'Description';
   static const String publishFieldDescHint =
       'share what you want to do and expect';
-  static const String publishFieldTime = 'Time';
-  static const String publishFieldPlace = 'Place';
   static const String publishPhTitle = 'e.g. Coffee at a new cafe';
   static const String publishPhDesc =
       'e.g. New cafe in town, looking for relaxed company and good chat...';
@@ -144,8 +142,6 @@ abstract final class AppStrings {
       'Looking for company, relaxed and no pressure';
   static const String publishDefaultTime = 'Time is flexible';
   static const String publishDefaultPlace = 'Place open to ideas';
-  static const String publishOptionalHint =
-      'optional \u00b7 your host can propose it';
 
   // User profile
   static const String profileTitle = 'Profile';
@@ -390,11 +386,6 @@ abstract final class AppStrings {
 
   // Publish: structured time and place pickers
   static const String publishPickTime = 'Pick a date & time';
-  static const String publishPickPlace = 'Search for a place';
-  static const String placeSearchTitle = 'Choose a place';
-  static const String placeSearchHint = 'Search restaurants, cafes, malls...';
-  static const String placeSearchEmpty = 'No places found, keep typing';
-  static String placeSearchUseTyped(String query) => 'Use "$query"';
 
   // Meet flow (API mode order room)
   static const String peerPhoneLabel = 'Phone';
