@@ -192,7 +192,7 @@ class _HostTile extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                AppAvatar(size: 56, imageUrl: host.avatarUrl),
+                AppAvatar(size: 56, imageUrl: host.avatarUrl, squircle: true),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
