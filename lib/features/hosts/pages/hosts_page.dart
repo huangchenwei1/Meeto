@@ -171,10 +171,11 @@ class HostsPageState extends State<HostsPage> {
 
 /// One host, identity-first like a contact card: a three-line header
 /// (name + verified mark, demographics, hosting record as the accent
-/// stat), a short bio, then the scenes they can host. The whole card
-/// opens the detail page; the footer is a compact "View activities"
-/// affordance. Deliberately activity-led: no photo walls, no raw pitch
-/// quotes, and no made-up stats — only fields we actually have.
+/// stat) with an invite pill on the trailing edge, a short bio, then the
+/// scenes they can host. The whole card opens the detail page, where the
+/// invite is actually priced per scene. Deliberately activity-led: no
+/// photo walls, no raw pitch quotes, and no made-up stats — only fields
+/// we actually have.
 class _HostTile extends StatelessWidget {
   const _HostTile({required this.host, required this.onTap});
 
@@ -187,7 +188,7 @@ class _HostTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 11),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(16),
@@ -263,6 +264,32 @@ class _HostTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 10),
+                // Invite entry: lands on the detail page where the
+                // scene price list turns the intent into an order.
+                InkWell(
+                  key: ValueKey<String>('inviteHost${host.id}'),
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkCard,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      AppStrings.hostInviteCta,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onDarkPrimary,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
             if (host.bio.isNotEmpty) ...<Widget>[
@@ -310,29 +337,6 @@ class _HostTile extends StatelessWidget {
                     .toList(growable: false),
               ),
             ],
-            const SizedBox(height: 11),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            // Compact entry to the host's activity price list.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: const <Widget>[
-                Text(
-                  AppStrings.hostSeeActivities,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.accent,
-                  ),
-                ),
-                SizedBox(width: 3),
-                Icon(
-                  Iconsax.arrow_right_3,
-                  size: 14,
-                  color: AppColors.accent,
-                ),
-              ],
-            ),
           ],
         ),
       ),

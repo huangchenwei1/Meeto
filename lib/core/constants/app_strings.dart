@@ -387,7 +387,7 @@ abstract final class AppStrings {
   static String hostCompletedLabel(int count) => '$count 次主持';
   static const String hostNewLabel = '新人主持';
   static const String hostRecentPlanLabel = '近期方案';
-  static const String hostSeeActivities = '查看活动';
+  static const String hostInviteCta = '邀请';
   static const String hostActivitiesTitle = 'TA 可主持的活动';
   static const String inviteRowCta = '邀请';
   static String inviteSheetTitle(String name) => '邀请 $name 来主持';
