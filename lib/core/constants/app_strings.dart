@@ -245,8 +245,7 @@ abstract final class AppStrings {
   static const String setupStepHostScenesTitle =
       'Which activities can you host?';
   static const String setupStepHostScenesSub =
-      'Pick at least one. Guests invite you from this list, and you earn '
-      'the shown amount per hosted activity.';
+      'Pick at least one. Guests invite you from this list.';
   static const String setupHostScenesLabel = 'Hosted activities';
   static const String hostScenesRequiredHint =
       'Pick at least one activity you can host';

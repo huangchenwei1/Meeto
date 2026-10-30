@@ -1282,8 +1282,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
-  /// One chip per platform scene, labelled with what the host actually
-  /// earns (fee minus commission). At least one pick is required.
+  /// One chip per platform scene; at least one pick is required.
   Widget _hostSceneChips() {
     return Wrap(
       spacing: 8,
@@ -1291,8 +1290,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       children: <Widget>[
         for (final String scene in ScenePricing.config.sceneFees.keys)
           _choiceChip(
-            label:
-                '$scene \u00b7 ${AppStrings.gigEarnLine('\u20b1${ScenePricing.netEarnings(ScenePricing.feeForScene(scene))}')}',
+            label: scene,
             selected: _hostScenes.contains(scene),
             onTap: () => _refresh(() {
               if (!_hostScenes.add(scene)) {

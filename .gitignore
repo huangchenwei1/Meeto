@@ -10,3 +10,4 @@ server/prisma/dev.db
 *.log
 .DS_Store
 tsconfig.build.tsbuildinfo
+server/uploads/
