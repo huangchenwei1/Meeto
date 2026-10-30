@@ -104,130 +104,28 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     if (order == null) {
       return;
     }
-    final TextEditingController placeController =
-        TextEditingController(text: order.planPlace);
-    DateTime? scheduledAt = order.planAt;
-    final bool? submitted = await showModalBottomSheet<bool>(
+    // The sheet owns its text controller (its own State disposes it after
+    // the route fully unmounts); disposing here right after the await
+    // crashes the exit animation ('_dependents.isEmpty').
+    final (String, DateTime)? plan =
+        await showModalBottomSheet<(String, DateTime)>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setSheetState) {
-            Future<void> pickTime() async {
-              final DateTime now = DateTime.now();
-              final DateTime? date = await showDatePicker(
-                context: context,
-                initialDate: scheduledAt ?? now,
-                firstDate: now,
-                lastDate: now.add(const Duration(days: 60)),
-              );
-              if (date == null || !context.mounted) {
-                return;
-              }
-              final TimeOfDay? time = await showTimePicker(
-                context: context,
-                initialTime: scheduledAt != null
-                    ? TimeOfDay.fromDateTime(scheduledAt!)
-                    : const TimeOfDay(hour: 19, minute: 0),
-              );
-              if (time == null) {
-                return;
-              }
-              setSheetState(() {
-                scheduledAt = DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  time.hour,
-                  time.minute,
-                );
-              });
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                0,
-                24,
-                MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text(
-                    AppStrings.planSheetTitle,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    key: const ValueKey<String>('planPlaceField'),
-                    controller: placeController,
-                    maxLength: 160,
-                    decoration: const InputDecoration(
-                      hintText: AppStrings.planPlaceHint,
-                      prefixIcon: Icon(Icons.place_outlined, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const ValueKey<String>('planTimeButton'),
-                    onPressed: pickTime,
-                    icon: const Icon(Icons.schedule, size: 18),
-                    label: Text(
-                      scheduledAt == null
-                          ? AppStrings.publishPickTime
-                          : _formatPlanTime(scheduledAt!),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      key: const ValueKey<String>('planSubmitButton'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.darkCard,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () {
-                        if (placeController.text.trim().isEmpty ||
-                            scheduledAt == null) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            const SnackBar(
-                              content: Text(AppStrings.planRequiredHint),
-                            ),
-                          );
-                          return;
-                        }
-                        Navigator.of(sheetContext).pop(true);
-                      },
-                      child: const Text(AppStrings.planProposeCta),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => _PlanSheet(
+        initialPlace: order.planPlace,
+        initialAt: order.planAt,
+      ),
     );
-    if (submitted != true || !mounted || scheduledAt == null) {
-      placeController.dispose();
+    if (plan == null || !mounted) {
       return;
     }
-    final String place = placeController.text.trim();
-    placeController.dispose();
     setState(() => _busy = true);
     try {
       final LiveOrder updated = await widget.repository.proposePlan(
         widget.orderId,
-        place: place,
-        scheduledAt: scheduledAt!,
+        place: plan.$1,
+        scheduledAt: plan.$2,
       );
       if (mounted) {
         setState(() => _order = updated);
@@ -263,8 +161,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
       }
     }
   }
-
-  String _formatPlanTime(DateTime at) => _formatPlanDateTime(context, at);
 
   Future<void> _openPayment() async {
     final LiveOrder? current = _order;
@@ -676,6 +572,140 @@ String _formatPlanDateTime(BuildContext context, DateTime at) {
   final DateTime local = at.toLocal();
   return '${loc.formatShortDate(local)} \u00b7 '
       '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+}
+
+/// Plan proposal sheet. A proper StatefulWidget (not a closure over the
+/// caller's controller) so the text controller is disposed by the sheet's
+/// own State after the route fully unmounts. Pops `(place, scheduledAt)`.
+class _PlanSheet extends StatefulWidget {
+  const _PlanSheet({required this.initialPlace, required this.initialAt});
+
+  final String initialPlace;
+  final DateTime? initialAt;
+
+  @override
+  State<_PlanSheet> createState() => _PlanSheetState();
+}
+
+class _PlanSheetState extends State<_PlanSheet> {
+  late final TextEditingController _placeController;
+  DateTime? _scheduledAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _placeController = TextEditingController(text: widget.initialPlace);
+    _scheduledAt = widget.initialAt;
+  }
+
+  @override
+  void dispose() {
+    _placeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickTime() async {
+    final DateTime now = DateTime.now();
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: _scheduledAt ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (date == null || !mounted) {
+      return;
+    }
+    final TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: _scheduledAt != null
+          ? TimeOfDay.fromDateTime(_scheduledAt!)
+          : const TimeOfDay(hour: 19, minute: 0),
+    );
+    if (time == null) {
+      return;
+    }
+    setState(() {
+      _scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  void _submit() {
+    final String place = _placeController.text.trim();
+    final DateTime? at = _scheduledAt;
+    if (place.isEmpty || at == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.planRequiredHint)),
+      );
+      return;
+    }
+    Navigator.of(context).pop((place, at));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            AppStrings.planSheetTitle,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey<String>('planPlaceField'),
+            controller: _placeController,
+            maxLength: 160,
+            decoration: const InputDecoration(
+              hintText: AppStrings.planPlaceHint,
+              prefixIcon: Icon(Icons.place_outlined, size: 20),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const ValueKey<String>('planTimeButton'),
+            onPressed: _pickTime,
+            icon: const Icon(Icons.schedule, size: 18),
+            label: Text(
+              _scheduledAt == null
+                  ? AppStrings.publishPickTime
+                  : _formatPlanDateTime(context, _scheduledAt!),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey<String>('planSubmitButton'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.darkCard,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: _submit,
+              child: const Text(AppStrings.planProposeCta),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Slim header: place · time · fee in one line, expandable to lightweight

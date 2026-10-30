@@ -54,108 +54,18 @@ class _HostDetailPageState extends State<HostDetailPage> {
   /// optional note and the fee confirmation remain.
   Future<void> _openInviteSheet(String scene) async {
     final HostCard host = _host!;
-    final TextEditingController noteController = TextEditingController();
-    final bool? send = await showModalBottomSheet<bool>(
+    // The sheet owns its text controller (disposed by its own State after
+    // the route fully unmounts); disposing right after the await crashes
+    // the exit animation ('_dependents.isEmpty'). Pops the note to send.
+    final String? note = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            0,
-            24,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                AppStrings.inviteSheetTitle(host.name),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.textPrimary,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      scene,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.onDarkPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '\u20b1${ScenePricing.feeForScene(scene)}',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                key: const ValueKey<String>('inviteNoteField'),
-                controller: noteController,
-                maxLength: 300,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  hintText: AppStrings.inviteNoteHint,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                AppStrings.inviteFeeNote(
-                  '\u20b1${ScenePricing.feeForScene(scene)}',
-                ),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textHint,
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('inviteSendButton'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.darkCard,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () => Navigator.of(sheetContext).pop(true),
-                  child: const Text(AppStrings.inviteSendCta),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _InviteSheet(hostName: host.name, scene: scene),
     );
-    if (send != true || !mounted) {
-      noteController.dispose();
+    if (note == null || !mounted) {
       return;
     }
-    final String note = noteController.text.trim();
-    noteController.dispose();
     await _sendInvite(scene, note);
   }
 
@@ -445,6 +355,121 @@ class _ActivityPriceList extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Invitation confirm sheet for one fixed scene. A proper StatefulWidget
+/// so the note controller is disposed by the sheet's own State after the
+/// route fully unmounts. Pops the (possibly empty) note text on send.
+class _InviteSheet extends StatefulWidget {
+  const _InviteSheet({required this.hostName, required this.scene});
+
+  final String hostName;
+  final String scene;
+
+  @override
+  State<_InviteSheet> createState() => _InviteSheetState();
+}
+
+class _InviteSheetState extends State<_InviteSheet> {
+  final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String fee = '\u20b1${ScenePricing.feeForScene(widget.scene)}';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            AppStrings.inviteSheetTitle(widget.hostName),
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.textPrimary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  widget.scene,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onDarkPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                fee,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey<String>('inviteNoteField'),
+            controller: _noteController,
+            maxLength: 300,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: AppStrings.inviteNoteHint,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            AppStrings.inviteFeeNote(fee),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textHint,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey<String>('inviteSendButton'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.darkCard,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () =>
+                  Navigator.of(context).pop(_noteController.text.trim()),
+              child: const Text(AppStrings.inviteSendCta),
+            ),
+          ),
         ],
       ),
     );

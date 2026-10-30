@@ -65,80 +65,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 
   Future<String?> _askProposal() {
-    final TextEditingController controller = TextEditingController();
+    // The sheet owns its text controller (disposed by its own State after
+    // the route fully unmounts). Pops the proposal text.
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            0,
-            24,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                AppStrings.proposalSheetTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                AppStrings.proposalSheetSub,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const ValueKey<String>('proposalField'),
-                controller: controller,
-                autofocus: true,
-                maxLength: 200,
-                maxLines: 3,
-                minLines: 2,
-                decoration: const InputDecoration(
-                  hintText: AppStrings.proposalHint,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('proposalSubmitButton'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
-                    foregroundColor: AppColors.onDarkPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () {
-                    final String text = controller.text.trim();
-                    if (text.isEmpty) {
-                      ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        const SnackBar(
-                          content: Text(AppStrings.proposalRequiredHint),
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.of(sheetContext).pop(text);
-                  },
-                  child: const Text(AppStrings.signUpCta),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _ProposalSheet(),
     );
   }
 
@@ -838,6 +771,97 @@ class _PosterBottomBar extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sign-up proposal sheet. A proper StatefulWidget so the text controller
+/// is disposed by the sheet's own State after the route fully unmounts.
+/// Pops the proposal text.
+class _ProposalSheet extends StatefulWidget {
+  const _ProposalSheet();
+
+  @override
+  State<_ProposalSheet> createState() => _ProposalSheetState();
+}
+
+class _ProposalSheetState extends State<_ProposalSheet> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String text = _controller.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.proposalRequiredHint)),
+      );
+      return;
+    }
+    Navigator.of(context).pop(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            AppStrings.proposalSheetTitle,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            AppStrings.proposalSheetSub,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey<String>('proposalField'),
+            controller: _controller,
+            autofocus: true,
+            maxLength: 200,
+            maxLines: 3,
+            minLines: 2,
+            decoration: const InputDecoration(
+              hintText: AppStrings.proposalHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey<String>('proposalSubmitButton'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.textPrimary,
+                foregroundColor: AppColors.onDarkPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: _submit,
+              child: const Text(AppStrings.signUpCta),
             ),
           ),
         ],

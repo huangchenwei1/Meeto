@@ -51,83 +51,15 @@ class _WalletPageState extends State<WalletPage> {
     if (wallet == null || wallet.withdrawable <= 0) {
       return;
     }
-    final TextEditingController controller =
-        TextEditingController(text: '${wallet.withdrawable}');
+    // The sheet owns its text controller (disposed by its own State after
+    // the route fully unmounts); disposing right after the await crashes
+    // the exit animation ('_dependents.isEmpty'). Pops the amount.
     final int? amount = await showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            0,
-            24,
-            MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                AppStrings.withdrawSheetTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                AppStrings.withdrawSheetSub(
-                  MoneyFormat.format(wallet.withdrawable),
-                ),
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const ValueKey<String>('withdrawAmountField'),
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  prefixText: '\u20b1 ',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('withdrawConfirmButton'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.darkCard,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () {
-                    final int? value = int.tryParse(controller.text.trim());
-                    if (value == null || value <= 0) {
-                      return;
-                    }
-                    Navigator.of(sheetContext).pop(value);
-                  },
-                  child: const Text(AppStrings.withdraw),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _WithdrawSheet(withdrawable: wallet.withdrawable),
     );
-    controller.dispose();
     if (amount == null || !mounted) {
       return;
     }
@@ -371,6 +303,107 @@ class _WithdrawalTile extends StatelessWidget {
                 color:
                     pending ? const Color(0xFF92400E) : AppColors.accent,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Withdrawal amount sheet. A proper StatefulWidget so the amount
+/// controller is disposed by the sheet's own State after the route fully
+/// unmounts. Pops the chosen amount in whole pesos.
+class _WithdrawSheet extends StatefulWidget {
+  const _WithdrawSheet({required this.withdrawable});
+
+  final int withdrawable;
+
+  @override
+  State<_WithdrawSheet> createState() => _WithdrawSheetState();
+}
+
+class _WithdrawSheetState extends State<_WithdrawSheet> {
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(text: '${widget.withdrawable}');
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final int? value = int.tryParse(_amountController.text.trim());
+    if (value == null || value <= 0) {
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            AppStrings.withdrawSheetTitle,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.withdrawSheetSub(
+              MoneyFormat.format(widget.withdrawable),
+            ),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            key: const ValueKey<String>('withdrawAmountField'),
+            controller: _amountController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            decoration: const InputDecoration(
+              prefixText: '\u20b1 ',
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey<String>('withdrawConfirmButton'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.darkCard,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: _submit,
+              child: const Text(AppStrings.withdraw),
             ),
           ),
         ],
