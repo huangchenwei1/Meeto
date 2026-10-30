@@ -211,21 +211,14 @@ class _HostTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // Verified mark: icon only, the badge speaks
+                          // for itself on a card this dense.
                           if (host.isVerified) ...<Widget>[
                             const SizedBox(width: 6),
                             const Icon(
                               Iconsax.verify5,
-                              size: 14,
+                              size: 15,
                               color: AppColors.accent,
-                            ),
-                            const SizedBox(width: 3),
-                            const Text(
-                              AppStrings.verifiedLabel,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.accent,
-                              ),
                             ),
                           ],
                         ],
