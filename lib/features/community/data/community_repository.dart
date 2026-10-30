@@ -38,9 +38,12 @@ class CreatePostInput {
 /// real API client (e.g. `ApiCommunityRepository`) and swap the instance
 /// injected in the page — no UI change required.
 abstract interface class CommunityRepository {
-  /// Returns community wall posts (waiting + in-progress + moments),
-  /// optionally filtered by [sceneTag].
-  Future<List<ActivityPost>> fetchPosts({String? sceneTag});
+  /// Community wall: sharing posts (moments) only. Demand posts live on
+  /// the host gig hall ([fetchOpenRequests]) and in the author's own view.
+  Future<List<ActivityPost>> fetchMoments();
+
+  /// Host gig hall: OPEN activity requests hosts can still pitch on.
+  Future<List<ActivityPost>> fetchOpenRequests();
 
   /// Returns all posts published by [authorId] (any status), used by the
   /// author's own management view.
@@ -322,12 +325,21 @@ class MockCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<List<ActivityPost>> fetchPosts({String? sceneTag}) async {
+  Future<List<ActivityPost>> fetchMoments() async {
     // Simulated network latency so loading states stay testable.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return _posts.where((ActivityPost post) => post.isMoment).toList()
+      ..sort(
+        (ActivityPost a, ActivityPost b) => b.createdAt.compareTo(a.createdAt),
+      );
+  }
+
+  @override
+  Future<List<ActivityPost>> fetchOpenRequests() async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return _posts
         .where(
-          (ActivityPost post) => sceneTag == null || post.sceneTag == sceneTag,
+          (ActivityPost post) => !post.isMoment && post.status == 'OPEN',
         )
         .toList()
       ..sort(

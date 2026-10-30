@@ -251,10 +251,10 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('feed: the community activity wall', () => {
-    it('shows every open post to every caller by default', async () => {
-      // Seed posts are all male-authored; add one female-authored post so
-      // neutrality is observable in both directions.
+  describe('feed: community wall vs host gig hall', () => {
+    it('the default wall carries sharing posts only', async () => {
+      // Demand posts never show on the community wall; it is the shared
+      // sharing surface for both roles.
       await api()
         .post('/posts')
         .set('X-User-Id', ANDREA)
@@ -264,64 +264,78 @@ describe('Meeto API (e2e)', () => {
         })
         .expect(201);
 
-      const maleView = await api()
+      const wall = await api()
         .get('/posts')
         .set('X-User-Id', MIGUEL)
         .expect(200);
-      const maleGenders = new Set(
-        maleView.body.map((p: { author: { gender: string } }) => p.author.gender),
-      );
-      expect(maleGenders.has('FEMALE')).toBe(true);
-      expect(maleGenders.has('MALE')).toBe(true);
+      expect(wall.body.length).toBeGreaterThan(0);
+      for (const post of wall.body) {
+        expect(post.type).toBe('MOMENT');
+      }
+    });
 
-      const femaleView = await api()
-        .get('/posts')
-        .set('X-User-Id', ANDREA)
+    it('the requests view lists only open demands, to every caller', async () => {
+      // Seed posts are male- and female-authored; neutrality must be
+      // observable in both directions.
+      const hostView = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', JAMES)
         .expect(200);
-      const femaleGenders = new Set(
-        femaleView.body.map(
+      const genders = new Set(
+        hostView.body.map(
           (p: { author: { gender: string } }) => p.author.gender,
         ),
       );
-      expect(femaleGenders.has('MALE')).toBe(true);
-      expect(femaleGenders.has('FEMALE')).toBe(true);
-    });
+      expect(genders.has('FEMALE')).toBe(true);
+      expect(genders.has('MALE')).toBe(true);
 
-    it('keeps in-progress activities visible with host attribution', async () => {
-      // The seeded movie night is MATCHED with Liza's plan selected: it
-      // must stay on the wall and carry the host attribution.
-      const feed = await api()
-        .get('/posts')
-        .set('X-User-Id', MIGUEL)
-        .expect(200);
-      const matched = feed.body.find(
-        (p: { id: string }) => p.id === 'post-003',
+      // Only OPEN demand posts qualify as gigs: the seeded MATCHED movie
+      // night is out, moments are out, open requests are in.
+      for (const post of hostView.body) {
+        expect(post.type).toBe('DEMAND');
+        expect(post.status).toBe('OPEN');
+      }
+      expect(
+        hostView.body.find((p: { id: string }) => p.id === 'post-003'),
+      ).toBeUndefined();
+      const open = hostView.body.find(
+        (p: { id: string }) => p.id === 'post-001',
       );
-      expect(matched).toBeDefined();
-      expect(matched.status).toBe('MATCHED');
-      expect(matched.selectedHost.id).toBe(LIZA);
-
-      // Open posts have no attribution yet.
-      const open = feed.body.find((p: { id: string }) => p.id === 'post-001');
+      expect(open).toBeDefined();
       expect(open.selectedHost).toBeNull();
 
-      // Cancelled posts leave the wall.
+      // Cancelled posts leave the requests view.
       const gone = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Dinner', title: 'Cancelled leaves the wall' })
+        .send({ sceneTag: 'Dinner', title: 'Cancelled leaves the hall' })
         .expect(201);
       await api()
         .delete(`/posts/${gone.body.id}`)
         .set('X-User-Id', MIGUEL)
         .expect(200);
       const after = await api()
-        .get('/posts')
-        .set('X-User-Id', ANDREA)
+        .get('/posts?view=requests')
+        .set('X-User-Id', NOEL)
         .expect(200);
       expect(
         after.body.find((p: { id: string }) => p.id === gone.body.id),
       ).toBeUndefined();
+    });
+
+    it('the author view keeps every status with host attribution', async () => {
+      // The seeded movie night is MATCHED with Liza's plan selected: it
+      // left the public surfaces but the poster still sees it, attributed.
+      const own = await api()
+        .get('/posts?authorId=user-103')
+        .set('X-User-Id', 'user-103')
+        .expect(200);
+      const matched = own.body.find(
+        (p: { id: string }) => p.id === 'post-003',
+      );
+      expect(matched).toBeDefined();
+      expect(matched.status).toBe('MATCHED');
+      expect(matched.selectedHost.id).toBe(LIZA);
     });
 
     it('the author filter still returns own posts regardless of gender', async () => {
@@ -942,12 +956,12 @@ describe('Meeto API (e2e)', () => {
         .expect(200);
       expect(removed.body.status).toBe('CANCELLED');
 
-      const feed = await api()
-        .get('/posts')
-        .set('X-User-Id', ANDREA)
+      const requests = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', BIANCA)
         .expect(200);
       expect(
-        feed.body.find((p: { id: string }) => p.id === post.body.id),
+        requests.body.find((p: { id: string }) => p.id === post.body.id),
       ).toBeUndefined();
 
       // Deleting again conflicts (no longer OPEN).
@@ -1248,17 +1262,17 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', BIANCA)
         .expect(409);
 
-      // The backing direct post never shows in the open feed.
-      const feed = await api()
-        .get('/posts')
-        .set('X-User-Id', MIGUEL)
+      // The backing direct post never shows on any public surface.
+      const requests = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', NOEL)
         .expect(200);
       const order = await api()
         .get(`/orders/${acceptedOrderId}`)
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(
-        feed.body.find((p: { id: string }) => p.id === order.body.postId),
+        requests.body.find((p: { id: string }) => p.id === order.body.postId),
       ).toBeUndefined();
 
       // Downstream is the standard flow: the inviter pays into escrow.
@@ -1268,14 +1282,23 @@ describe('Meeto API (e2e)', () => {
         .expect(201);
       expect(paid.body.status).toBe('ACTIVE');
 
-      // Even once in progress (MATCHED), the direct post stays private:
-      // the wall now lists in-progress activities, DIRECT must not leak.
+      // Even once in progress (MATCHED), the direct post stays private on
+      // both public surfaces: the moments wall and the requests view.
       const wall = await api()
         .get('/posts')
         .set('X-User-Id', MIGUEL)
         .expect(200);
       expect(
         wall.body.find((p: { id: string }) => p.id === order.body.postId),
+      ).toBeUndefined();
+      const requestsAfterPay = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(
+        requestsAfterPay.body.find(
+          (p: { id: string }) => p.id === order.body.postId,
+        ),
       ).toBeUndefined();
     });
 
@@ -1336,13 +1359,16 @@ describe('Meeto API (e2e)', () => {
         .send({ images: ['/uploads/x.jpg'] })
         .expect(400);
 
-      const feed = await api()
+      const wall = await api()
         .get('/posts')
         .set('X-User-Id', MIGUEL)
         .expect(200);
-      const types = new Set(feed.body.map((p: { type: string }) => p.type));
+      const types = new Set(wall.body.map((p: { type: string }) => p.type));
       expect(types.has('MOMENT')).toBe(true);
-      expect(types.has('DEMAND')).toBe(true);
+      expect(types.has('DEMAND')).toBe(false);
+      expect(
+        wall.body.find((p: { id: string }) => p.id === userMoment.body.id),
+      ).toBeDefined();
 
       // Moments never take sign-ups.
       await api()

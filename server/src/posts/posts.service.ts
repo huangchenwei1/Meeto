@@ -131,26 +131,26 @@ export class PostsService {
     caller: User,
     scene?: string,
     authorId?: string,
+    view?: string,
   ): Promise<PostDto[]> {
-    // The community is an activity wall: it shows waiting and in-progress
-    // activities (plus moments), never cancelled/completed ones. Private
-    // invitation deals (DIRECT origin) are excluded at all times.
+    // Two public surfaces plus the author's own management view:
+    // - default (the community wall): sharing posts (moments) only; demand
+    //   posts never show here.
+    // - view=requests (the host gig hall): OPEN demand posts hosts can
+    //   still pitch on. Private invitation deals (DIRECT origin) are
+    //   excluded at all times.
+    // - authorId: that author's posts in every status.
     const posts = await this.prisma.post.findMany({
       where: {
-        // An author filter returns that author's posts in every status
-        // (their own management view).
         ...(authorId
           ? { authorId }
-          : {
-              origin: PostOrigin.feed,
-              status: {
-                in: [
-                  PostStatus.open,
-                  PostStatus.pendingPayment,
-                  PostStatus.matched,
-                ],
-              },
-            }),
+          : view === 'requests'
+            ? {
+                origin: PostOrigin.feed,
+                type: PostType.demand,
+                status: PostStatus.open,
+              }
+            : { type: PostType.moment }),
         ...(scene ? { sceneTag: scene } : {}),
       },
       include: {

@@ -26,18 +26,25 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('otpVerifyButton')));
     await tester.pumpAndSettle();
 
-    // Hosts tab (default): the host directory.
+    // Hosts tab (default): the host directory plus the post-request entry.
     expect(find.text(AppStrings.hostsTitle), findsOneWidget);
     expect(find.text('Bianca'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('postRequestBanner')),
+      300,
+    );
+    expect(find.text(AppStrings.hostsRequestBannerTitle), findsOneWidget);
 
-    // Community tab: demand posts and the guidelines banner.
+    // Community tab: the shared sharing wall — moments only, demand posts
+    // never show here.
     await tester.tap(find.byIcon(Iconsax.home_2));
     await tester.pumpAndSettle();
+    expect(find.text(AppStrings.bannerCta), findsOneWidget);
+    expect(find.textContaining('omakase counter'), findsOneWidget);
     expect(
       find.text('Show me a cafe worth leaving BGC for'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text(AppStrings.bannerCta), findsOneWidget);
 
     // Messages tab: demo orders with status pills (same OrdersPage as API
     // mode). The nav bar is icon-only, so tabs are addressed by icon.

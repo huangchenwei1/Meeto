@@ -30,8 +30,9 @@ export class PostsController {
     @CurrentUser() user: User,
     @Query('scene') scene?: string,
     @Query('authorId') authorId?: string,
+    @Query('view') view?: string,
   ): Promise<PostDto[]> {
-    return this.postsService.feed(user, scene, authorId);
+    return this.postsService.feed(user, scene, authorId, view);
   }
 
   @Post()

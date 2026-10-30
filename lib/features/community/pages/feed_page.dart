@@ -1,85 +1,52 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
-import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../community/pages/community_guidelines_page.dart';
-import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/community_repository.dart';
 import '../models/activity_post.dart';
 import '../widgets/moment_card.dart';
-import '../widgets/post_card.dart';
+import 'community_guidelines_page.dart';
 import 'moment_composer_page.dart';
-import 'post_detail_page.dart';
-import 'publish_page.dart';
 
-/// Home tab: scene filter chips, promo banner and the activity feed.
+/// Community tab, identical for both roles: the sharing wall. Members post
+/// photo/text recaps of completed activities (moments). Demand posts never
+/// show here — users manage theirs in My Posts, hosts take work from the
+/// gig hall.
 class FeedPage extends StatefulWidget {
   const FeedPage({
     super.key,
     required this.communityRepository,
     required this.profileRepository,
-    required this.ordersRepository,
   });
 
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
-  final OrdersRepository ordersRepository;
 
   @override
   State<FeedPage> createState() => FeedPageState();
 }
 
 class FeedPageState extends State<FeedPage> {
-  List<ActivityPost> _posts = <ActivityPost>[];
-  List<String> _scenes = <String>[];
-  String? _selectedScene;
+  List<ActivityPost> _moments = <ActivityPost>[];
   bool _isLoading = true;
   Timer? _pollTimer;
-  Position? _viewerPosition;
 
   @override
   void initState() {
     super.initState();
-    _loadScenes();
-    _loadPosts();
-    _locateViewer();
+    _load();
     if (AppEnv.useRemoteApi) {
-      // API mode: other users publish in real time; poll quietly so new
-      // posts appear without a manual refresh.
+      // API mode: others publish in real time; poll quietly so new moments
+      // appear without a manual refresh.
       _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        _loadPosts(silent: true);
+        _load(silent: true);
       });
-    }
-  }
-
-  /// Best-effort fix so cards can show the real distance to each venue;
-  /// cards simply hide the distance when location is unavailable.
-  Future<void> _locateViewer() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final Position position =
-          await Geolocator.getLastKnownPosition() ??
-              await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(() => _viewerPosition = position);
-      }
-    } on Exception {
-      // Distance stays hidden.
     }
   }
 
@@ -89,28 +56,18 @@ class FeedPageState extends State<FeedPage> {
     super.dispose();
   }
 
-  /// Re-fetches the feed; called by the shell when this tab is reselected.
+  /// Re-fetches the wall; called by the shell when this tab is reselected.
   void reload() {
-    _loadPosts(silent: true);
+    _load(silent: true);
   }
 
-  Future<void> _loadScenes() async {
-    final List<String> scenes = await widget.communityRepository.fetchScenes();
-    if (!mounted) {
-      return;
-    }
-    setState(() => _scenes = scenes);
-  }
-
-  Future<void> _loadPosts({bool silent = false}) async {
+  Future<void> _load({bool silent = false}) async {
     if (!silent) {
       setState(() => _isLoading = true);
     }
-    final List<ActivityPost> posts;
+    final List<ActivityPost> moments;
     try {
-      posts = await widget.communityRepository.fetchPosts(
-        sceneTag: _selectedScene,
-      );
+      moments = await widget.communityRepository.fetchMoments();
     } on Exception {
       // Transient failure (e.g. a poll while offline); keep the last list.
       if (!silent && mounted) {
@@ -122,23 +79,9 @@ class FeedPageState extends State<FeedPage> {
       return;
     }
     setState(() {
-      _posts = posts;
+      _moments = moments;
       _isLoading = false;
     });
-  }
-
-  Future<void> _openDetail(ActivityPost post) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PostDetailPage(
-          post: post,
-          communityRepository: widget.communityRepository,
-          profileRepository: widget.profileRepository,
-          ordersRepository: widget.ordersRepository,
-        ),
-      ),
-    );
-    _loadPosts();
   }
 
   void _openAuthor(ActivityPost post) {
@@ -152,19 +95,6 @@ class FeedPageState extends State<FeedPage> {
     );
   }
 
-  Future<void> _openPublish() async {
-    final bool? published = await Navigator.of(context).push(
-      MaterialPageRoute<bool>(
-        fullscreenDialog: true,
-        builder: (_) => PublishPage(repository: widget.communityRepository),
-      ),
-    );
-    if (published ?? false) {
-      setState(() => _selectedScene = null);
-      _loadPosts();
-    }
-  }
-
   Future<void> _openMomentComposer() async {
     final bool? posted = await Navigator.of(context).push(
       MaterialPageRoute<bool>(
@@ -174,58 +104,7 @@ class FeedPageState extends State<FeedPage> {
       ),
     );
     if (posted ?? false) {
-      setState(() => _selectedScene = null);
-      _loadPosts();
-    }
-  }
-
-  /// Compose entry: hosts only share moments; users pick between an
-  /// activity request and a moment.
-  Future<void> _openCompose() async {
-    if (AuthSession.isHost) {
-      return _openMomentComposer();
-    }
-    final String? choice = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (BuildContext sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                key: const ValueKey<String>('composeDemandOption'),
-                leading: const Icon(Iconsax.calendar_add),
-                title: const Text(AppStrings.composeDemandOption),
-                subtitle: const Text(
-                  AppStrings.composeDemandSub,
-                  style: TextStyle(fontSize: 12.5),
-                ),
-                onTap: () => Navigator.of(sheetContext).pop('demand'),
-              ),
-              ListTile(
-                key: const ValueKey<String>('composeMomentOption'),
-                leading: const Icon(Iconsax.gallery),
-                title: const Text(AppStrings.composeMomentOption),
-                subtitle: const Text(
-                  AppStrings.composeMomentSub,
-                  style: TextStyle(fontSize: 12.5),
-                ),
-                onTap: () => Navigator.of(sheetContext).pop('moment'),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-    if (!mounted) {
-      return;
-    }
-    if (choice == 'demand') {
-      await _openPublish();
-    } else if (choice == 'moment') {
-      await _openMomentComposer();
+      _load();
     }
   }
 
@@ -233,145 +112,51 @@ class FeedPageState extends State<FeedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: _openCompose,
+        onPressed: _openMomentComposer,
         backgroundColor: AppColors.textPrimary,
         foregroundColor: AppColors.onDarkPrimary,
         shape: const CircleBorder(),
         child: const Icon(Iconsax.add, size: 26),
       ),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: _SceneFilterBar(
-                scenes: _scenes,
-                selected: _selectedScene,
-                onSelected: (String? scene) {
-                  setState(() => _selectedScene = scene);
-                  _loadPosts();
-                },
-              ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: () => _loadPosts(silent: true),
-                      child: _posts.isEmpty
-                          ? ListView(
-                              physics:
-                                  const AlwaysScrollableScrollPhysics(),
-                              children: const <Widget>[
-                                SizedBox(height: 160),
-                                Center(
-                                  child: Text(
-                                    AppStrings.emptyFeed,
-                                    style: TextStyle(
-                                      color: AppColors.textHint,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : ListView.separated(
-                              physics:
-                                  const AlwaysScrollableScrollPhysics(),
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 4, 16, 96),
-                              itemCount: _posts.length + 1,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: 20),
-                              itemBuilder:
-                                  (BuildContext context, int index) {
-                                if (index == 0) {
-                                  return _GuidelinesBanner(
-                                    onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const CommunityGuidelinesPage(),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final ActivityPost post = _posts[index - 1];
-                                if (post.isMoment) {
-                                  return MomentCard(
-                                    post: post,
-                                    onAuthorTap: () => _openAuthor(post),
-                                  );
-                                }
-                                return PostCard(
-                                  post: post,
-                                  onTap: () => _openDetail(post),
-                                  onAuthorTap: () => _openAuthor(post),
-                                  viewerLat: _viewerPosition?.latitude,
-                                  viewerLng: _viewerPosition?.longitude,
-                                );
-                              },
-                            ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SceneFilterBar extends StatelessWidget {
-  const _SceneFilterBar({
-    required this.scenes,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final List<String> scenes;
-  final String? selected;
-  final ValueChanged<String?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: scenes.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (BuildContext context, int index) {
-          final bool isAll = index == 0;
-          final String label =
-              isAll ? AppStrings.filterForYou : scenes[index - 1];
-          final bool isSelected = isAll ? selected == null : selected == label;
-          return InkWell(
-            onTap: () => onSelected(isAll ? null : label),
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.textPrimary
-                    : AppColors.background,
-                border: Border.all(
-                  color:
-                      isSelected ? AppColors.textPrimary : AppColors.border,
-                ),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.background
-                      : AppColors.textSecondary,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: () => _load(silent: true),
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                  itemCount: _moments.length + (_moments.isEmpty ? 2 : 1),
+                  separatorBuilder: (_, _) => const SizedBox(height: 20),
+                  itemBuilder: (BuildContext context, int index) {
+                    if (index == 0) {
+                      return _GuidelinesBanner(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CommunityGuidelinesPage(),
+                          ),
+                        ),
+                      );
+                    }
+                    if (_moments.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 120),
+                        child: Center(
+                          child: Text(
+                            AppStrings.emptyFeed,
+                            style: TextStyle(color: AppColors.textHint),
+                          ),
+                        ),
+                      );
+                    }
+                    final ActivityPost post = _moments[index - 1];
+                    return MomentCard(
+                      post: post,
+                      onAuthorTap: () => _openAuthor(post),
+                    );
+                  },
                 ),
               ),
-            ),
-          );
-        },
       ),
     );
   }

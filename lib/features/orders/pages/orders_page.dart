@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../notifications/data/notifications_repository.dart';
@@ -36,10 +37,10 @@ class OrdersPage extends StatefulWidget {
   final ProfileRepository profileRepository;
 
   @override
-  State<OrdersPage> createState() => _OrdersPageState();
+  State<OrdersPage> createState() => OrdersPageState();
 }
 
-class _OrdersPageState extends State<OrdersPage> {
+class OrdersPageState extends State<OrdersPage> {
   List<LiveOrder> _orders = <LiveOrder>[];
   bool _loaded = false;
   int _unreadCount = 0;
@@ -49,8 +50,17 @@ class _OrdersPageState extends State<OrdersPage> {
   void initState() {
     super.initState();
     _poll();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
+    if (AppEnv.useRemoteApi) {
+      // API mode: the peer acts from another device; poll for changes.
+      // Mock mode state only changes locally, so a reload on tab return
+      // (see the shell) is enough.
+      _pollTimer =
+          Timer.periodic(const Duration(seconds: 3), (_) => _poll());
+    }
   }
+
+  /// Called by the shell when the tab comes back into view.
+  void reload() => _poll();
 
   @override
   void dispose() {

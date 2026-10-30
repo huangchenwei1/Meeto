@@ -47,6 +47,8 @@ class _HomeShellState extends State<HomeShell> {
   final GlobalKey<FeedPageState> _feedKey = GlobalKey<FeedPageState>();
   final GlobalKey<HostsPageState> _hostsKey = GlobalKey<HostsPageState>();
   final GlobalKey<GigsPageState> _gigsKey = GlobalKey<GigsPageState>();
+  final GlobalKey<OrdersPageState> _messagesKey =
+      GlobalKey<OrdersPageState>();
 
   bool get _isHost => AuthSession.isHost;
 
@@ -72,16 +74,16 @@ class _HomeShellState extends State<HomeShell> {
 
   int _selectedIndex = 0;
 
-  /// Community feed tab (shared by both shells).
+  /// Community sharing wall (identical for both shells).
   Widget get _communityTab => FeedPage(
         key: _feedKey,
         communityRepository: _communityRepository,
         profileRepository: _profileRepository,
-        ordersRepository: _ordersRepository,
       );
 
   /// Messages tab: the caller's orders plus the notifications inbox.
   Widget get _messagesTab => OrdersPage(
+        key: _messagesKey,
         repository: _ordersRepository,
         notificationsRepository: _notificationsRepository,
         communityRepository: _communityRepository,
@@ -107,7 +109,11 @@ class _HomeShellState extends State<HomeShell> {
           ordersRepository: _ordersRepository,
         )
       else
-        HostsPage(key: _hostsKey, repository: _hostsRepository),
+        HostsPage(
+          key: _hostsKey,
+          repository: _hostsRepository,
+          communityRepository: _communityRepository,
+        ),
       _communityTab,
       _messagesTab,
       _meTab,
@@ -135,6 +141,8 @@ class _HomeShellState extends State<HomeShell> {
             _feedKey.currentState?.reload();
           } else if (index == meIndex) {
             _profileKey.currentState?.reload();
+          } else {
+            _messagesKey.currentState?.reload();
           }
         },
         destinations: <NavigationDestination>[

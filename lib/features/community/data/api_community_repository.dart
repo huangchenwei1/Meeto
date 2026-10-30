@@ -39,13 +39,19 @@ class ApiCommunityRepository implements CommunityRepository {
       <String, Map<String, ({String applicationId, PostAuthor author})>>{};
 
   @override
-  Future<List<ActivityPost>> fetchPosts({String? sceneTag}) async {
-    final Map<String, String> query = <String, String>{
-      'scene': ?sceneTag,
-    };
+  Future<List<ActivityPost>> fetchMoments() async {
+    final List<dynamic> json = await _client.get('/posts') as List<dynamic>;
+    return json
+        .cast<Map<String, dynamic>>()
+        .map(_toActivityPost)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ActivityPost>> fetchOpenRequests() async {
     final List<dynamic> json = await _client.get(
       '/posts',
-      query: query.isEmpty ? null : query,
+      query: <String, String>{'view': 'requests'},
     ) as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()

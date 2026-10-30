@@ -39,7 +39,7 @@ void main() {
 
     test('sign-up marks the current user as an applied candidate', () async {
       final MockCommunityRepository repository = MockCommunityRepository();
-      final List<ActivityPost> posts = await repository.fetchPosts();
+      final List<ActivityPost> posts = await repository.fetchOpenRequests();
 
       final ActivityPost updated = await repository.signUp(
         posts.first.id,

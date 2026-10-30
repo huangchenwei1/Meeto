@@ -84,7 +84,7 @@ class GigsPageState extends State<GigsPage> {
   Future<void> _load() async {
     try {
       final (List<ActivityPost>, List<InvitationRecord>) result = await (
-        widget.communityRepository.fetchPosts(),
+        widget.communityRepository.fetchOpenRequests(),
         widget.hostsRepository.fetchInvitations(),
       ).wait;
       if (!mounted) {
@@ -102,13 +102,10 @@ class GigsPageState extends State<GigsPage> {
     }
   }
 
-  /// The gig hall shows only requests a host can still take: OPEN demand
-  /// posts. Requests matching the host's own interest tags come first,
-  /// newest first within each group.
+  /// Requests matching the host's own interest tags come first, newest
+  /// first within each group.
   List<ActivityPost> _workView(List<ActivityPost> posts) {
-    final List<ActivityPost> open = posts
-        .where((ActivityPost p) => !p.isMoment && p.status == 'OPEN')
-        .toList();
+    final List<ActivityPost> open = posts.toList();
     int group(ActivityPost p) => _myTags.contains(p.sceneTag) ? 0 : 1;
     open.sort((ActivityPost a, ActivityPost b) {
       final int byTag = group(a).compareTo(group(b));

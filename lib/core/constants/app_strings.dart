@@ -11,19 +11,12 @@ abstract final class AppStrings {
   static const String tabMe = 'Me';
 
   // Feed (community activity wall)
-  static const String filterForYou = 'For you';
   static const String filterGenderAll = 'Everyone';
   static const String filterGenderWomen = 'Women';
   static const String filterGenderMen = 'Men';
   static const String filterGenderTooltip = 'Filter hosts';
   static const String emptyFeed = 'No activity posts found';
   static const String verifiedLabel = 'Verified';
-  static const String manageButton = 'Manage';
-  static const String budgetLabel = 'Activity budget';
-  static const String wallStatusWaiting = 'Waiting for host';
-  static const String wallStatusInProgress = 'In progress';
-  static String wallHostAccepted(String name) => 'Host $name accepted';
-  static const String wallWaitingLine = 'Waiting for a host to take this...';
   // Escrow payment page
   static const String paymentTitle = 'Confirm payment';
   static const String paymentMatchLine = 'Your plan, once the fee is secured';
@@ -455,6 +448,9 @@ abstract final class AppStrings {
   static const String hostsSubtitle =
       'Pick someone to plan and host your next activity';
   static const String hostsEmpty = 'No hosts available yet';
+  static const String hostsRequestBannerTitle = 'No host fits? Post a request';
+  static const String hostsRequestBannerSub =
+      'Describe what you want to do and hosts pitch their plans';
   static String hostCompletedLabel(int count) =>
       count == 1 ? '1 activity hosted' : '$count activities hosted';
   static const String hostNewLabel = 'New host';
@@ -495,12 +491,6 @@ abstract final class AppStrings {
   static const String momentTextRequiredHint = 'Write something first';
   static const String momentPostCta = 'Post';
   static const String momentPhotoFailed = 'Photo upload failed, try again';
-  static const String composeDemandOption = 'Post an activity request';
-  static const String composeDemandSub =
-      'Describe what you want to do \u2014 hosts pitch their plans';
-  static const String composeMomentOption = 'Share a moment';
-  static const String composeMomentSub =
-      'Photos and a few words about an activity you loved';
 
   // Sign-up proposal (the candidate's plan pitch)
   static const String proposalSheetTitle = 'Pitch your plan';
