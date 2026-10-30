@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
@@ -22,7 +21,7 @@ import '../../profile/data/profile_repository.dart';
 import '../../profile/models/user_detail.dart';
 
 /// Host-side first tab: the work surface. Lists direct invitations for the
-/// host plus all OPEN activity requests as gigs to pitch on — net earnings,
+/// host plus all OPEN activity requests as gigs to pitch on —
 /// competition, and the pitch entry. The community wall stays read-only;
 /// hosts take work from here.
 class GigsPage extends StatefulWidget {
@@ -315,7 +314,6 @@ class _RequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int net = ScenePricing.netEarnings(post.budgetAmount);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -410,16 +408,10 @@ class _RequestCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
+                // No money on the card; the earnings breakdown lives on
+                // the request detail page.
                 Row(
                   children: <Widget>[
-                    Text(
-                      AppStrings.gigEarnLine('\u20b1$net'),
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accent,
-                      ),
-                    ),
                     const Spacer(),
                     if (post.hasApplied)
                       Container(

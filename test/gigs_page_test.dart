@@ -49,9 +49,8 @@ void main() {
         findsOneWidget,
       );
 
-      // The host sees the net payout, not the poster's budget: Coffee is
-      // PHP 600 minus the 10% commission.
-      expect(find.text(AppStrings.gigEarnLine('\u20b1540')), findsOneWidget);
+      // Cards carry no money line; the payout lives on the detail page.
+      expect(find.textContaining('\u20b1'), findsNothing);
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
 
       // In-progress activities and moments stay on the community wall only.
