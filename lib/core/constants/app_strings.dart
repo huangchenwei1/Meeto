@@ -435,6 +435,19 @@ abstract final class AppStrings {
   static const String locationNeededHint =
       'Location access is needed to confirm you met in person';
 
+  // Gig hall (host-side work surface)
+  static const String tabGigs = 'Requests';
+  static const String gigsTitle = 'Open requests';
+  static const String gigsSubtitle =
+      'Pitch a plan and earn the service fee';
+  static const String gigsEmpty =
+      'No open requests right now \u2014 check back soon';
+  static const String gigsInvitesHeader = 'Invitations for you';
+  static const String gigsRequestsHeader = 'Open requests';
+  static String gigEarnLine(String amount) => 'Earn $amount';
+  static const String gigAppliedBadge = 'Applied';
+  static const String gigPitchCta = 'Pitch your plan';
+
   // Host directory + direct invitations
   static const String tabHosts = 'Hosts';
   static const String tabCommunity = 'Community';

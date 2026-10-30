@@ -5,6 +5,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/env/app_env.dart';
 import '../../core/network/api_client.dart';
 import '../../core/session/auth_session.dart';
+import '../gigs/pages/gigs_page.dart';
 import '../hosts/data/api_hosts_repository.dart';
 import '../hosts/data/hosts_repository.dart';
 import '../hosts/pages/hosts_page.dart';
@@ -20,9 +21,10 @@ import '../profile/data/profile_repository.dart';
 import '../profile/pages/profile_page.dart';
 
 /// Root scaffold hosting the bottom navigation. The tab set depends on the
-/// account role, fixed at registration:
-/// - USER:  Hosts / Community / Messages / Me
-/// - HOST:  Community / Messages / Me
+/// account role, fixed at registration; each role's first tab is its work
+/// surface and the community wall is shared:
+/// - USER:  Hosts (find a host) / Community / Messages / Me
+/// - HOST:  Requests (gig hall) / Community / Messages / Me
 ///
 /// Repositories are created here and passed down via constructors; the
 /// mock/API choice is a build-time switch ([AppEnv.useRemoteApi]).
@@ -44,6 +46,7 @@ class _HomeShellState extends State<HomeShell> {
       GlobalKey<ProfilePageState>();
   final GlobalKey<FeedPageState> _feedKey = GlobalKey<FeedPageState>();
   final GlobalKey<HostsPageState> _hostsKey = GlobalKey<HostsPageState>();
+  final GlobalKey<GigsPageState> _gigsKey = GlobalKey<GigsPageState>();
 
   bool get _isHost => AuthSession.isHost;
 
@@ -83,7 +86,6 @@ class _HomeShellState extends State<HomeShell> {
         notificationsRepository: _notificationsRepository,
         communityRepository: _communityRepository,
         profileRepository: _profileRepository,
-        hostsRepository: _hostsRepository,
       );
 
   Widget get _meTab => ProfilePage(
@@ -95,15 +97,22 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> tabs = _isHost
-        ? <Widget>[_communityTab, _messagesTab, _meTab]
-        : <Widget>[
-            HostsPage(key: _hostsKey, repository: _hostsRepository),
-            _communityTab,
-            _messagesTab,
-            _meTab,
-          ];
-    final int communityIndex = _isHost ? 0 : 1;
+    final List<Widget> tabs = <Widget>[
+      if (_isHost)
+        GigsPage(
+          key: _gigsKey,
+          communityRepository: _communityRepository,
+          profileRepository: _profileRepository,
+          hostsRepository: _hostsRepository,
+          ordersRepository: _ordersRepository,
+        )
+      else
+        HostsPage(key: _hostsKey, repository: _hostsRepository),
+      _communityTab,
+      _messagesTab,
+      _meTab,
+    ];
+    const int communityIndex = 1;
     final int meIndex = tabs.length - 1;
     return Scaffold(
       body: IndexedStack(
@@ -116,8 +125,12 @@ class _HomeShellState extends State<HomeShell> {
           setState(() => _selectedIndex = index);
           // IndexedStack keeps tabs alive; refresh tab data when it comes
           // back into view so server-side changes are current.
-          if (!_isHost && index == 0) {
-            _hostsKey.currentState?.reload();
+          if (index == 0) {
+            if (_isHost) {
+              _gigsKey.currentState?.reload();
+            } else {
+              _hostsKey.currentState?.reload();
+            }
           } else if (index == communityIndex) {
             _feedKey.currentState?.reload();
           } else if (index == meIndex) {
@@ -125,7 +138,13 @@ class _HomeShellState extends State<HomeShell> {
           }
         },
         destinations: <NavigationDestination>[
-          if (!_isHost)
+          if (_isHost)
+            const NavigationDestination(
+              icon: Icon(Iconsax.briefcase),
+              selectedIcon: Icon(Iconsax.briefcase5),
+              label: AppStrings.tabGigs,
+            )
+          else
             const NavigationDestination(
               icon: Icon(Iconsax.people),
               selectedIcon: Icon(Iconsax.people5),

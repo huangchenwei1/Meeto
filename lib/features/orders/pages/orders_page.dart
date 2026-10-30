@@ -4,11 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../hosts/data/hosts_repository.dart';
-import '../../hosts/models/host_card.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../community/data/community_repository.dart';
@@ -20,9 +17,10 @@ import 'order_room_page.dart';
 import 'payment_page.dart';
 import '../../../shared/widgets/app_avatar.dart';
 
-/// Chats tab in API mode: a pinned notifications inbox on top, then the
-/// caller's real orders, polled from the server. Each order opens its order
-/// room (status + chat with the matched peer).
+/// Messages tab: a pinned notifications inbox on top, then the caller's
+/// orders, polled from the server. Each order opens its order room
+/// (status + chat with the matched peer). Direct invitations live on the
+/// host's gig hall tab, not here.
 class OrdersPage extends StatefulWidget {
   const OrdersPage({
     super.key,
@@ -30,14 +28,12 @@ class OrdersPage extends StatefulWidget {
     required this.notificationsRepository,
     required this.communityRepository,
     required this.profileRepository,
-    required this.hostsRepository,
   });
 
   final OrdersRepository repository;
   final NotificationsRepository notificationsRepository;
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
-  final HostsRepository hostsRepository;
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();
@@ -45,13 +41,9 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage> {
   List<LiveOrder> _orders = <LiveOrder>[];
-  List<InvitationRecord> _pendingInvitations = <InvitationRecord>[];
   bool _loaded = false;
   int _unreadCount = 0;
   Timer? _pollTimer;
-  bool _respondingInvitation = false;
-
-  bool get _showInvitations => AuthSession.isHost;
 
   @override
   void initState() {
@@ -72,92 +64,15 @@ class _OrdersPageState extends State<OrdersPage> {
         widget.repository.listMine(),
         widget.notificationsRepository.unreadCount(),
       ).wait;
-      List<InvitationRecord> pending = _pendingInvitations;
-      if (_showInvitations) {
-        final List<InvitationRecord> invitations =
-            await widget.hostsRepository.fetchInvitations();
-        pending = invitations
-            .where((InvitationRecord i) => i.isPending)
-            .toList(growable: false);
-      }
       if (mounted) {
         setState(() {
           _orders = result.$1;
           _unreadCount = result.$2;
-          _pendingInvitations = pending;
           _loaded = true;
         });
       }
     } on Exception {
       // Keep the last known list; the next poll retries.
-    }
-  }
-
-  Future<void> _acceptInvitation(InvitationRecord invitation) async {
-    setState(() => _respondingInvitation = true);
-    try {
-      final LiveOrder? order =
-          await widget.hostsRepository.acceptInvitation(invitation.id);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _pendingInvitations = _pendingInvitations
-            .where((InvitationRecord i) => i.id != invitation.id)
-            .toList(growable: false);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.inviteAcceptedSnack)),
-      );
-      if (order != null) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => OrderRoomPage(
-              repository: widget.repository,
-              orderId: order.id,
-              initialOrder: order,
-            ),
-          ),
-        );
-      }
-      unawaited(_poll());
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _respondingInvitation = false);
-      }
-    }
-  }
-
-  Future<void> _declineInvitation(InvitationRecord invitation) async {
-    setState(() => _respondingInvitation = true);
-    try {
-      await widget.hostsRepository.declineInvitation(invitation.id);
-      if (mounted) {
-        setState(() {
-          _pendingInvitations = _pendingInvitations
-              .where((InvitationRecord i) => i.id != invitation.id)
-              .toList(growable: false);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.inviteDeclinedSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _respondingInvitation = false);
-      }
     }
   }
 
@@ -192,15 +107,6 @@ class _OrdersPageState extends State<OrdersPage> {
                   onTap: _openNotifications,
                 ),
                 const Divider(indent: 76, height: 1),
-                for (final InvitationRecord invitation in _pendingInvitations)
-                  _InvitationTile(
-                    invitation: invitation,
-                    busy: _respondingInvitation,
-                    onAccept: () => _acceptInvitation(invitation),
-                    onDecline: () => _declineInvitation(invitation),
-                  ),
-                if (_pendingInvitations.isNotEmpty)
-                  const Divider(height: 1),
                 Expanded(
                   child: _orders.isEmpty
                       ? const Center(
@@ -229,104 +135,6 @@ class _OrdersPageState extends State<OrdersPage> {
                 ),
               ],
             ),
-    );
-  }
-}
-
-/// One pending direct invitation (host side): who wants what, with
-/// accept/decline inline. Accepting opens the newly created order room.
-class _InvitationTile extends StatelessWidget {
-  const _InvitationTile({
-    required this.invitation,
-    required this.busy,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  final InvitationRecord invitation;
-  final bool busy;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              AppAvatar(size: 38, imageUrl: invitation.fromAvatarUrl),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  AppStrings.inviteFromLine(
-                    invitation.fromName,
-                    invitation.sceneTag,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (invitation.note.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              '\u201c${invitation.note}\u201d',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                height: 1.4,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              const Spacer(),
-              TextButton(
-                key: ValueKey<String>('declineInvite${invitation.id}'),
-                onPressed: busy ? null : onDecline,
-                child: const Text(AppStrings.inviteDeclineCta),
-              ),
-              const SizedBox(width: 6),
-              FilledButton(
-                key: ValueKey<String>('acceptInvite${invitation.id}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.textPrimary,
-                  foregroundColor: AppColors.onDarkPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: busy ? null : onAccept,
-                child: const Text(
-                  AppStrings.inviteAcceptCta,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
