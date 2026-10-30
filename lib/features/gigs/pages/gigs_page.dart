@@ -10,6 +10,7 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
+import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
@@ -275,7 +276,9 @@ class GigsPageState extends State<GigsPage> {
               child: _pendingInvitations.isEmpty && _requests.isEmpty
                   ? ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       children: const <Widget>[
+                        GuidelinesBanner(),
                         Padding(
                           padding: EdgeInsets.only(top: 120),
                           child: Center(
@@ -295,6 +298,10 @@ class GigsPageState extends State<GigsPage> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       children: <Widget>[
+                        // The shared guidelines banner leads the list,
+                        // same as on the other feed tabs.
+                        const GuidelinesBanner(),
+                        const SizedBox(height: 10),
                         if (_pendingInvitations.isNotEmpty) ...<Widget>[
                           const _SectionHeader(
                             label: AppStrings.gigsInvitesHeader,
