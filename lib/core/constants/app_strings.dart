@@ -11,10 +11,6 @@ abstract final class AppStrings {
   static const String tabMe = 'Me';
 
   // Feed (community activity wall)
-  static const String filterGenderAll = 'Everyone';
-  static const String filterGenderWomen = 'Women';
-  static const String filterGenderMen = 'Men';
-  static const String filterGenderTooltip = 'Filter hosts';
   static const String emptyFeed = 'No activity posts found';
   static const String verifiedLabel = 'Verified';
   // Escrow payment page
@@ -448,9 +444,7 @@ abstract final class AppStrings {
   static const String hostsSubtitle =
       'Pick someone to plan and host your next activity';
   static const String hostsEmpty = 'No hosts available yet';
-  static const String hostsRequestBannerTitle = 'No host fits? Post a request';
-  static const String hostsRequestBannerSub =
-      'Describe what you want to do and hosts pitch their plans';
+  static const String hostsPostRequestCta = 'Post a request';
   static String hostCompletedLabel(int count) =>
       count == 1 ? '1 activity hosted' : '$count activities hosted';
   static const String hostNewLabel = 'New host';

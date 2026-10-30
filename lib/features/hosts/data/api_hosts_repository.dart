@@ -9,11 +9,8 @@ class ApiHostsRepository implements HostsRepository {
   final ApiClient _client;
 
   @override
-  Future<List<HostCard>> fetchHosts({String? gender}) async {
-    final List<dynamic> json = await _client.get(
-      '/hosts',
-      query: <String, String>{'gender': ?gender},
-    ) as List<dynamic>;
+  Future<List<HostCard>> fetchHosts() async {
+    final List<dynamic> json = await _client.get('/hosts') as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()
         .map(HostCard.fromJson)

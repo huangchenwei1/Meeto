@@ -31,13 +31,6 @@ class HostsPage extends StatefulWidget {
 class HostsPageState extends State<HostsPage> {
   List<HostCard> _hosts = <HostCard>[];
   bool _loading = true;
-  String? _gender;
-
-  static const List<(String?, String)> _genderOptions = <(String?, String)>[
-    (null, AppStrings.filterGenderAll),
-    ('FEMALE', AppStrings.filterGenderWomen),
-    ('MALE', AppStrings.filterGenderMen),
-  ];
 
   @override
   void initState() {
@@ -47,8 +40,7 @@ class HostsPageState extends State<HostsPage> {
 
   Future<void> reload() async {
     try {
-      final List<HostCard> hosts =
-          await widget.repository.fetchHosts(gender: _gender);
+      final List<HostCard> hosts = await widget.repository.fetchHosts();
       if (mounted) {
         setState(() {
           _hosts = hosts;
@@ -96,58 +88,34 @@ class HostsPageState extends State<HostsPage> {
                       ],
                     ),
                   ),
-                  PopupMenuButton<int>(
-                    key: const ValueKey<String>('hostsGenderFilter'),
-                    tooltip: AppStrings.filterGenderTooltip,
-                    onSelected: (int index) {
-                      setState(() {
-                        _gender = _genderOptions[index].$1;
-                        _loading = true;
-                      });
-                      reload();
-                    },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<
-                        int>>[
-                      for (int i = 0; i < _genderOptions.length; i++)
-                        PopupMenuItem<int>(
-                          value: i,
-                          child: Text(_genderOptions[i].$2),
-                        ),
-                    ],
+                  InkWell(
+                    key: const ValueKey<String>('postRequestButton'),
+                    onTap: _openPublish,
+                    borderRadius: BorderRadius.circular(999),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        horizontal: 14,
+                        vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: _gender == null
-                            ? AppColors.surface
-                            : AppColors.darkCard,
+                        color: AppColors.darkCard,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
+                        children: const <Widget>[
                           Icon(
-                            Iconsax.profile_2user,
+                            Iconsax.calendar_add,
                             size: 15,
-                            color: _gender == null
-                                ? AppColors.textSecondary
-                                : AppColors.onDarkPrimary,
+                            color: AppColors.onDarkPrimary,
                           ),
-                          const SizedBox(width: 5),
+                          SizedBox(width: 6),
                           Text(
-                            _genderOptions
-                                .firstWhere(
-                                  ((String?, String) o) => o.$1 == _gender,
-                                )
-                                .$2,
+                            AppStrings.hostsPostRequestCta,
                             style: TextStyle(
                               fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: _gender == null
-                                  ? AppColors.textSecondary
-                                  : AppColors.onDarkPrimary,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.onDarkPrimary,
                             ),
                           ),
                         ],
@@ -172,15 +140,10 @@ class HostsPageState extends State<HostsPage> {
                           child: ListView.separated(
                             padding:
                                 const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                            itemCount: _hosts.length + 1,
+                            itemCount: _hosts.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 12),
                             itemBuilder: (BuildContext context, int index) {
-                              if (index == _hosts.length) {
-                                return _PostRequestBanner(
-                                  onTap: _openPublish,
-                                );
-                              }
                               return _HostTile(
                                 host: _hosts[index],
                                 onTap: () => _openHost(_hosts[index]),
@@ -215,77 +178,6 @@ class HostsPageState extends State<HostsPage> {
       MaterialPageRoute<bool>(
         fullscreenDialog: true,
         builder: (_) => PublishPage(repository: widget.communityRepository),
-      ),
-    );
-  }
-}
-
-/// Footer card under the directory: the demand-post entry for users who
-/// did not find a fitting host.
-class _PostRequestBanner extends StatelessWidget {
-  const _PostRequestBanner({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      key: const ValueKey<String>('postRequestBanner'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.accentSoft,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: AppColors.darkCard,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Iconsax.calendar_add,
-                size: 21,
-                color: AppColors.onDarkPrimary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const <Widget>[
-                  Text(
-                    AppStrings.hostsRequestBannerTitle,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    AppStrings.hostsRequestBannerSub,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AppColors.textSecondary,
-            ),
-          ],
-        ),
       ),
     );
   }

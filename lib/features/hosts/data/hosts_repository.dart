@@ -3,9 +3,8 @@ import '../models/host_card.dart';
 
 /// Host directory + direct invitations.
 abstract interface class HostsRepository {
-  /// Directory of hosts, best credentials first. [gender] is a viewer
-  /// preference filter.
-  Future<List<HostCard>> fetchHosts({String? gender});
+  /// Directory of hosts, best credentials first.
+  Future<List<HostCard>> fetchHosts();
 
   Future<HostCard> fetchHost(String hostId);
 
@@ -110,15 +109,9 @@ class MockHostsRepository implements HostsRepository {
   int _sequence = 0;
 
   @override
-  Future<List<HostCard>> fetchHosts({String? gender}) async {
+  Future<List<HostCard>> fetchHosts() async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (gender == null) {
-      return List<HostCard>.of(_hosts);
-    }
-    final String prefix = gender == 'FEMALE' ? 'Female' : 'Male';
-    return _hosts
-        .where((HostCard h) => h.meta.startsWith(prefix))
-        .toList(growable: false);
+    return List<HostCard>.of(_hosts);
   }
 
   @override

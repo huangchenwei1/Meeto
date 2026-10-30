@@ -26,14 +26,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('otpVerifyButton')));
     await tester.pumpAndSettle();
 
-    // Hosts tab (default): the host directory plus the post-request entry.
+    // Hosts tab (default): the host directory with the post-request entry
+    // in the header.
     expect(find.text(AppStrings.hostsTitle), findsOneWidget);
     expect(find.text('Bianca'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey<String>('postRequestBanner')),
-      300,
+    expect(
+      find.byKey(const ValueKey<String>('postRequestButton')),
+      findsOneWidget,
     );
-    expect(find.text(AppStrings.hostsRequestBannerTitle), findsOneWidget);
+    expect(find.text(AppStrings.hostsPostRequestCta), findsOneWidget);
 
     // Community tab: the shared sharing wall — moments only, demand posts
     // never show here.
