@@ -382,7 +382,6 @@ abstract final class AppStrings {
   static const String tabHosts = '首页';
   static const String tabCommunity = '社区';
   static const String hostsTitle = '找主持人';
-  static const String hostsSubtitle = '挑一位来策划并主持你的下一场活动';
   static const String hostsEmpty = '暂时没有主持人';
   static String hostCompletedLabel(int count) => '$count 次主持';
   static const String hostNewLabel = '新人主持';

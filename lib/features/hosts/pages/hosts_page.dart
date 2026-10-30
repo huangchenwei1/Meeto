@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/pages/publish_page.dart';
 import '../data/hosts_repository.dart';
@@ -66,26 +67,13 @@ class HostsPageState extends State<HostsPage> {
               child: Row(
                 children: <Widget>[
                   const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          AppStrings.hostsTitle,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          AppStrings.hostsSubtitle,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      AppStrings.hostsTitle,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
                   // Post-a-request entry, kept as a quiet icon so the
@@ -126,13 +114,19 @@ class HostsPageState extends State<HostsPage> {
                           child: ListView.separated(
                             padding:
                                 const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                            itemCount: _hosts.length,
+                            // +1: the shared guidelines banner leads the
+                            // list, same as on the community tab.
+                            itemCount: _hosts.length + 1,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 12),
                             itemBuilder: (BuildContext context, int index) {
+                              if (index == 0) {
+                                return const GuidelinesBanner();
+                              }
+                              final HostCard host = _hosts[index - 1];
                               return _HostTile(
-                                host: _hosts[index],
-                                onTap: () => _openHost(_hosts[index]),
+                                host: host,
+                                onTap: () => _openHost(host),
                               );
                             },
                           ),

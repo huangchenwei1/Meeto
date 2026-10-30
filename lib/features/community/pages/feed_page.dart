@@ -9,9 +9,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/community_repository.dart';
+import '../../../shared/widgets/guidelines_banner.dart';
 import '../models/activity_post.dart';
 import '../widgets/moment_card.dart';
-import 'community_guidelines_page.dart';
 import 'moment_composer_page.dart';
 
 /// Community tab, identical for both roles: the sharing wall. Members post
@@ -130,13 +130,7 @@ class FeedPageState extends State<FeedPage> {
                   separatorBuilder: (_, _) => const SizedBox(height: 20),
                   itemBuilder: (BuildContext context, int index) {
                     if (index == 0) {
-                      return _GuidelinesBanner(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const CommunityGuidelinesPage(),
-                          ),
-                        ),
-                      );
+                      return const GuidelinesBanner();
                     }
                     if (_moments.isEmpty) {
                       return const Padding(
@@ -157,78 +151,6 @@ class FeedPageState extends State<FeedPage> {
                   },
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _GuidelinesBanner extends StatelessWidget {
-  const _GuidelinesBanner({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.darkCard,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: const <Widget>[
-                    Icon(Iconsax.star1, size: 13, color: AppColors.accent),
-                    SizedBox(width: 5),
-                    Text(
-                      AppStrings.bannerEyebrow,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 7),
-                const Text(
-                  AppStrings.bannerTitle,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.onDarkPrimary,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  AppStrings.bannerSub,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.onDarkSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton(
-            onPressed: onTap,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.background,
-              foregroundColor: AppColors.textPrimary,
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            child: const Text(AppStrings.bannerCta),
-          ),
-        ],
       ),
     );
   }
