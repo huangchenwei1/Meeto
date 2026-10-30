@@ -45,7 +45,7 @@ class GigsPage extends StatefulWidget {
 class GigsPageState extends State<GigsPage> {
   List<ActivityPost> _requests = <ActivityPost>[];
   List<InvitationRecord> _pendingInvitations = <InvitationRecord>[];
-  List<String> _myTags = const <String>[];
+  List<String> _myScenes = const <String>[];
   bool _loaded = false;
   bool _respondingInvitation = false;
   Timer? _pollTimer;
@@ -53,7 +53,7 @@ class GigsPageState extends State<GigsPage> {
   @override
   void initState() {
     super.initState();
-    _loadMyTags();
+    _loadMyScenes();
     _load();
     if (AppEnv.useRemoteApi) {
       _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
@@ -69,15 +69,20 @@ class GigsPageState extends State<GigsPage> {
   /// Called by the shell when the tab comes back into view.
   void reload() => _load();
 
-  Future<void> _loadMyTags() async {
+  Future<void> _loadMyScenes() async {
     try {
       final UserDetail? me = await widget.profileRepository
           .fetchUserDetail(AuthSession.currentUserId);
       if (mounted && me != null) {
-        setState(() => _myTags = me.tags);
+        // Offered scenes drive the ordering; interest tags are the
+        // fallback for hosts without a published list.
+        setState(
+          () => _myScenes =
+              me.hostScenes.isNotEmpty ? me.hostScenes : me.tags,
+        );
       }
     } on Exception {
-      // Tag-based ordering is a nicety; recency ordering still works.
+      // Scene-based ordering is a nicety; recency ordering still works.
     }
   }
 
@@ -102,11 +107,11 @@ class GigsPageState extends State<GigsPage> {
     }
   }
 
-  /// Requests matching the host's own interest tags come first, newest
+  /// Requests matching the host's own offered scenes come first, newest
   /// first within each group.
   List<ActivityPost> _workView(List<ActivityPost> posts) {
     final List<ActivityPost> open = posts.toList();
-    int group(ActivityPost p) => _myTags.contains(p.sceneTag) ? 0 : 1;
+    int group(ActivityPost p) => _myScenes.contains(p.sceneTag) ? 0 : 1;
     open.sort((ActivityPost a, ActivityPost b) {
       final int byTag = group(a).compareTo(group(b));
       if (byTag != 0) {

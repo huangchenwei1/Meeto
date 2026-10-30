@@ -43,6 +43,17 @@ export interface InvitationDto {
 
 type InvitationWithParties = Invitation & { from: User; host: User };
 
+function parseScenes(json: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed)
+      ? parsed.filter((s): s is string => typeof s === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 @Injectable()
 export class HostsService {
   constructor(
@@ -94,6 +105,12 @@ export class HostsService {
     const host = await this.prisma.user.findUnique({ where: { id: hostId } });
     if (!host || host.role !== Role.host) {
       throw new NotFoundException('Host not found');
+    }
+    // Invitations are bound to the host's offered scenes (picked at
+    // registration); hosts without a published list take any scene.
+    const offered = parseScenes(host.hostScenesJson);
+    if (offered.length > 0 && !offered.includes(sceneTag)) {
+      throw new ConflictException('SCENE_NOT_OFFERED');
     }
     const pending = await this.prisma.invitation.findFirst({
       where: {

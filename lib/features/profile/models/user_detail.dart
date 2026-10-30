@@ -12,6 +12,7 @@ class UserDetail {
     required this.joinedText,
     required this.bio,
     required this.tags,
+    this.hostScenes = const <String>[],
     required this.photos,
     required this.info,
     required this.stats,
@@ -30,6 +31,10 @@ class UserDetail {
   final String joinedText;
   final String bio;
   final List<String> tags;
+
+  /// Scene tags this user offers as a HOST (empty for USER accounts).
+  final List<String> hostScenes;
+
   final List<String> photos;
   final List<ProfileInfoItem> info;
   final List<ProfileStat> stats;

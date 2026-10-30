@@ -34,6 +34,9 @@ model User {
   heightCm   Int?
   weightKg   Int?
   tagsJson   String   @default("[]") // JSON array of interest tags
+  // JSON array of scene tags a HOST offers (picked at registration); the
+  // host detail price list and invitation validation read from it.
+  hostScenesJson String @default("[]")
   photosJson String   @default("[]") // JSON array of photo URLs
   // NONE | PENDING | VERIFIED. Real-person verification; currently a mock
   // provider that approves instantly, later a real KYC vendor.

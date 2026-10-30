@@ -21,6 +21,8 @@ export interface PublicUser {
   heightCm: number | null;
   weightKg: number | null;
   tags: string[];
+  /// Scene tags a HOST offers (empty for USER accounts).
+  hostScenes: string[];
   photos: string[];
   joinedAt: Date;
 }
@@ -43,6 +45,7 @@ export function toPublicUser(user: User): PublicUser {
     heightCm: user.heightCm,
     weightKg: user.weightKg,
     tags: parseStringArray(user.tagsJson),
+    hostScenes: parseStringArray(user.hostScenesJson),
     photos: parseStringArray(user.photosJson),
     joinedAt: user.createdAt,
   };

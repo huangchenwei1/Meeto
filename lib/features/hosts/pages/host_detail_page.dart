@@ -49,125 +49,104 @@ class _HostDetailPageState extends State<HostDetailPage> {
     }
   }
 
-  Future<void> _openInviteSheet() async {
+  /// Invitation confirm sheet for one scene, opened from the activity
+  /// price list. The scene is fixed by the row the user tapped; only the
+  /// optional note and the fee confirmation remain.
+  Future<void> _openInviteSheet(String scene) async {
     final HostCard host = _host!;
-    final List<String> scenes =
-        ScenePricing.config.sceneFees.keys.toList(growable: false);
-    String selectedScene = scenes.first;
     final TextEditingController noteController = TextEditingController();
     final bool? send = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (BuildContext sheetContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                0,
-                24,
-                MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            0,
+            24,
+            MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                AppStrings.inviteSheetTitle(host.name),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 12),
+              Row(
                 children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.textPrimary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      scene,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onDarkPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Text(
-                    AppStrings.inviteSheetTitle(host.name),
+                    '\u20b1${ScenePricing.feeForScene(scene)}',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    AppStrings.inviteSceneLabel,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: scenes.map((String scene) {
-                      final bool selected = scene == selectedScene;
-                      return InkWell(
-                        onTap: () =>
-                            setSheetState(() => selectedScene = scene),
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.textPrimary
-                                : AppColors.background,
-                            border: Border.all(
-                              color: selected
-                                  ? AppColors.textPrimary
-                                  : AppColors.border,
-                            ),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            scene,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: selected
-                                  ? AppColors.onDarkPrimary
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(growable: false),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    key: const ValueKey<String>('inviteNoteField'),
-                    controller: noteController,
-                    maxLength: 300,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: AppStrings.inviteNoteHint,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    AppStrings.inviteFeeNote(
-                      '\u20b1${ScenePricing.feeForScene(selectedScene)}',
-                    ),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textHint,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      key: const ValueKey<String>('inviteSendButton'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.darkCard,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () => Navigator.of(sheetContext).pop(true),
-                      child: const Text(AppStrings.inviteSendCta),
-                    ),
-                  ),
                 ],
               ),
-            );
-          },
+              const SizedBox(height: 14),
+              TextField(
+                key: const ValueKey<String>('inviteNoteField'),
+                controller: noteController,
+                maxLength: 300,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: AppStrings.inviteNoteHint,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                AppStrings.inviteFeeNote(
+                  '\u20b1${ScenePricing.feeForScene(scene)}',
+                ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textHint,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey<String>('inviteSendButton'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.darkCard,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => Navigator.of(sheetContext).pop(true),
+                  child: const Text(AppStrings.inviteSendCta),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -177,7 +156,7 @@ class _HostDetailPageState extends State<HostDetailPage> {
     }
     final String note = noteController.text.trim();
     noteController.dispose();
-    await _sendInvite(selectedScene, note);
+    await _sendInvite(scene, note);
   }
 
   Future<void> _sendInvite(String sceneTag, String note) async {
@@ -340,7 +319,10 @@ class _HostDetailPageState extends State<HostDetailPage> {
             ),
           ),
           const SizedBox(height: 8),
-          _ActivityPriceList(host: host),
+          _ActivityPriceList(
+            host: host,
+            onInvite: _busy ? null : _openInviteSheet,
+          ),
           if (host.recentProposals.isNotEmpty) ...<Widget>[
             const SizedBox(height: 20),
             const Text(
@@ -376,54 +358,25 @@ class _HostDetailPageState extends State<HostDetailPage> {
           ],
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            border: Border(top: BorderSide(color: AppColors.divider)),
-          ),
-          child: FilledButton(
-            key: const ValueKey<String>('inviteButton'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              foregroundColor: AppColors.onDarkPrimary,
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              textStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            onPressed: _busy ? null : _openInviteSheet,
-            child: const Text(AppStrings.inviteCta),
-          ),
-        ),
-      ),
     );
   }
 }
 
-/// Price list of the activities this host can run: the host's specialty
-/// scenes (matched by tags) with the platform-set budget per scene. Falls
-/// back to the full scene table for hosts without matching tags.
+/// Price list of the activities this host offers (picked at registration),
+/// with the platform-set fee per scene. Each row is the invitation entry
+/// for that scene. Hosts without a published list take any scene.
 class _ActivityPriceList extends StatelessWidget {
-  const _ActivityPriceList({required this.host});
+  const _ActivityPriceList({required this.host, required this.onInvite});
 
   final HostCard host;
+  final ValueChanged<String>? onInvite;
 
   @override
   Widget build(BuildContext context) {
-    final List<String> allScenes =
-        ScenePricing.config.sceneFees.keys.toList(growable: false);
-    final Set<String> tagSet =
-        host.tags.map((String t) => t.toLowerCase()).toSet();
-    final List<String> matched = allScenes
-        .where((String scene) => tagSet.contains(scene.toLowerCase()))
-        .toList(growable: false);
-    final List<String> scenes = matched.isEmpty ? allScenes : matched;
+    final List<String> scenes = host.hostScenes.isNotEmpty
+        ? host.hostScenes
+        : ScenePricing.config.sceneFees.keys.toList(growable: false);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(14),
@@ -431,36 +384,64 @@ class _ActivityPriceList extends StatelessWidget {
       child: Column(
         children: <Widget>[
           for (int i = 0; i < scenes.length; i++) ...<Widget>[
-            if (i > 0) const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Iconsax.calendar_1,
-                    size: 15,
-                    color: AppColors.textHint,
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      scenes[i],
+            if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14),
+            InkWell(
+              key: ValueKey<String>('inviteScene${scenes[i]}'),
+              onTap:
+                  onInvite == null ? null : () => onInvite!(scenes[i]),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(
+                      Iconsax.calendar_1,
+                      size: 15,
+                      color: AppColors.textHint,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        scenes[i],
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '\u20b1${ScenePricing.feeForScene(scenes[i])}',
                       style: const TextStyle(
                         fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
-                  Text(
-                    '\u20b1${ScenePricing.feeForScene(scenes[i])}',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.textPrimary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        AppStrings.inviteRowCta,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onDarkPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

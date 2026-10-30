@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
@@ -42,7 +43,9 @@ class ProfileSetupPage extends StatefulWidget {
 
 class _ProfileSetupPageState extends State<ProfileSetupPage> {
   static const int _maxWallPhotos = 3;
-  static const int _stepCount = 10;
+
+  /// Hosts get one extra step at the end: the activities they can host.
+  int get _stepCount => _role == 'HOST' ? 11 : 10;
   static const List<String> _monthNames = <String>[
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -75,6 +78,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   String? _education;
   String? _job;
   final Set<String> _tags = <String>{};
+
+  /// Scenes a HOST offers; shown as the price list on their detail page.
+  final Set<String> _hostScenes = <String>{};
 
   String? _avatarUrl; // root-relative, as stored server-side
   final List<String> _photoUrls = <String>[];
@@ -111,6 +117,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         return;
       }
       setState(() {
+        _role = user['role'] as String?;
         final String avatar = user['avatarUrl'] as String? ?? '';
         _avatarUrl = avatar.isEmpty ? null : avatar;
         _nameController.text = user['name'] as String? ?? '';
@@ -129,6 +136,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           ..clear()
           ..addAll(
             (user['tags'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
+          );
+        _hostScenes
+          ..clear()
+          ..addAll(
+            (user['hostScenes'] as List<dynamic>? ?? <dynamic>[])
+                .cast<String>(),
           );
         _photoUrls
           ..clear()
@@ -230,6 +243,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         'job': ?_job,
         if (_tags.isNotEmpty || widget.isEditing)
           'tags': _tags.toList(growable: false),
+        if (_role == 'HOST')
+          'hostScenes': _hostScenes.toList(growable: false),
         if (_bioController.text.trim().isNotEmpty)
           'bio': _bioController.text.trim(),
         if (_photoUrls.isNotEmpty || widget.isEditing) 'photos': _photoUrls,
@@ -324,6 +339,10 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       case 4:
         _heightCm ??= _minHeight + _heightWheel.selectedItem;
         _weightKg ??= _minWeight + _weightWheel.selectedItem;
+    }
+    if (_isLastStep && _role == 'HOST' && _hostScenes.isEmpty) {
+      _hint(AppStrings.hostScenesRequiredHint);
+      return;
     }
     if (_isLastStep) {
       await _save();
@@ -452,6 +471,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                     sub: AppStrings.setupStepPhotosSub,
                     fields: <Widget>[_photoGrid()],
                   ),
+                  if (_role == 'HOST')
+                    _stepPage(
+                      title: AppStrings.setupStepHostScenesTitle,
+                      sub: AppStrings.setupStepHostScenesSub,
+                      fields: <Widget>[_hostSceneChips()],
+                    ),
                 ],
               ),
             ),
@@ -669,6 +694,17 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
           fieldsOf: () => <Widget>[_tagsChips()],
         ),
       ),
+      if (_role == 'HOST')
+        _editRow(
+          label: AppStrings.setupHostScenesLabel,
+          value: _hostScenes.isEmpty
+              ? AppStrings.editNotSet
+              : _hostScenes.join(', '),
+          onTap: () => _openSheet(
+            title: AppStrings.setupStepHostScenesTitle,
+            fieldsOf: () => <Widget>[_hostSceneChips()],
+          ),
+        ),
     ];
     return Container(
       decoration: BoxDecoration(
@@ -1239,6 +1275,28 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             onTap: () => _refresh(() {
               if (!_tags.add(tag)) {
                 _tags.remove(tag);
+              }
+            }),
+          ),
+      ],
+    );
+  }
+
+  /// One chip per platform scene, labelled with what the host actually
+  /// earns (fee minus commission). At least one pick is required.
+  Widget _hostSceneChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (final String scene in ScenePricing.config.sceneFees.keys)
+          _choiceChip(
+            label:
+                '$scene \u00b7 ${AppStrings.gigEarnLine('\u20b1${ScenePricing.netEarnings(ScenePricing.feeForScene(scene))}')}',
+            selected: _hostScenes.contains(scene),
+            onTap: () => _refresh(() {
+              if (!_hostScenes.add(scene)) {
+                _hostScenes.remove(scene);
               }
             }),
           ),

@@ -91,6 +91,7 @@ const USERS = [
       'Cafe-hopping host. I keep a running list of the best quiet cafes ' +
       'in Makati and BGC and I always know where to sit.',
     tagsJson: JSON.stringify(['Coffee', 'Dessert cafes', 'Board games']),
+    hostScenesJson: JSON.stringify(['Coffee', 'Tea']),
   },
   {
     ...BASE,
@@ -106,6 +107,7 @@ const USERS = [
       'Food tour host. Ex-restaurant floor manager; I plan dinners people ' +
       'still talk about a month later.',
     tagsJson: JSON.stringify(['Dinner', 'Japanese food', 'Hidden gems']),
+    hostScenesJson: JSON.stringify(['Dinner']),
   },
   {
     ...BASE,
@@ -121,6 +123,7 @@ const USERS = [
       'Movies and after-talk. I pick the screening, the seats, and the ' +
       'dessert place for the post-movie debrief.',
     tagsJson: JSON.stringify(['Movies', 'Tea', 'Long walks']),
+    hostScenesJson: JSON.stringify(['Movie', 'Tea']),
   },
   {
     ...BASE,
@@ -136,6 +139,7 @@ const USERS = [
       'Specialty coffee host and third-wave cafe regular. Great at easy ' +
       'conversation with anyone.',
     tagsJson: JSON.stringify(['Coffee', 'Basketball', 'Vinyl']),
+    hostScenesJson: JSON.stringify(['Coffee']),
   },
   {
     ...BASE,
@@ -151,6 +155,7 @@ const USERS = [
       'Bar crawl host in Poblacion. I know which rooftop is quiet on a ' +
       'Friday and which whiskey list is actually worth it.',
     tagsJson: JSON.stringify(['Bars', 'Whiskey', 'Live music']),
+    hostScenesJson: JSON.stringify(['Bar']),
   },
   // ---- Internal ----
   {
@@ -355,7 +360,10 @@ async function main() {
   for (const user of USERS) {
     await prisma.user.upsert({
       where: { id: user.id },
-      update: {},
+      // Existing rows get the offered-scenes backfill on reseed.
+      update: user.hostScenesJson
+        ? { hostScenesJson: user.hostScenesJson }
+        : {},
       create: user,
     });
   }

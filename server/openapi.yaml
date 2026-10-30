@@ -113,6 +113,13 @@ components:
         avatarUrl: { type: string }
         meta: { type: string }
         isVerified: { type: boolean }
+        hostScenes:
+          type: array
+          items: { type: string }
+          description: >-
+            Scene tags a HOST offers (picked at registration). Empty for
+            USER accounts. Invitations outside this list are rejected with
+            409 SCENE_NOT_OFFERED.
     Post:
       type: object
       required: [id, author, sceneTag, title, status, feeMinor]
@@ -346,7 +353,9 @@ paths:
   /posts:
     get:
       tags: [posts]
-      summary: Feed of open posts
+      summary: >-
+        Community wall (moments, default), host gig hall (view=requests:
+        open FEED demand posts), or an author's own posts (authorId)
       parameters:
         - name: scene
           in: query
@@ -354,6 +363,9 @@ paths:
         - name: authorId
           in: query
           schema: { type: string }
+        - name: view
+          in: query
+          schema: { type: string, enum: [requests] }
       responses:
         '200':
           description: OK

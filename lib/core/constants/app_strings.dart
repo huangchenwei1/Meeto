@@ -242,6 +242,14 @@ abstract final class AppStrings {
       'A main photo plus up to 3 more. The main photo is also the '
       'reference we use to verify you are a real person.';
   static const String setupMainPhotoBadge = 'Main';
+  static const String setupStepHostScenesTitle =
+      'Which activities can you host?';
+  static const String setupStepHostScenesSub =
+      'Pick at least one. Guests invite you from this list, and you earn '
+      'the shown amount per hosted activity.';
+  static const String setupHostScenesLabel = 'Hosted activities';
+  static const String hostScenesRequiredHint =
+      'Pick at least one activity you can host';
   static const String setupNext = 'Next';
   static const String setupFinish = 'Finish';
   static const String setupStepSkip = 'Skip';
@@ -442,9 +450,8 @@ abstract final class AppStrings {
   static const String hostRecentPlanLabel = 'Recent plans';
   static const String hostSeeActivities = 'See activities they can host';
   static const String hostActivitiesTitle = 'Activities they can host';
-  static const String inviteCta = 'Invite to host';
+  static const String inviteRowCta = 'Invite';
   static String inviteSheetTitle(String name) => 'Invite $name to host';
-  static const String inviteSceneLabel = 'What kind of activity?';
   static const String inviteNoteHint =
       'Tell them what you have in mind (optional)';
   static String inviteFeeNote(String fee) =>

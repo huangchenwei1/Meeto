@@ -1179,7 +1179,16 @@ describe('Meeto API (e2e)', () => {
       await api().get(`/hosts/${MIGUEL}`).set('X-User-Id', ANDREA).expect(404);
     });
 
-    it('a user invites a host; hosts cannot invite', async () => {
+    it('a user invites a host within their offered scenes', async () => {
+      // Invitations are bound to the host's offered scenes: Bianca hosts
+      // Coffee/Tea, so a Bar invitation is rejected outright.
+      const offScene = await api()
+        .post('/invitations')
+        .set('X-User-Id', ANDREA)
+        .send({ hostId: BIANCA, sceneTag: 'Bar', note: '' })
+        .expect(409);
+      expect(offScene.body.message).toBe('SCENE_NOT_OFFERED');
+
       const res = await api()
         .post('/invitations')
         .set('X-User-Id', ANDREA)
@@ -1194,11 +1203,19 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.from.id).toBe(ANDREA);
       expect(res.body.host.id).toBe(BIANCA);
 
-      // Duplicate pending invitation to the same host conflicts.
+      // The directory card carries the offered scenes for the price list.
+      const card = await api()
+        .get(`/hosts/${BIANCA}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(card.body.user.hostScenes).toEqual(['Coffee', 'Tea']);
+
+      // Duplicate pending invitation to the same host conflicts, even on
+      // another offered scene.
       await api()
         .post('/invitations')
         .set('X-User-Id', ANDREA)
-        .send({ hostId: BIANCA, sceneTag: 'Dinner', note: '' })
+        .send({ hostId: BIANCA, sceneTag: 'Tea', note: '' })
         .expect(409);
 
       // Hosts cannot invite, and only hosts can be invited.

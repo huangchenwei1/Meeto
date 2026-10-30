@@ -12,6 +12,7 @@ class HostCard {
     required this.bio,
     required this.city,
     required this.tags,
+    this.hostScenes = const <String>[],
     required this.completedActivities,
     required this.recentProposals,
   });
@@ -27,6 +28,8 @@ class HostCard {
       bio: user['bio'] as String? ?? '',
       city: user['city'] as String? ?? '',
       tags: (user['tags'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
+      hostScenes:
+          (user['hostScenes'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
       completedActivities: json['completedActivities'] as int? ?? 0,
       recentProposals: (json['recentProposals'] as List<dynamic>? ??
               <dynamic>[])
@@ -42,6 +45,11 @@ class HostCard {
   final String bio;
   final String city;
   final List<String> tags;
+
+  /// Scene tags this host offers (picked at registration); drives the
+  /// detail page's activity price list and the invitation entries.
+  final List<String> hostScenes;
+
   final int completedActivities;
 
   /// The host's latest plan pitches, shown as hosting credentials.
