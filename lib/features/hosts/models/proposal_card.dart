@@ -1,3 +1,4 @@
+import '../../../core/constants/scene_images.dart';
 import '../../../core/network/api_client.dart';
 
 /// A host's activity pitch on the user home feed. The pitch is the
@@ -51,6 +52,11 @@ class ProposalCard {
 
   /// Cover photo; empty when the host posted a text-only pitch.
   final String imageUrl;
+
+  /// What the feed shows: the uploaded cover, or the platform default
+  /// image for the scene when the pitch was posted without a photo.
+  String get coverImageUrl =>
+      imageUrl.isNotEmpty ? imageUrl : SceneImages.forScene(sceneTag);
 
   /// Rough area of the pitch (e.g. "Poblacion"); the exact venue comes
   /// later via the order plan flow.

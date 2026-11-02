@@ -4,6 +4,10 @@
 /// (e.g. switching to `flutter_localizations` / ARB files) a mechanical task.
 /// Keys, scene tags and other identifiers stay English; only display
 /// values are translated.
+library;
+
+import '../utils/money.dart';
+
 abstract final class AppStrings {
   // App
   static const String appName = 'Meeto';
@@ -383,6 +387,45 @@ abstract final class AppStrings {
   static const String tabCommunity = '社区';
   static const String hostsTitle = '发现活动';
   static const String hostsEmpty = '还没有活动提案';
+
+  // --- Activity community (tab 1): templates shelf + sharing wall ---
+  static const String tabActivityCommunity = '社区';
+  static const String hotActivitiesTab = '热门活动';
+  static const String activitySharesTab = '活动分享';
+  static const String templateLaunchCta = '发起';
+  static const String templatesEmpty = '活动上架中，稍后再来看看';
+  static String activityBudget(int amount) =>
+      '活动预算 ${MoneyFormat.format(amount)}';
+  static String activityBudgetFrom(int amount) =>
+      '活动预算 ${MoneyFormat.format(amount)} 起';
+
+  // --- Dating hall (tab 2): the unified board ---
+  static const String tabHall = '大厅';
+  static const String hallTitle = '约会大厅';
+  static const String hallEmpty = '大厅还没有活动，去社区发起一个吧';
+  static const String hallFilterAll = '全部';
+  static const String hallFilterRequests = '找人主持';
+  static const String hallFilterProposals = '主持人提案';
+
+  // Fuzzy availability windows: identifiers stay English on the wire,
+  // display labels live here. The exact schedule comes later via the
+  // order plan flow.
+  static const List<String> timeSlots = <String>[
+    'TODAY_AFTERNOON',
+    'TONIGHT',
+    'TOMORROW',
+    'WEEKEND',
+    'ANYTIME',
+  ];
+  static const Map<String, String> _timeSlotLabels = <String, String>{
+    'TODAY_AFTERNOON': '今天下午',
+    'TONIGHT': '今晚',
+    'TOMORROW': '明天',
+    'WEEKEND': '周末',
+    'ANYTIME': '时间灵活',
+  };
+  static String timeSlotLabel(String tag) => _timeSlotLabels[tag] ?? tag;
+  static const String publishTimeSlotLabel = '活动时间（选填）';
 
   // Proposal composer (host side)
   static const String proposalComposerTitle = '发布活动提案';

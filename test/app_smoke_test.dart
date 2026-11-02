@@ -26,18 +26,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('otpVerifyButton')));
     await tester.pumpAndSettle();
 
-    // Hosts tab (default): the host directory with the post-request entry
-    // in the header.
-    expect(find.text(AppStrings.hostsTitle), findsOneWidget);
-    expect(find.text('Bianca'), findsOneWidget);
+    // Community tab (default): the curated template shelf with the launch
+    // entries, plus the sharing wall behind the second header tab.
+    expect(find.text(AppStrings.hotActivitiesTab), findsOneWidget);
+    expect(find.text('咖啡探店'), findsOneWidget);
+    expect(find.text(AppStrings.templateLaunchCta), findsWidgets);
     expect(
-      find.byKey(const ValueKey<String>('postRequestButton')),
+      find.byKey(const ValueKey<String>('launchBlankButton')),
       findsOneWidget,
     );
-
-    // Community tab: the shared sharing wall — moments only, demand posts
-    // never show here.
-    await tester.tap(find.byIcon(Iconsax.people));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('communityTabShares')),
+    );
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.bannerCta), findsOneWidget);
     expect(find.textContaining('omakase counter'), findsOneWidget);
@@ -45,6 +45,13 @@ void main() {
       find.text('Show me a cafe worth leaving BGC for'),
       findsNothing,
     );
+
+    // Hall tab: the unified board. For a USER persona the host proposals
+    // lead with invite pills; demand posts from other users are browse-only.
+    await tester.tap(find.byIcon(Iconsax.home_2));
+    await tester.pumpAndSettle();
+    expect(find.text(AppStrings.hallTitle), findsOneWidget);
+    expect(find.text(AppStrings.hostInviteCta), findsWidgets);
 
     // Messages tab: demo orders with status pills (same OrdersPage as API
     // mode). The nav bar is icon-only, so tabs are addressed by icon.

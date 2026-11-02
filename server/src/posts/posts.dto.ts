@@ -32,6 +32,17 @@ export class CreatePostDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  /// Fuzzy availability window identifier, e.g. TONIGHT or WEEKEND.
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  timeSlot?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  area?: string;
 }
 
 export class CreateMomentDto {

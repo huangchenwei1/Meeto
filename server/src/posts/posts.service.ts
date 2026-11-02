@@ -38,6 +38,10 @@ export interface PostDto {
   title: string;
   description: string;
   detail: string;
+  /// Fuzzy availability window identifier (e.g. TONIGHT); empty if unset.
+  timeSlot: string;
+  /// Rough district picked at publish time; empty if unset.
+  area: string;
   imageUrl: string;
   images: string[];
   applicantCount: number;
@@ -83,6 +87,8 @@ export class PostsService {
         title: input.title,
         description: input.description ?? '',
         detail: input.detail ?? '',
+        timeSlot: input.timeSlot ?? '',
+        area: input.area ?? '',
         imageUrl: input.imageUrl ?? '',
         feeMinor,
       },
@@ -338,6 +344,8 @@ export class PostsService {
       title: post.title,
       description: post.description,
       detail: post.detail,
+      timeSlot: post.timeSlot,
+      area: post.area,
       imageUrl: post.imageUrl,
       images: PostsService.parseImages(post.imagesJson),
       applicantCount: applications.filter(

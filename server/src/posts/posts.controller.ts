@@ -19,6 +19,21 @@ import {
 } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
 import type { ApplicationDto, PostDto } from './posts.service.js';
+import {
+  ACTIVITY_TEMPLATES,
+  type ActivityTemplate,
+} from './activity-templates.js';
+
+/// Curated activity templates for the "hot activities" shelf. Static
+/// operations content; both roles read the same list.
+@Controller('templates')
+@UseGuards(AuthGuard)
+export class TemplatesController {
+  @Get()
+  list(): ActivityTemplate[] {
+    return ACTIVITY_TEMPLATES;
+  }
+}
 
 @Controller('posts')
 @UseGuards(AuthGuard)

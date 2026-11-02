@@ -99,3 +99,63 @@ class ScenePriceChips extends StatelessWidget {
     );
   }
 }
+
+/// Single-select chip row for optional fields (fuzzy time window, rough
+/// area): tapping the selected chip again clears it. [labelOf] maps the
+/// stored identifier to its display label.
+class OptionChips extends StatelessWidget {
+  const OptionChips({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    required this.keyPrefix,
+    this.labelOf,
+  });
+
+  final List<String> options;
+  final String selected;
+
+  /// Receives the new value, or an empty string when cleared.
+  final ValueChanged<String> onChanged;
+  final String keyPrefix;
+  final String Function(String value)? labelOf;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (final String option in options)
+          InkWell(
+            key: ValueKey<String>('$keyPrefix$option'),
+            onTap: () => onChanged(selected == option ? '' : option),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: selected == option
+                    ? AppColors.darkCard
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                labelOf?.call(option) ?? option,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: selected == option
+                      ? AppColors.onDarkPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

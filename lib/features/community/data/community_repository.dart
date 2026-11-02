@@ -1,24 +1,34 @@
 import 'dart:async';
 
+import '../../../core/constants/scene_images.dart';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../orders/data/orders_repository.dart';
 import '../models/activity_post.dart';
+import '../models/activity_template.dart';
 import '../models/post_author.dart';
 
-/// Input payload for publishing a new activity request. No time or place:
-/// the selected host proposes the concrete plan on the order after
-/// matching.
+/// Input payload for publishing a new activity request. Only a fuzzy time
+/// window and a rough district: the selected host still proposes the
+/// concrete plan (exact time and venue) on the order after matching.
 class CreatePostInput {
   const CreatePostInput({
     required this.sceneTag,
     required this.title,
     required this.description,
+    this.timeSlot = '',
+    this.area = '',
+    this.imageUrl = '',
   });
 
   final String sceneTag;
   final String title;
   final String description;
+  final String timeSlot;
+  final String area;
+
+  /// Cover photo; template launches pass the template cover.
+  final String imageUrl;
 }
 
 /// Data source contract for community activity posts.
@@ -44,6 +54,10 @@ abstract interface class CommunityRepository {
 
   /// Returns available scene names, excluding the implicit "For you".
   Future<List<String>> fetchScenes();
+
+  /// The curated "hot activities" shelf; picking one prefills the publish
+  /// flow for either role.
+  Future<List<ActivityTemplate>> fetchTemplates();
 
   /// Publishes a new post and returns it. The match fee is platform-set
   /// per scene ([ScenePricing]); posters cannot price.
@@ -86,19 +100,6 @@ class MockCommunityRepository implements CommunityRepository {
     'Movie',
     'Tea',
   ];
-
-  static const Map<String, String> _sceneImages = <String, String>{
-    'Coffee':
-        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    'Dinner':
-        'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    'Bar':
-        'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&h=800&q=80',
-    'Movie':
-        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
-    'Tea':
-        'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-  };
 
   // Reads the live session so it reflects whoever actually signed in.
   static PostAuthor get currentUserAuthor => PostAuthor(
@@ -187,6 +188,8 @@ class MockCommunityRepository implements CommunityRepository {
       ActivityPost(
         id: 'post-001',
         sceneTag: 'Coffee',
+        timeSlot: 'WEEKEND',
+        area: 'Makati',
         title: 'Show me a cafe worth leaving BGC for',
         description: 'Want a relaxed coffee afternoon, you pick the place',
         detail:
@@ -195,7 +198,7 @@ class MockCommunityRepository implements CommunityRepository {
             'specialty coffee scene and can plan a relaxed afternoon: the '
             'place, the order, the conversation. Time is flexible this week.',
         signedCount: 2,
-        imageUrl: _sceneImages['Coffee']!,
+        imageUrl: SceneImages.forScene('Coffee'),
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),
         budgetAmount: 600,
@@ -203,6 +206,8 @@ class MockCommunityRepository implements CommunityRepository {
       ActivityPost(
         id: 'post-002',
         sceneTag: 'Dinner',
+        timeSlot: 'TONIGHT',
+        area: 'BGC',
         title: 'Plan me a Japanese dinner I cannot find on my own',
         description: 'Good sushi, good conversation, you handle the plan',
         detail:
@@ -211,7 +216,7 @@ class MockCommunityRepository implements CommunityRepository {
             'somewhere I would never find alone. Weeknights after 7 work '
             'best. Meal is on me.',
         signedCount: 1,
-        imageUrl: _sceneImages['Dinner']!,
+        imageUrl: SceneImages.forScene('Dinner'),
         author: _paolo,
         createdAt: now.subtract(const Duration(hours: 3)),
         budgetAmount: 1000,
@@ -221,6 +226,8 @@ class MockCommunityRepository implements CommunityRepository {
         // ACTIVE escrow order on the server.
         id: 'post-003',
         sceneTag: 'Movie',
+        timeSlot: 'WEEKEND',
+        area: 'Ortigas',
         title: 'Movie night with an actual plan',
         description: 'Pick the film, the cinema and the after-talk spot',
         detail:
@@ -229,7 +236,7 @@ class MockCommunityRepository implements CommunityRepository {
             'about it after. Saturday afternoon preferred. Tickets and '
             'snacks on me.',
         signedCount: 1,
-        imageUrl: _sceneImages['Movie']!,
+        imageUrl: SceneImages.forScene('Movie'),
         author: _marco,
         createdAt: now.subtract(const Duration(hours: 24)),
         budgetAmount: 800,
@@ -239,6 +246,8 @@ class MockCommunityRepository implements CommunityRepository {
       ActivityPost(
         id: 'post-004',
         sceneTag: 'Tea',
+        timeSlot: 'TODAY_AFTERNOON',
+        area: 'Salcedo Village',
         title: 'Slow Sunday: dessert cafe and no agenda',
         description: 'Need someone to plan a lazy tea afternoon',
         detail:
@@ -246,7 +255,7 @@ class MockCommunityRepository implements CommunityRepository {
             'good fruit tea, good cake, zero decisions made by me. Host '
             'plans everything, I just show up. Desserts are on me.',
         signedCount: 0,
-        imageUrl: _sceneImages['Tea']!,
+        imageUrl: SceneImages.forScene('Tea'),
         author: _andrea,
         createdAt: now.subtract(const Duration(hours: 48)),
         budgetAmount: 650,
@@ -338,6 +347,61 @@ class MockCommunityRepository implements CommunityRepository {
     return _scenes;
   }
 
+  // Mirrors server/src/posts/activity-templates.ts.
+  static final List<ActivityTemplate> _templates = <ActivityTemplate>[
+    ActivityTemplate(
+      id: 'template-coffee-tour',
+      sceneTag: 'Coffee',
+      title: '咖啡探店',
+      description: '新开的小众咖啡馆，找个人边喝边聊',
+      imageUrl: SceneImages.forScene('Coffee'),
+      durationLabel: '约 1.5 小时',
+      venueLabel: '咖啡馆',
+    ),
+    ActivityTemplate(
+      id: 'template-dinner-popular',
+      sceneTag: 'Dinner',
+      title: '人气餐厅晚餐',
+      description: '一个人吃饭没意思，找人边吃边聊',
+      imageUrl: SceneImages.forScene('Dinner'),
+      durationLabel: '约 2 小时',
+      venueLabel: '餐厅',
+    ),
+    ActivityTemplate(
+      id: 'template-movie-night',
+      sceneTag: 'Movie',
+      title: '一起看电影',
+      description: '新片上映，看完一起聊聊观后感',
+      imageUrl: SceneImages.forScene('Movie'),
+      durationLabel: '约 3 小时',
+      venueLabel: '影院',
+    ),
+    ActivityTemplate(
+      id: 'template-bar-crawl',
+      sceneTag: 'Bar',
+      title: '微醺酒吧夜',
+      description: '找个懂酒的，带我喝点不一样的',
+      imageUrl: SceneImages.forScene('Bar'),
+      durationLabel: '约 2 小时',
+      venueLabel: '酒吧',
+    ),
+    ActivityTemplate(
+      id: 'template-tea-afternoon',
+      sceneTag: 'Tea',
+      title: '慢下午茶',
+      description: '甜品配茶，聊聊最近的生活',
+      imageUrl: SceneImages.forScene('Tea'),
+      durationLabel: '约 1.5 小时',
+      venueLabel: '茶室',
+    ),
+  ];
+
+  @override
+  Future<List<ActivityTemplate>> fetchTemplates() async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return _templates;
+  }
+
   @override
   Future<ActivityPost> createPost(CreatePostInput input) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -347,8 +411,12 @@ class MockCommunityRepository implements CommunityRepository {
       title: input.title,
       description: input.description,
       detail: input.description,
+      timeSlot: input.timeSlot,
+      area: input.area,
       signedCount: 0,
-      imageUrl: _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
+      imageUrl: input.imageUrl.isNotEmpty
+          ? input.imageUrl
+          : SceneImages.forScene(input.sceneTag),
       author: currentUserAuthor,
       createdAt: DateTime.now(),
       budgetAmount: ScenePricing.feeForScene(input.sceneTag),

@@ -4,27 +4,28 @@ import 'package:iconsax/iconsax.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/env/app_env.dart';
 import '../../core/network/api_client.dart';
-import '../../core/session/auth_session.dart';
-import '../gigs/pages/gigs_page.dart';
+import '../community/data/api_community_repository.dart';
+import '../community/data/community_repository.dart';
+import '../community/pages/activity_community_page.dart';
+import '../hall/pages/hall_page.dart';
 import '../hosts/data/api_hosts_repository.dart';
 import '../hosts/data/hosts_repository.dart';
-import '../hosts/pages/hosts_page.dart';
 import '../notifications/data/notifications_repository.dart';
 import '../orders/data/api_orders_repository.dart';
 import '../orders/data/orders_repository.dart';
 import '../orders/pages/orders_page.dart';
-import '../community/data/api_community_repository.dart';
-import '../community/data/community_repository.dart';
 import '../profile/data/api_profile_repository.dart';
-import '../community/pages/feed_page.dart';
 import '../profile/data/profile_repository.dart';
 import '../profile/pages/profile_page.dart';
 
-/// Root scaffold hosting the bottom navigation. The tab set depends on the
-/// account role, fixed at registration; each role's first tab is its work
-/// surface and the community wall is shared:
-/// - USER:  Hosts (find a host) / Community / Messages / Me
-/// - HOST:  Requests (gig hall) / Community / Messages / Me
+/// Root scaffold hosting the bottom navigation. Both roles see the same
+/// four tabs — the browsing surfaces are identical and only the actions
+/// differ by role (users invite and post requests, hosts pitch and take
+/// work):
+/// - Community: the curated template shelf + the sharing wall (publish
+///   entry for both roles).
+/// - Hall: the unified activity board where everything published lands.
+/// - Messages / Me.
 ///
 /// Repositories are created here and passed down via constructors; the
 /// mock/API choice is a build-time switch ([AppEnv.useRemoteApi]).
@@ -44,13 +45,11 @@ class _HomeShellState extends State<HomeShell> {
 
   final GlobalKey<ProfilePageState> _profileKey =
       GlobalKey<ProfilePageState>();
-  final GlobalKey<FeedPageState> _feedKey = GlobalKey<FeedPageState>();
-  final GlobalKey<HostsPageState> _hostsKey = GlobalKey<HostsPageState>();
-  final GlobalKey<GigsPageState> _gigsKey = GlobalKey<GigsPageState>();
+  final GlobalKey<ActivityCommunityPageState> _communityKey =
+      GlobalKey<ActivityCommunityPageState>();
+  final GlobalKey<HallPageState> _hallKey = GlobalKey<HallPageState>();
   final GlobalKey<OrdersPageState> _messagesKey =
       GlobalKey<OrdersPageState>();
-
-  bool get _isHost => AuthSession.isHost;
 
   @override
   void initState() {
@@ -74,52 +73,38 @@ class _HomeShellState extends State<HomeShell> {
 
   int _selectedIndex = 0;
 
-  /// Community sharing wall (identical for both shells).
-  Widget get _communityTab => FeedPage(
-        key: _feedKey,
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> tabs = <Widget>[
+      ActivityCommunityPage(
+        key: _communityKey,
         communityRepository: _communityRepository,
         profileRepository: _profileRepository,
-      );
-
-  /// Messages tab: the caller's orders plus the notifications inbox.
-  Widget get _messagesTab => OrdersPage(
+        hostsRepository: _hostsRepository,
+        // A launch lands on the hall; keep it current behind the scenes.
+        onPosted: () => _hallKey.currentState?.reload(),
+      ),
+      HallPage(
+        key: _hallKey,
+        communityRepository: _communityRepository,
+        profileRepository: _profileRepository,
+        hostsRepository: _hostsRepository,
+        ordersRepository: _ordersRepository,
+      ),
+      OrdersPage(
         key: _messagesKey,
         repository: _ordersRepository,
         notificationsRepository: _notificationsRepository,
         communityRepository: _communityRepository,
         profileRepository: _profileRepository,
-      );
-
-  Widget get _meTab => ProfilePage(
+      ),
+      ProfilePage(
         key: _profileKey,
         repository: _profileRepository,
         communityRepository: _communityRepository,
         ordersRepository: _ordersRepository,
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Widget> tabs = <Widget>[
-      if (_isHost)
-        GigsPage(
-          key: _gigsKey,
-          communityRepository: _communityRepository,
-          profileRepository: _profileRepository,
-          hostsRepository: _hostsRepository,
-          ordersRepository: _ordersRepository,
-        )
-      else
-        HostsPage(
-          key: _hostsKey,
-          repository: _hostsRepository,
-          communityRepository: _communityRepository,
-        ),
-      _communityTab,
-      _messagesTab,
-      _meTab,
+      ),
     ];
-    const int communityIndex = 1;
-    final int meIndex = tabs.length - 1;
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
@@ -131,44 +116,34 @@ class _HomeShellState extends State<HomeShell> {
           setState(() => _selectedIndex = index);
           // IndexedStack keeps tabs alive; refresh tab data when it comes
           // back into view so server-side changes are current.
-          if (index == 0) {
-            if (_isHost) {
-              _gigsKey.currentState?.reload();
-            } else {
-              _hostsKey.currentState?.reload();
-            }
-          } else if (index == communityIndex) {
-            _feedKey.currentState?.reload();
-          } else if (index == meIndex) {
-            _profileKey.currentState?.reload();
-          } else {
-            _messagesKey.currentState?.reload();
+          switch (index) {
+            case 0:
+              _communityKey.currentState?.reload();
+            case 1:
+              _hallKey.currentState?.reload();
+            case 2:
+              _messagesKey.currentState?.reload();
+            default:
+              _profileKey.currentState?.reload();
           }
         },
-        destinations: <NavigationDestination>[
-          if (_isHost)
-            const NavigationDestination(
-              icon: Icon(Iconsax.briefcase),
-              selectedIcon: Icon(Iconsax.briefcase5),
-              label: AppStrings.tabGigs,
-            )
-          else
-            const NavigationDestination(
-              icon: Icon(Iconsax.home_2),
-              selectedIcon: Icon(Iconsax.home_25),
-              label: AppStrings.tabHosts,
-            ),
-          const NavigationDestination(
+        destinations: const <NavigationDestination>[
+          NavigationDestination(
             icon: Icon(Iconsax.people),
             selectedIcon: Icon(Iconsax.people5),
-            label: AppStrings.tabCommunity,
+            label: AppStrings.tabActivityCommunity,
           ),
-          const NavigationDestination(
+          NavigationDestination(
+            icon: Icon(Iconsax.home_2),
+            selectedIcon: Icon(Iconsax.home_25),
+            label: AppStrings.tabHall,
+          ),
+          NavigationDestination(
             icon: Icon(Iconsax.message),
             selectedIcon: Icon(Iconsax.message5),
             label: AppStrings.tabMessages,
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Iconsax.user),
             selectedIcon: Icon(Iconsax.profile_circle5),
             label: AppStrings.tabMe,

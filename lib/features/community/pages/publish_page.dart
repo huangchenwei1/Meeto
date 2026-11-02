@@ -7,18 +7,23 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/community_repository.dart';
+import '../models/activity_template.dart';
 
-/// Full-screen form to publish a new activity request: scene, title and
-/// description only — the same field set as the hosts' pitch composer, so
-/// both sides of the board read identically. Time and place are
-/// deliberately absent: the selected host proposes the concrete plan after
-/// the match (the plan flow). The platform fee rides on the scene chips.
+/// Full-screen form to publish a new activity request: scene, title,
+/// description, plus an optional fuzzy time window and rough district.
+/// The exact schedule stays absent on purpose: the selected host proposes
+/// the concrete plan after the match (the plan flow). The platform fee
+/// rides on the scene chips. Launching from a template on the community
+/// shelf prefills everything, so posting is "choose and confirm".
 ///
 /// Pops with `true` when a post was published.
 class PublishPage extends StatefulWidget {
-  const PublishPage({super.key, required this.repository});
+  const PublishPage({super.key, required this.repository, this.template});
 
   final CommunityRepository repository;
+
+  /// When launched from the "hot activities" shelf; null for a blank form.
+  final ActivityTemplate? template;
 
   @override
   State<PublishPage> createState() => _PublishPageState();
@@ -30,11 +35,18 @@ class _PublishPageState extends State<PublishPage> {
 
   List<String> _scenes = <String>[];
   String? _selectedScene;
+  String _timeSlot = '';
+  String _area = '';
   bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
+    final ActivityTemplate? template = widget.template;
+    if (template != null && template.id.isNotEmpty) {
+      _titleController.text = template.title;
+      _descController.text = template.description;
+    }
     _loadScenes();
   }
 
@@ -52,7 +64,11 @@ class _PublishPageState extends State<PublishPage> {
     }
     setState(() {
       _scenes = scenes;
-      _selectedScene = scenes.first;
+      final String? fromTemplate = widget.template?.sceneTag;
+      _selectedScene =
+          fromTemplate != null && scenes.contains(fromTemplate)
+              ? fromTemplate
+              : scenes.first;
     });
   }
 
@@ -69,6 +85,13 @@ class _PublishPageState extends State<PublishPage> {
           description: _descController.text.trim().isEmpty
               ? AppStrings.publishDefaultDesc
               : _descController.text.trim(),
+          timeSlot: _timeSlot,
+          area: _area,
+          // Template launches keep the curated cover; a scene default
+          // covers blank launches server-side.
+          imageUrl: scene == widget.template?.sceneTag
+              ? (widget.template?.imageUrl ?? '')
+              : '',
         ),
       );
     } on ApiException catch (e) {
@@ -135,6 +158,23 @@ class _PublishPageState extends State<PublishPage> {
             decoration: const InputDecoration(
               hintText: AppStrings.publishPhDesc,
             ),
+          ),
+          // Fuzzy window and rough district only; the exact schedule comes
+          // later through the plan flow.
+          const FormFieldLabel(AppStrings.publishTimeSlotLabel),
+          OptionChips(
+            options: AppStrings.timeSlots,
+            selected: _timeSlot,
+            onChanged: (String value) => setState(() => _timeSlot = value),
+            keyPrefix: 'publishTimeSlot',
+            labelOf: AppStrings.timeSlotLabel,
+          ),
+          const FormFieldLabel(AppStrings.proposalAreaLabel),
+          OptionChips(
+            options: AppStrings.manilaAreas,
+            selected: _area,
+            onChanged: (String value) => setState(() => _area = value),
+            keyPrefix: 'publishArea',
           ),
         ],
       ),

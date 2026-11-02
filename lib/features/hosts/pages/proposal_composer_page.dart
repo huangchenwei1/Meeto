@@ -9,18 +9,21 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
+import '../../community/models/activity_template.dart';
 import '../data/hosts_repository.dart';
 
 /// Host-side composer for an activity pitch: scene, title and description
 /// — the same field set as the users' request composer, so both sides of
 /// the board read identically — plus the supply-side extras (cover photo,
 /// rough area). No time or place; those come later through the standard
-/// order plan flow.
+/// order plan flow. Launching from a community-shelf template prefills
+/// the text and cover.
 class ProposalComposerPage extends StatefulWidget {
   const ProposalComposerPage({
     super.key,
     required this.repository,
     required this.offeredScenes,
+    this.template,
   });
 
   final HostsRepository repository;
@@ -28,6 +31,9 @@ class ProposalComposerPage extends StatefulWidget {
   /// The host's offered scenes; falls back to the full priced list for
   /// hosts without a published list (the server accepts any scene then).
   final List<String> offeredScenes;
+
+  /// When launched from the "hot activities" shelf; null for a blank form.
+  final ActivityTemplate? template;
 
   @override
   State<ProposalComposerPage> createState() => _ProposalComposerPageState();
@@ -46,11 +52,26 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         ? offered
         : ScenePricing.config.sceneFees.keys.toList(growable: false);
   }();
-  late String _scene = _scenes.first;
+  late String _scene = () {
+    final String? fromTemplate = widget.template?.sceneTag;
+    return fromTemplate != null && _scenes.contains(fromTemplate)
+        ? fromTemplate
+        : _scenes.first;
+  }();
   final ImagePicker _picker = ImagePicker();
-  String _imageUrl = '';
+  late String _imageUrl = widget.template?.imageUrl ?? '';
   String _area = '';
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final ActivityTemplate? template = widget.template;
+    if (template != null && template.id.isNotEmpty) {
+      _titleController.text = template.title;
+      _descController.text = template.description;
+    }
+  }
 
   /// Photo upload needs the API; mock mode posts text-only pitches.
   bool get _photoEnabled => AppEnv.useRemoteApi;
@@ -212,42 +233,11 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
               ),
             ],
             const FormFieldLabel(AppStrings.proposalAreaLabel),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                for (final String area in AppStrings.manilaAreas)
-                  InkWell(
-                    key: ValueKey<String>('proposalArea$area'),
-                    // Tap again to clear: the area is optional.
-                    onTap: () => setState(
-                      () => _area = _area == area ? '' : area,
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _area == area
-                            ? AppColors.darkCard
-                            : AppColors.surface,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        area,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: _area == area
-                              ? AppColors.onDarkPrimary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            OptionChips(
+              options: AppStrings.manilaAreas,
+              selected: _area,
+              onChanged: (String value) => setState(() => _area = value),
+              keyPrefix: 'proposalArea',
             ),
             const SizedBox(height: 28),
             SizedBox(

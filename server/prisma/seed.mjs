@@ -169,8 +169,9 @@ const USERS = [
   },
 ];
 
-// Demand posts: rough activity intents from the USER side. Time and place
-// stay loose on purpose — the selected host proposes the concrete plan.
+// Demand posts: rough activity intents from the USER side. Only a fuzzy
+// time slot and a rough district at publish time — the selected host
+// still proposes the concrete plan (exact time and venue) after matching.
 const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000);
 
 const POSTS = [
@@ -179,6 +180,8 @@ const POSTS = [
     authorId: 'user-101',
     type: 'DEMAND',
     sceneTag: 'Coffee',
+    timeSlot: 'WEEKEND',
+    area: 'Makati',
     title: 'Show me a cafe worth leaving BGC for',
     description: 'Want a relaxed coffee afternoon, you pick the place',
     detail:
@@ -196,6 +199,8 @@ const POSTS = [
     authorId: 'user-102',
     type: 'DEMAND',
     sceneTag: 'Dinner',
+    timeSlot: 'TONIGHT',
+    area: 'BGC',
     title: 'Plan me a Japanese dinner I cannot find on my own',
     description: 'Good sushi, good conversation, you handle the plan',
     detail:
@@ -214,6 +219,8 @@ const POSTS = [
     authorId: 'user-103',
     type: 'DEMAND',
     sceneTag: 'Movie',
+    timeSlot: 'WEEKEND',
+    area: 'Ortigas',
     status: 'MATCHED',
     title: 'Movie night with an actual plan',
     description: 'Pick the film, the cinema and the after-talk spot',
@@ -231,6 +238,8 @@ const POSTS = [
     authorId: 'user-100',
     type: 'DEMAND',
     sceneTag: 'Tea',
+    timeSlot: 'TODAY_AFTERNOON',
+    area: 'Salcedo Village',
     title: 'Slow Sunday: dessert cafe and no agenda',
     description: 'Need someone to plan a lazy tea afternoon',
     detail:
@@ -429,7 +438,11 @@ async function main() {
   for (const post of [...POSTS, ...MOMENTS]) {
     await prisma.post.upsert({
       where: { id: post.id },
-      update: {},
+      // Existing rows get the fuzzy-slot + area backfill on reseed.
+      update: {
+        timeSlot: post.timeSlot ?? '',
+        area: post.area ?? '',
+      },
       create: post,
     });
   }

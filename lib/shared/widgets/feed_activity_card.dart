@@ -28,6 +28,8 @@ class FeedActivityCard extends StatelessWidget {
     required this.sceneLabel,
     required this.title,
     required this.description,
+    this.infoIcon,
+    this.infoText = '',
     this.footerIcon,
     this.footerText = '',
     required this.action,
@@ -47,7 +49,12 @@ class FeedActivityCard extends StatelessWidget {
   final String title;
   final String description;
 
-  /// Bottom-left of the activity box, e.g. rough location or signup count.
+  /// Optional info line between the description and the footer, e.g.
+  /// "今天下午 · Makati · 2 人已报名" on demand posts.
+  final IconData? infoIcon;
+  final String infoText;
+
+  /// Bottom-left of the activity box, e.g. rough location or the budget.
   final IconData? footerIcon;
   final String footerText;
 
@@ -177,6 +184,31 @@ class FeedActivityCard extends StatelessWidget {
                                   fontSize: 12.5,
                                   color: AppColors.textSecondary,
                                 ),
+                              ),
+                            ],
+                            if (infoText.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: <Widget>[
+                                  if (infoIcon != null) ...<Widget>[
+                                    Icon(
+                                      infoIcon,
+                                      size: 13,
+                                      color: AppColors.textHint,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      infoText,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                             const SizedBox(height: 14),

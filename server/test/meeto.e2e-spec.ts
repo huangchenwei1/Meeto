@@ -348,6 +348,65 @@ describe('Meeto API (e2e)', () => {
         expect(post.author.id).toBe(ANDREA);
       }
     });
+
+    it('demand posts carry the fuzzy slot and area through to the hall', async () => {
+      // Publish from a template: fuzzy window + rough district only; the
+      // exact schedule still arrives later via the plan flow.
+      const created = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          sceneTag: 'Tea',
+          title: 'Dessert run with zero decisions by me',
+          timeSlot: 'WEEKEND',
+          area: 'Rockwell',
+        })
+        .expect(201);
+      expect(created.body.timeSlot).toBe('WEEKEND');
+      expect(created.body.area).toBe('Rockwell');
+
+      const hall = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      const seen = hall.body.find(
+        (p: { id: string }) => p.id === created.body.id,
+      );
+      expect(seen.timeSlot).toBe('WEEKEND');
+      expect(seen.area).toBe('Rockwell');
+      // Seeded posts got the backfill too.
+      const seeded = hall.body.find(
+        (p: { id: string }) => p.id === 'post-001',
+      );
+      expect(seeded.timeSlot).toBe('WEEKEND');
+      expect(seeded.area).toBe('Makati');
+    });
+  });
+
+  describe('templates: the curated activity shelf', () => {
+    it('serves the operations-curated list to both roles', async () => {
+      const asUser = await api()
+        .get('/templates')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(asUser.body.length).toBeGreaterThanOrEqual(5);
+      for (const template of asUser.body) {
+        expect(template.id).toContain('template-');
+        expect(template.sceneTag).toBeTruthy();
+        expect(template.title).toBeTruthy();
+        expect(template.imageUrl).toContain('https://');
+        expect(template.durationLabel).toBeTruthy();
+        expect(template.venueLabel).toBeTruthy();
+      }
+
+      const asHost = await api()
+        .get('/templates')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(asHost.body).toEqual(asUser.body);
+
+      await api().get('/templates').expect(401);
+    });
   });
 
   describe('notifications: in-app events along the match flow', () => {

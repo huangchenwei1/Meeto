@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/constants/scene_images.dart';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../models/activity_post.dart';
+import '../models/activity_template.dart';
 import '../models/post_author.dart';
 import 'community_repository.dart';
 
@@ -18,19 +20,6 @@ class ApiCommunityRepository implements CommunityRepository {
   ApiCommunityRepository(this._client);
 
   final ApiClient _client;
-
-  static const Map<String, String> _sceneImages = <String, String>{
-    'Coffee':
-        'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    'Dinner':
-        'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    'Bar':
-        'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&h=800&q=80',
-    'Movie':
-        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
-    'Tea':
-        'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-  };
 
   /// postId -> applicationId per candidate, filled by candidate polling and
   /// needed to translate "approve this user" into the server's selection.
@@ -66,6 +55,15 @@ class ApiCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<ActivityTemplate>> fetchTemplates() async {
+    final List<dynamic> json = await _client.get('/templates') as List<dynamic>;
+    return json
+        .cast<Map<String, dynamic>>()
+        .map(ActivityTemplate.fromJson)
+        .toList(growable: false);
+  }
+
+  @override
   Future<ActivityPost> createPost(CreatePostInput input) async {
     final Map<String, dynamic> json = await _client.post(
       '/posts',
@@ -74,7 +72,11 @@ class ApiCommunityRepository implements CommunityRepository {
         'title': input.title,
         'description': input.description,
         'detail': input.description,
-        'imageUrl': _sceneImages[input.sceneTag] ?? _sceneImages['Coffee']!,
+        if (input.timeSlot.isNotEmpty) 'timeSlot': input.timeSlot,
+        if (input.area.isNotEmpty) 'area': input.area,
+        'imageUrl': input.imageUrl.isNotEmpty
+            ? input.imageUrl
+            : SceneImages.forScene(input.sceneTag),
       },
     ) as Map<String, dynamic>;
     return _toActivityPost(json);
@@ -206,11 +208,13 @@ class ApiCommunityRepository implements CommunityRepository {
       detail: (json['detail'] as String).isEmpty
           ? json['description'] as String
           : json['detail'] as String,
+      timeSlot: json['timeSlot'] as String? ?? '',
+      area: json['area'] as String? ?? '',
       signedCount: json['applicantCount'] as int? ?? 0,
       // Demand cards fall back to the scene image; moments keep whatever
       // photos the author attached (possibly none).
       imageUrl: imageUrl.isEmpty && type == 'DEMAND'
-          ? (_sceneImages[sceneTag] ?? _sceneImages['Coffee']!)
+          ? SceneImages.forScene(sceneTag)
           : resolveMediaUrl(imageUrl),
       images: (json['images'] as List<dynamic>? ?? <dynamic>[])
           .cast<String>()

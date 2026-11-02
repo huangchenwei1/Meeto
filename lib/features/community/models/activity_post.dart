@@ -17,6 +17,8 @@ class ActivityPost {
     required this.title,
     required this.description,
     required this.detail,
+    this.timeSlot = '',
+    this.area = '',
     required this.signedCount,
     required this.imageUrl,
     this.images = const <String>[],
@@ -36,6 +38,8 @@ class ActivityPost {
       title: json['title'] as String,
       description: json['description'] as String,
       detail: json['detail'] as String,
+      timeSlot: json['timeSlot'] as String? ?? '',
+      area: json['area'] as String? ?? '',
       signedCount: json['signedCount'] as int,
       imageUrl: json['imageUrl'] as String,
       images:
@@ -68,9 +72,16 @@ class ActivityPost {
 
   /// Full description shown on the detail page.
   ///
-  /// No time or place here: the selected host proposes the concrete plan
-  /// on the order after matching.
+  /// No exact time or place here: the selected host proposes the concrete
+  /// plan on the order after matching.
   final String detail;
+
+  /// Fuzzy availability window identifier (e.g. TONIGHT); empty if unset.
+  /// Display via AppStrings.timeSlotLabel.
+  final String timeSlot;
+
+  /// Rough district picked at publish time; empty if unset.
+  final String area;
 
   /// Number of candidates who signed up so far.
   final int signedCount;
@@ -113,6 +124,8 @@ class ActivityPost {
       title: title,
       description: description,
       detail: detail,
+      timeSlot: timeSlot,
+      area: area,
       signedCount: signedCount ?? this.signedCount,
       imageUrl: imageUrl,
       images: images,

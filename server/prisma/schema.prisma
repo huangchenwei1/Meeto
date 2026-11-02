@@ -122,8 +122,12 @@ model Post {
   title       String
   description String   @default("")
   detail      String   @default("")
-  // No time/place here: the concrete schedule lives on the order (the
-  // host proposes planAt/planPlace in the plan flow after matching).
+  // Fuzzy availability window picked at publish time (e.g. TONIGHT,
+  // WEEKEND). The exact schedule still lives on the order: the host
+  // proposes planAt/planPlace in the plan flow after matching.
+  timeSlot    String   @default("")
+  // Rough district (e.g. Makati); the exact venue comes with the plan.
+  area        String   @default("")
   imageUrl    String   @default("")
   imagesJson  String   @default("[]") // JSON array of photo URLs (moments)
   status      String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
