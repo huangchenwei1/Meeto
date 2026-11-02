@@ -26,15 +26,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('otpVerifyButton')));
     await tester.pumpAndSettle();
 
-    // Community tab (default): the curated template shelf with the launch
-    // entries, plus the sharing wall behind the second header tab.
+    // Community tab (default): the curated template shelf — the only
+    // publish entry — plus the sharing wall behind the second header tab.
     expect(find.text(AppStrings.hotActivitiesTab), findsOneWidget);
-    expect(find.text('咖啡探店'), findsOneWidget);
+    expect(find.text('Salcedo 周末市集咖啡散步'), findsOneWidget);
     expect(find.text(AppStrings.templateLaunchCta), findsWidgets);
-    expect(
-      find.byKey(const ValueKey<String>('launchBlankButton')),
-      findsOneWidget,
-    );
     await tester.tap(
       find.byKey(const ValueKey<String>('communityTabShares')),
     );

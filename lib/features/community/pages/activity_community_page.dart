@@ -121,21 +121,6 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
     }
   }
 
-  /// Blank composer for ideas outside the shelf, role-appropriate.
-  Future<void> _launchBlank() async {
-    await _launch(
-      const ActivityTemplate(
-        id: '',
-        sceneTag: '',
-        title: '',
-        description: '',
-        imageUrl: '',
-        durationLabel: '',
-        venueLabel: '',
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -160,26 +145,6 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
                     selected: _tab == 1,
                     onTap: () => setState(() => _tab = 1),
                   ),
-                  const Spacer(),
-                  if (_tab == 0)
-                    InkWell(
-                      key: const ValueKey<String>('launchBlankButton'),
-                      onTap: _launchBlank,
-                      customBorder: const CircleBorder(),
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: const BoxDecoration(
-                          color: AppColors.darkCard,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Iconsax.add,
-                          size: 20,
-                          color: AppColors.onDarkPrimary,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
