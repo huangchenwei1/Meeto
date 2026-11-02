@@ -36,13 +36,14 @@ void main() {
       );
       await pumpHall(tester);
 
-      // Open demand posts appear with the activity budget and pitch pill;
-      // in-progress activities and moments stay out.
+      // Open demand posts appear with the pitch pill; in-progress
+      // activities and moments stay out. No money on cards — budgets live
+      // on the detail page.
       expect(
         find.text('Show me a cafe worth leaving BGC for'),
         findsOneWidget,
       );
-      expect(find.textContaining('\u6d3b\u52a8\u9884\u7b97'), findsWidgets);
+      expect(find.textContaining('\u20b1'), findsNothing);
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
       expect(find.text('Movie night with an actual plan'), findsNothing);
       expect(find.textContaining('omakase counter'), findsNothing);
