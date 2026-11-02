@@ -4,10 +4,6 @@
 /// (e.g. switching to `flutter_localizations` / ARB files) a mechanical task.
 /// Keys, scene tags and other identifiers stay English; only display
 /// values are translated.
-library;
-
-import '../utils/money.dart';
-
 abstract final class AppStrings {
   // App
   static const String appName = 'Meeto';
@@ -394,10 +390,6 @@ abstract final class AppStrings {
   static const String activitySharesTab = '活动分享';
   static const String templateLaunchCta = '发起';
   static const String templatesEmpty = '活动上架中，稍后再来看看';
-  static String activityBudget(int amount) =>
-      '活动预算 ${MoneyFormat.format(amount)}';
-  static String activityBudgetFrom(int amount) =>
-      '活动预算 ${MoneyFormat.format(amount)} 起';
 
   // --- Dating hall (tab 2): the unified board ---
   static const String tabHall = '大厅';

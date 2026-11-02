@@ -391,9 +391,9 @@ class _SectionHeader extends StatelessWidget {
 }
 
 /// One open user request in the shared feed-post card. The fuzzy window,
-/// rough district and signup count ride the info line, the activity budget
-/// sits in the footer. Hosts get the pitch pill; users just browse (the
-/// earnings breakdown stays on the detail page).
+/// rough district and signup count ride the info line. No money on the
+/// card; the budget and earnings breakdown live on the detail page. Hosts
+/// get the pitch pill; users just browse.
 class _RequestCard extends StatelessWidget {
   const _RequestCard({
     required this.post,
@@ -426,7 +426,6 @@ class _RequestCard extends StatelessWidget {
       description: post.description,
       infoIcon: Iconsax.clock,
       infoText: _infoLine,
-      footerText: AppStrings.activityBudget(post.budgetAmount),
       action: !isHost
           ? const SizedBox.shrink()
           : post.hasApplied

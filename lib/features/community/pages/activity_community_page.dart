@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
@@ -334,21 +333,10 @@ class _TemplateCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 12),
+                      // No money on the shelf card; the fee shows up on
+                      // the composer's scene chips when launching.
                       Row(
                         children: <Widget>[
-                          Flexible(
-                            child: Text(
-                              AppStrings.activityBudgetFrom(
-                                ScenePricing.feeForScene(template.sceneTag),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
                           const Spacer(),
                           InkWell(
                             key: ValueKey<String>(
