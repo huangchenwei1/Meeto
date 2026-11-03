@@ -227,7 +227,8 @@ async function main() {
   for (const post of MOMENTS) {
     await prisma.post.upsert({
       where: { id: post.id },
-      update: {},
+      // Existing rows get the venue backfill on reseed.
+      update: { venue: post.venue },
       create: post,
     });
   }
