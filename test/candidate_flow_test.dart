@@ -42,6 +42,8 @@ void main() {
       final ActivityPost updated = await repository.signUp(
         posts.first.id,
         'Cafe in Makati, Saturday 3pm',
+        place: 'Single Origin, Salcedo Village',
+        scheduledAt: DateTime.now().add(const Duration(days: 3)),
       );
       expect(updated.hasApplied, isTrue);
       expect(updated.signedCount, posts.first.signedCount + 1);
@@ -78,6 +80,10 @@ void main() {
       expect(order.earner.id, selected.id);
       expect(order.feePesos, post.budgetAmount);
       expect(order.netPesos, ScenePricing.netEarnings(post.budgetAmount));
+      // Selection approved the sign-up plan card: the order starts with
+      // a confirmed plan, so paying opens the chat immediately.
+      expect(order.planConfirmed, isTrue);
+      expect(order.planPlace, candidates.first.planPlace);
 
       final LiveOrder paid = await ordersRepository.pay(order.id);
       expect(paid.status, 'ACTIVE');

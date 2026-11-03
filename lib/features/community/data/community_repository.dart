@@ -74,7 +74,14 @@ abstract interface class CommunityRepository {
   /// Signs the current user up as a CANDIDATE for [postId] (free).
   /// [proposal] is the required one-line plan pitch shown to the poster.
   /// Returns the updated post. The poster still has to pick one candidate.
-  Future<ActivityPost> signUp(String postId, String proposal);
+  /// Signs up as a candidate with the pitch plus the plan card (place +
+  /// time): selecting the candidate approves this plan.
+  Future<ActivityPost> signUp(
+    String postId,
+    String proposal, {
+    required String place,
+    required DateTime scheduledAt,
+  });
 
   /// Publishes a community recap (photos + text). Open to both roles.
   Future<ActivityPost> createMoment(
@@ -161,7 +168,7 @@ class MockCommunityRepository implements CommunityRepository {
 
   /// Simulated host candidates who pitch on the current user's new posts
   /// (same hosts as app-001/app-002-style applications in the server seed).
-  static const List<PostAuthor> _demoCandidates = <PostAuthor>[
+  static final List<PostAuthor> _demoCandidates = <PostAuthor>[
     PostAuthor(
       id: 'host-204',
       name: 'James',
@@ -170,6 +177,8 @@ class MockCommunityRepository implements CommunityRepository {
       isVerified: true,
       proposal: 'Single Origin in Salcedo, Saturday 3pm \u2014 quiet '
           'upstairs seats and the best hand brew flight in Makati',
+      planPlace: 'Single Origin, Salcedo Village',
+      planAt: DateTime.now().add(const Duration(days: 3)),
     ),
     PostAuthor(
       id: 'host-205',
@@ -179,6 +188,8 @@ class MockCommunityRepository implements CommunityRepository {
       isVerified: true,
       proposal: 'Rooftop bar in Poblacion that stays quiet on Fridays, '
           'then the best whiskey list in the block',
+      planPlace: 'Apotheka, Poblacion',
+      planAt: DateTime.now().add(const Duration(days: 4)),
     ),
   ];
 
@@ -498,7 +509,12 @@ class MockCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<ActivityPost> signUp(String postId, String proposal) async {
+  Future<ActivityPost> signUp(
+    String postId,
+    String proposal, {
+    required String place,
+    required DateTime scheduledAt,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     final int index = _posts.indexWhere((ActivityPost p) => p.id == postId);
     final ActivityPost updated = _posts[index].copyWith(

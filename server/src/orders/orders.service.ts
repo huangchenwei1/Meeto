@@ -146,7 +146,8 @@ export class OrdersService {
 
   /// The host proposes (or re-proposes) the concrete plan: place + time.
   /// Allowed while the order is ACTIVE (paid). Re-proposing clears a
-  /// previous confirmation. The first proposal opens the order chat.
+  /// previous confirmation. Mainly the invitation path: selection orders
+  /// already carry the sign-up plan card, approved at selection.
   async proposePlan(
     caller: User,
     orderId: string,
@@ -365,11 +366,9 @@ export class OrdersService {
     ) {
       throw new ConflictException('PAYMENT_REQUIRED');
     }
-    // The plan card opens the conversation: the host must deliver the
-    // plan before either side can chat.
-    if (order.status === OrderStatus.active && order.planProposedAt === null) {
-      throw new ConflictException('PLAN_REQUIRED');
-    }
+    // Escrowed money IS the anti-bypass mechanism: once paid, both sides
+    // chat freely. (Invitation orders still need the plan card before the
+    // meet code, but that never locks the conversation.)
     const message = await this.prisma.message.create({
       data: { orderId: order.id, senderId: caller.id, text },
     });

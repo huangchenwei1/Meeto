@@ -103,10 +103,19 @@ class ApiCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<ActivityPost> signUp(String postId, String proposal) async {
+  Future<ActivityPost> signUp(
+    String postId,
+    String proposal, {
+    required String place,
+    required DateTime scheduledAt,
+  }) async {
     await _client.post(
       '/posts/$postId/applications',
-      body: <String, dynamic>{'proposal': proposal},
+      body: <String, dynamic>{
+        'proposal': proposal,
+        'place': place,
+        'scheduledAt': scheduledAt.toUtc().toIso8601String(),
+      },
     );
     return _fetchPost(postId);
   }
@@ -188,7 +197,13 @@ class ApiCommunityRepository implements CommunityRepository {
         in json.cast<Map<String, dynamic>>()) {
       final PostAuthor author =
           _toAuthor(application['applicant'] as Map<String, dynamic>)
-              .withProposal(application['proposal'] as String? ?? '');
+              .withProposal(
+        application['proposal'] as String? ?? '',
+        planPlace: application['planPlace'] as String? ?? '',
+        planAt: application['planAt'] == null
+            ? null
+            : DateTime.parse(application['planAt'] as String).toLocal(),
+      );
       pool[author.id] = (
         applicationId: application['id'] as String,
         author: author,

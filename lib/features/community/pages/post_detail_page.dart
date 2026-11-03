@@ -55,19 +55,21 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   bool get _isMine => _post.author.id == AuthSession.currentUserId;
 
-  /// Collects the required plan pitch, then signs up as a candidate.
+  /// Collects the pitch plus the plan card (place + time), then signs up.
+  /// If the poster selects this candidate, the plan is approved in the
+  /// same tap and the order starts ready to chat once paid.
   Future<void> _signUp() async {
-    final String? proposal = await _askProposal();
-    if (proposal == null || !mounted) {
+    final (String, String, DateTime)? card = await _askProposal();
+    if (card == null || !mounted) {
       return;
     }
-    await _signUpWith(proposal);
+    await _signUpWith(card);
   }
 
-  Future<String?> _askProposal() {
-    // The sheet owns its text controller (disposed by its own State after
-    // the route fully unmounts). Pops the proposal text.
-    return showModalBottomSheet<String>(
+  Future<(String, String, DateTime)?> _askProposal() {
+    // The sheet owns its controllers (disposed by its own State after
+    // the route fully unmounts). Pops (proposal, place, scheduledAt).
+    return showModalBottomSheet<(String, String, DateTime)>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -75,11 +77,16 @@ class _PostDetailPageState extends State<PostDetailPage> {
     );
   }
 
-  Future<void> _signUpWith(String proposal) async {
+  Future<void> _signUpWith((String, String, DateTime) card) async {
     setState(() => _signedUp = true);
     final ActivityPost updated;
     try {
-      updated = await widget.communityRepository.signUp(_post.id, proposal);
+      updated = await widget.communityRepository.signUp(
+        _post.id,
+        card.$1,
+        place: card.$2,
+        scheduledAt: card.$3,
+      );
     } on ApiException catch (e) {
       if (!mounted) {
         return;
@@ -89,7 +96,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       if (e.verificationRequired) {
         final bool verified = await promptVerification(context);
         if (verified && mounted) {
-          return _signUpWith(proposal);
+          return _signUpWith(card);
         }
       } else {
         ScaffoldMessenger.of(
@@ -159,11 +166,15 @@ class _PostDetailPageState extends State<PostDetailPage> {
     }
   }
 
-  void _openAuthor() {
+  void _openAuthor() => _openProfile(_post.author.id);
+
+  /// Screening candidates is really screening people: tapping a candidate
+  /// row opens their full profile.
+  void _openProfile(String userId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => UserProfilePage(
-          userId: _post.author.id,
+          userId: userId,
           profileRepository: widget.profileRepository,
         ),
       ),
@@ -313,6 +324,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       candidatesStream: widget.communityRepository
                           .watchCandidates(_post.id),
                       onApprove: _approveCandidate,
+                      onOpenProfile: (PostAuthor c) => _openProfile(c.id),
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -407,10 +419,12 @@ class _CandidatesSection extends StatelessWidget {
   const _CandidatesSection({
     required this.candidatesStream,
     required this.onApprove,
+    required this.onOpenProfile,
   });
 
   final Stream<List<PostAuthor>> candidatesStream;
   final ValueChanged<PostAuthor> onApprove;
+  final ValueChanged<PostAuthor> onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -460,6 +474,7 @@ class _CandidatesSection extends StatelessWidget {
                         _CandidateRow(
                           candidate: candidates[i],
                           onApprove: () => onApprove(candidates[i]),
+                          onTap: () => onOpenProfile(candidates[i]),
                         ),
                       ],
                     ],
@@ -473,14 +488,26 @@ class _CandidatesSection extends StatelessWidget {
 }
 
 class _CandidateRow extends StatelessWidget {
-  const _CandidateRow({required this.candidate, required this.onApprove});
+  const _CandidateRow({
+    required this.candidate,
+    required this.onApprove,
+    required this.onTap,
+  });
 
   final PostAuthor candidate;
   final VoidCallback onApprove;
 
+  /// Opens the candidate's full profile: picking a host is picking a
+  /// person, not just a plan.
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return InkWell(
+      key: ValueKey<String>('candidateRow-${candidate.id}'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,6 +540,23 @@ class _CandidateRow extends StatelessWidget {
                     color: AppColors.textHint,
                   ),
                 ),
+                if (candidate.planPlace.isNotEmpty &&
+                    candidate.planAt != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  // The plan card: approved as-is when this candidate is
+                  // selected.
+                  Text(
+                    '${candidate.planPlace} \u00b7 '
+                    '${_formatPlanDateTime(context, candidate.planAt!)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
                 if (candidate.proposal.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 4),
                   Text(
@@ -546,6 +590,7 @@ class _CandidateRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -791,11 +836,40 @@ class _ProposalSheet extends StatefulWidget {
 
 class _ProposalSheetState extends State<_ProposalSheet> {
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _placeController = TextEditingController();
+  DateTime? _scheduledAt;
 
   @override
   void dispose() {
     _controller.dispose();
+    _placeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickTime() async {
+    final DateTime now = DateTime.now();
+    final DateTime? date = await showDatePicker(
+      context: context,
+      initialDate: _scheduledAt ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 60)),
+    );
+    if (date == null || !mounted) {
+      return;
+    }
+    final TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: _scheduledAt != null
+          ? TimeOfDay.fromDateTime(_scheduledAt!)
+          : const TimeOfDay(hour: 19, minute: 0),
+    );
+    if (time == null) {
+      return;
+    }
+    setState(() {
+      _scheduledAt =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
   }
 
   void _submit() {
@@ -806,7 +880,15 @@ class _ProposalSheetState extends State<_ProposalSheet> {
       );
       return;
     }
-    Navigator.of(context).pop(text);
+    final String place = _placeController.text.trim();
+    final DateTime? at = _scheduledAt;
+    if (place.isEmpty || at == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.planRequiredHint)),
+      );
+      return;
+    }
+    Navigator.of(context).pop((text, place, at));
   }
 
   @override
@@ -850,6 +932,27 @@ class _ProposalSheetState extends State<_ProposalSheet> {
               hintText: AppStrings.proposalHint,
             ),
           ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey<String>('proposalPlaceField'),
+            controller: _placeController,
+            maxLength: 120,
+            decoration: const InputDecoration(
+              hintText: AppStrings.planPlaceHint,
+              prefixIcon: Icon(Icons.place_outlined, size: 20),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const ValueKey<String>('proposalTimeButton'),
+            onPressed: _pickTime,
+            icon: const Icon(Icons.schedule, size: 18),
+            label: Text(
+              _scheduledAt == null
+                  ? AppStrings.publishPickTime
+                  : _formatPlanDateTime(context, _scheduledAt!),
+            ),
+          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -868,4 +971,11 @@ class _ProposalSheetState extends State<_ProposalSheet> {
       ),
     );
   }
+}
+
+String _formatPlanDateTime(BuildContext context, DateTime at) {
+  final MaterialLocalizations loc = MaterialLocalizations.of(context);
+  final DateTime local = at.toLocal();
+  return '${loc.formatShortDate(local)} \u00b7 '
+      '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }

@@ -483,7 +483,6 @@ abstract final class AppStrings {
   static const String planProposeCta = '发送计划卡';
   static const String planEditCta = '修改';
   static const String planWaitingHost = '等待主持人制定计划';
-  static const String chatOpensWithPlanNote = '计划卡发出后开启聊天';
   static const String planAwaitingConfirm = '等待发起人确认';
   static const String planConfirmCta = '确认计划';
   static const String planConfirmedBadge = '已确认';

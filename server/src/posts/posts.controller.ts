@@ -101,7 +101,7 @@ export class PostsController {
     @Param('id') id: string,
     @Body() input: ApplyDto,
   ): Promise<ApplicationDto> {
-    return this.postsService.apply(user, id, input.proposal);
+    return this.postsService.apply(user, id, input);
   }
 
   @Post(':id/selection')

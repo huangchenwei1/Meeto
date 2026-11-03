@@ -20,7 +20,7 @@ import { NotificationsService } from '../notifications/notifications.module.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CreatePostDto } from './posts.dto.js';
+import { ApplyDto, CreatePostDto } from './posts.dto.js';
 
 type PostWithAuthor = Post & { author: User };
 type ApplicationSlice = {
@@ -63,6 +63,10 @@ export interface ApplicationDto {
   status: string;
   /// The host's one-line plan pitch written at sign-up.
   proposal: string;
+  /// The structured plan card delivered at sign-up: venue...
+  planPlace: string;
+  /// ...and time. Selection approves this plan.
+  planAt: Date | null;
   createdAt: Date;
 }
 
@@ -203,11 +207,12 @@ export class PostsService {
   }
 
   /// Free sign-up into the candidate pool. Host accounts only (any gender):
-  /// the marketplace sells activity hosting, not dates.
+  /// the marketplace sells activity hosting, not dates. The sign-up carries
+  /// the structured plan card (place + time): selection approves the plan.
   async apply(
     caller: User,
     postId: string,
-    proposal: string,
+    input: ApplyDto,
   ): Promise<ApplicationDto> {
     assertVerified(caller);
     if (caller.role !== Role.host) {
@@ -230,7 +235,13 @@ export class PostsService {
       throw new ConflictException('Already applied');
     }
     const application = await this.prisma.application.create({
-      data: { postId, applicantId: caller.id, proposal },
+      data: {
+        postId,
+        applicantId: caller.id,
+        proposal: input.proposal,
+        planPlace: input.place,
+        planAt: new Date(input.scheduledAt),
+      },
       include: { applicant: true },
     });
     await this.notifications.notify(this.prisma, {
@@ -300,6 +311,10 @@ export class PostsService {
         where: { id: postId },
         data: { status: PostStatus.pendingPayment },
       });
+      // Selecting the candidate approves the plan card delivered at
+      // sign-up: the order starts with the plan proposed and confirmed, so
+      // chat opens the moment the payment lands.
+      const planApproved = new Date();
       const created = await tx.order.create({
         data: {
           postId,
@@ -309,6 +324,14 @@ export class PostsService {
           feeMinor: split.feeMinor,
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
+          ...(application.planPlace !== '' && application.planAt !== null
+            ? {
+                planPlace: application.planPlace,
+                planAt: application.planAt,
+                planProposedAt: planApproved,
+                planConfirmedAt: planApproved,
+              }
+            : {}),
         },
         include: { payer: true, earner: true, post: true },
       });
@@ -388,6 +411,8 @@ export class PostsService {
       applicant: toPublicUser(application.applicant),
       status: application.status,
       proposal: application.proposal,
+      planPlace: application.planPlace,
+      planAt: application.planAt,
       createdAt: application.createdAt,
     };
   }

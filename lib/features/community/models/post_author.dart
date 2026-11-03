@@ -8,6 +8,8 @@ class PostAuthor {
     required this.meta,
     required this.isVerified,
     this.proposal = '',
+    this.planPlace = '',
+    this.planAt,
   });
 
   factory PostAuthor.fromJson(Map<String, dynamic> json) {
@@ -18,6 +20,10 @@ class PostAuthor {
       meta: json['meta'] as String,
       isVerified: json['isVerified'] as bool,
       proposal: json['proposal'] as String? ?? '',
+      planPlace: json['planPlace'] as String? ?? '',
+      planAt: json['planAt'] == null
+          ? null
+          : DateTime.parse(json['planAt'] as String),
     );
   }
 
@@ -34,7 +40,17 @@ class PostAuthor {
   /// The one-line plan pitch written at sign-up (candidates only).
   final String proposal;
 
-  PostAuthor withProposal(String proposal) {
+  /// The structured plan card delivered at sign-up: venue...
+  final String planPlace;
+
+  /// ...and time. Selecting the candidate approves this plan.
+  final DateTime? planAt;
+
+  PostAuthor withProposal(
+    String proposal, {
+    String planPlace = '',
+    DateTime? planAt,
+  }) {
     return PostAuthor(
       id: id,
       name: name,
@@ -42,6 +58,8 @@ class PostAuthor {
       meta: meta,
       isVerified: isVerified,
       proposal: proposal,
+      planPlace: planPlace,
+      planAt: planAt,
     );
   }
 

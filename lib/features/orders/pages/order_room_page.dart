@@ -75,12 +75,14 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
   Future<void> _poll() async {
     try {
       final LiveOrder order = await widget.repository.getOrder(widget.orderId);
-      final List<OrderMessage> fresh = order.planProposed
-          ? await widget.repository.listMessages(
+      // Chat opens the moment the payment lands: escrowed money is the
+      // anti-bypass mechanism, so no plan gate on the conversation.
+      final List<OrderMessage> fresh = order.status == 'AWAITING_PAYMENT'
+          ? const <OrderMessage>[]
+          : await widget.repository.listMessages(
               widget.orderId,
               afterId: _messages.isEmpty ? null : _messages.last.id,
-            )
-          : const <OrderMessage>[];
+            );
       if (!mounted) {
         return;
       }
@@ -328,7 +330,10 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
           ),
         );
       default:
-        return order.planProposed ? _chatPhase(order) : _planningPhase(order);
+        // Paid orders chat freely; the plan card (confirmed at selection
+        // for hall orders, proposed post-payment for invitations) leads
+        // the conversation and gates the meet code only.
+        return _chatPhase(order);
     }
   }
 
@@ -411,90 +416,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     );
   }
 
-  /// ACTIVE before any plan: the host builds the plan alone; no chat.
-  Widget _planningPhase(LiveOrder order) {
-    final bool iAmHost = !order.isPayer(_myId);
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Icon(
-                    Icons.edit_calendar_outlined,
-                    size: 44,
-                    color: AppColors.textHint,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    order.postTitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    iAmHost
-                        ? AppStrings.planHostPrompt
-                        : AppStrings.planWaitingHost,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  if (iAmHost) ...<Widget>[
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      key: const ValueKey<String>('planProposeButton'),
-                      onPressed: _busy ? null : _proposePlan,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.darkCard,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 26,
-                          vertical: 13,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text(AppStrings.planProposeCta),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Icon(Icons.lock_outline, size: 15, color: AppColors.textHint),
-                SizedBox(width: 6),
-                Text(
-                  AppStrings.chatOpensWithPlanNote,
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Plan proposed: the chat is open, the plan card leads the conversation.
+  /// Paid: the chat is open, the plan card leads the conversation.
   Widget _chatPhase(LiveOrder order) {
     final bool chatOpen = order.status == 'ACTIVE';
     return Column(
@@ -973,6 +895,39 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          if (!order.planProposed) ...<Widget>[
+            // Invitation orders: no plan yet after payment. The chat is
+            // already open; the host sends the plan card to unlock the
+            // meet code later.
+            Text(
+              _iAmHost
+                  ? AppStrings.planHostPrompt
+                  : AppStrings.planWaitingHost,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (_editable && _iAmHost) ...<Widget>[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey<String>('planProposeButton'),
+                  onPressed: busy ? null : onPropose,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.darkCard,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text(AppStrings.planProposeCta),
+                ),
+              ),
+            ],
+          ] else ...<Widget>[
           Text(
             order.planPlace,
             style: const TextStyle(
@@ -991,7 +946,9 @@ class _PlanCard extends StatelessWidget {
               ),
             ),
           ],
-          if (_editable && !order.planConfirmed) ...<Widget>[
+          ],
+          if (order.planProposed && _editable && !order.planConfirmed)
+            ...<Widget>[
             const SizedBox(height: 10),
             if (_iAmHost)
               Row(

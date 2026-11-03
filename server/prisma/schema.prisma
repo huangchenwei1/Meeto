@@ -153,9 +153,13 @@ model Application {
   applicantId String
   applicant   User     @relation(fields: [applicantId], references: [id])
   status      String   @default("APPLIED") // APPLIED | SELECTED | RELEASED
-  // The host's one-line plan pitch (where / when / what), written at
+  // The host's one-line plan pitch (what makes this plan good), written at
   // sign-up. Selection is picking the best plan, not just the person.
   proposal    String   @default("")
+  // The structured plan card: sign-up delivers the concrete place + time
+  // up front, so selecting a candidate approves the plan in the same tap.
+  planPlace   String   @default("")
+  planAt      DateTime?
   createdAt   DateTime @default(now())
 
   @@unique([postId, applicantId])
@@ -174,9 +178,10 @@ model Order {
   commissionMinor Int // round(feeMinor * rateBp / 10000), fixed at creation
   netMinor        Int // feeMinor - commissionMinor (exact sum guaranteed)
 
-  // The concrete plan: the host proposes place + time after payment, the
-  // poster confirms. Chat stays locked until the plan is proposed (the
-  // plan card opens the conversation). Re-proposing clears confirmation.
+  // The concrete plan (place + time). Selection orders inherit it from the
+  // sign-up plan card already approved; invitation orders get it from the
+  // host after payment. Chat opens at payment either way; the confirmed
+  // plan gates the meet code, not the conversation.
   planPlace       String    @default("")
   planLat         Float     @default(0)
   planLng         Float     @default(0)

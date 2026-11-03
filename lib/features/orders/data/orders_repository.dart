@@ -48,7 +48,8 @@ abstract interface class OrdersRepository {
 
 /// Local order state machine for the demo build. Mirrors the server rules:
 /// AWAITING_PAYMENT -> (pay) ACTIVE -> (poster completes) COMPLETED, with
-/// cancel as the side exit and chat locked until the plan is proposed.
+/// cancel as the side exit. Chat opens at payment; the confirmed plan
+/// gates the meet code only.
 class MockOrdersRepository implements OrdersRepository {
   MockOrdersRepository() {
     _seed();
@@ -130,6 +131,16 @@ class MockOrdersRepository implements OrdersRepository {
       feePesos: post.budgetAmount,
       createdAt: DateTime.now(),
     );
+    // Selection approves the plan card delivered at sign-up, mirroring
+    // the server: the order starts with a confirmed plan.
+    if (host.planPlace.isNotEmpty && host.planAt != null) {
+      final DateTime now = DateTime.now();
+      order
+        ..planPlace = host.planPlace
+        ..planAt = host.planAt
+        ..planProposedAt = now
+        ..planConfirmedAt = now;
+    }
     return _toLive(order);
   }
 

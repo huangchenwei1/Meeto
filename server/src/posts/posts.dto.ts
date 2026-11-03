@@ -86,4 +86,15 @@ export class ApplyDto {
   @IsNotEmpty()
   @MaxLength(200)
   proposal!: string;
+
+  /// The plan card rides on the sign-up: concrete venue...
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  place!: string;
+
+  /// ...and concrete time. Selecting the candidate approves this plan, so
+  /// the paid order starts with chat open and the plan already locked.
+  @IsISO8601()
+  scheduledAt!: string;
 }
