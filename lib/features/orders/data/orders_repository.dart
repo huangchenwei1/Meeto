@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
@@ -22,14 +23,16 @@ abstract interface class OrdersRepository {
   /// The payer moves the service fee into escrow; the order goes ACTIVE.
   Future<LiveOrder> pay(String orderId);
 
-  /// The host proposes (or re-proposes) the concrete plan. The first
-  /// proposal opens the order chat.
+  /// The host proposes (or re-proposes) the concrete plan: place, time
+  /// and the itinerary. Each proposal lands in the chat as a plan card
+  /// message; the confirmed plan gates the meet code.
   Future<LiveOrder> proposePlan(
     String orderId, {
     required String place,
     double? placeLat,
     double? placeLng,
     required DateTime scheduledAt,
+    required String note,
   });
 
   /// The poster locks in the proposed plan.
@@ -98,8 +101,16 @@ class MockOrdersRepository implements OrdersRepository {
       ..status = 'ACTIVE'
       ..planPlace = 'Power Plant Cinema, Rockwell'
       ..planAt = now.add(const Duration(days: 2))
+      ..planNote = 'Early dinner at the food hall, then the 8pm screening'
       ..planProposedAt = now.subtract(const Duration(hours: 18))
       ..planConfirmedAt = now.subtract(const Duration(hours: 17));
+    _sayPlanCard(
+      active,
+      _liza.id,
+      active.planPlace,
+      active.planAt!,
+      active.planNote,
+    );
     _say(active, _liza.id, 'Tickets reserved \u2014 see you Saturday!');
 
     // A finished one: Bianca's bookshop-cafe afternoon settled last week
@@ -132,14 +143,17 @@ class MockOrdersRepository implements OrdersRepository {
       createdAt: DateTime.now(),
     );
     // Selection approves the plan card delivered at sign-up, mirroring
-    // the server: the order starts with a confirmed plan.
+    // the server: the order starts with a confirmed plan and the card
+    // already sits in the chat as its opening message.
     if (host.planPlace.isNotEmpty && host.planAt != null) {
       final DateTime now = DateTime.now();
       order
         ..planPlace = host.planPlace
         ..planAt = host.planAt
+        ..planNote = host.proposal
         ..planProposedAt = now
         ..planConfirmedAt = now;
+      _sayPlanCard(order, host.id, host.planPlace, host.planAt!, host.proposal);
     }
     return _toLive(order);
   }
@@ -163,6 +177,29 @@ class MockOrdersRepository implements OrdersRepository {
     _orders[order.id] = order;
     _ids.insert(0, order.id);
     return order;
+  }
+
+  /// A plan card message: the frozen snapshot of the card at send time.
+  void _sayPlanCard(
+    _MockOrder order,
+    String senderId,
+    String place,
+    DateTime scheduledAt,
+    String note,
+  ) {
+    order.messages.add(
+      OrderMessage(
+        id: 'msg-${++_messageSequence}',
+        senderId: senderId,
+        kind: 'PLAN',
+        text: jsonEncode(<String, String>{
+          'place': place,
+          'scheduledAt': scheduledAt.toUtc().toIso8601String(),
+          'note': note,
+        }),
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   void _say(_MockOrder order, String senderId, String text) {
@@ -203,6 +240,7 @@ class MockOrdersRepository implements OrdersRepository {
       planLat: o.planLat,
       planLng: o.planLng,
       planAt: o.planAt,
+      planNote: o.planNote,
       planProposedAt: o.planProposedAt,
       planConfirmedAt: o.planConfirmedAt,
       completedAt: o.completedAt,
@@ -250,6 +288,7 @@ class MockOrdersRepository implements OrdersRepository {
     double? placeLat,
     double? placeLng,
     required DateTime scheduledAt,
+    required String note,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
     final _MockOrder order = _of(orderId)
@@ -257,8 +296,10 @@ class MockOrdersRepository implements OrdersRepository {
       ..planLat = placeLat ?? 0
       ..planLng = placeLng ?? 0
       ..planAt = scheduledAt
+      ..planNote = note
       ..planProposedAt = DateTime.now()
       ..planConfirmedAt = null;
+    _sayPlanCard(order, order.earner.id, place, scheduledAt, note);
     return _toLive(order);
   }
 
@@ -333,6 +374,7 @@ class _MockOrder {
   double planLat = 0;
   double planLng = 0;
   DateTime? planAt;
+  String planNote = '';
   DateTime? planProposedAt;
   DateTime? planConfirmedAt;
   DateTime? completedAt;

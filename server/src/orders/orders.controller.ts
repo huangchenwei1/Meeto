@@ -49,6 +49,12 @@ class PlanDto {
 
   @IsISO8601()
   scheduledAt!: string;
+
+  // The itinerary: place and time alone are not a plan.
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  note!: string;
 }
 
 @Controller('orders')

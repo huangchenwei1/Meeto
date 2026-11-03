@@ -328,6 +328,8 @@ export class PostsService {
             ? {
                 planPlace: application.planPlace,
                 planAt: application.planAt,
+                // The sign-up pitch doubles as the itinerary.
+                planNote: application.proposal,
                 planProposedAt: planApproved,
                 planConfirmedAt: planApproved,
               }
@@ -335,6 +337,22 @@ export class PostsService {
         },
         include: { payer: true, earner: true, post: true },
       });
+      if (application.planPlace !== '' && application.planAt !== null) {
+        // The approved plan card opens the conversation as its first
+        // message, visible as soon as the payment unlocks the chat.
+        await tx.message.create({
+          data: {
+            orderId: created.id,
+            senderId: earner.id,
+            kind: 'PLAN',
+            text: JSON.stringify({
+              place: application.planPlace,
+              scheduledAt: application.planAt.toISOString(),
+              note: application.proposal,
+            }),
+          },
+        });
+      }
       await this.notifications.notify(tx, {
         userId: application.applicantId,
         type: NotificationType.selected,

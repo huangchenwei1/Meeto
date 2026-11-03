@@ -40,9 +40,14 @@ void main() {
         active.id,
         place: 'Greenbelt Cinema',
         scheduledAt: at,
+        note: 'Dinner first, then the 8pm screening',
       );
       expect(updated.planProposed, isTrue);
       expect(updated.planConfirmed, isFalse);
+      expect(updated.planNote, 'Dinner first, then the 8pm screening');
+      // Each proposal drops a plan card message into the stream.
+      final List<OrderMessage> stream = await repository.listMessages(active.id);
+      expect(stream.where((OrderMessage m) => m.isPlanCard).length, 2);
       updated = await repository.confirmPlan(active.id);
       expect(updated.planConfirmed, isTrue);
       expect(updated.place, 'Greenbelt Cinema');

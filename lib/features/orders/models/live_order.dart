@@ -24,6 +24,7 @@ class LiveOrder {
     required this.planLat,
     required this.planLng,
     required this.planAt,
+    this.planNote = '',
     required this.planProposedAt,
     required this.planConfirmedAt,
     required this.completedAt,
@@ -53,6 +54,7 @@ class LiveOrder {
       planLat: (json['planLat'] as num?)?.toDouble() ?? 0,
       planLng: (json['planLng'] as num?)?.toDouble() ?? 0,
       planAt: parseDate(json['planAt']),
+      planNote: json['planNote'] as String? ?? '',
       planProposedAt: parseDate(json['planProposedAt']),
       planConfirmedAt: parseDate(json['planConfirmedAt']),
       completedAt: parseDate(json['completedAt']),
@@ -93,6 +95,9 @@ class LiveOrder {
   final double planLat;
   final double planLng;
   final DateTime? planAt;
+
+  /// The itinerary: what the activity actually covers.
+  final String planNote;
   final DateTime? planProposedAt;
   final DateTime? planConfirmedAt;
 
@@ -125,6 +130,7 @@ class OrderMessage {
   const OrderMessage({
     required this.id,
     required this.senderId,
+    this.kind = 'TEXT',
     required this.text,
     required this.createdAt,
   });
@@ -133,6 +139,7 @@ class OrderMessage {
     return OrderMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
+      kind: json['kind'] as String? ?? 'TEXT',
       text: json['text'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -140,6 +147,12 @@ class OrderMessage {
 
   final String id;
   final String senderId;
+
+  /// TEXT for plain chat; PLAN for a plan card ([text] then carries the
+  /// JSON snapshot {place, scheduledAt, note} frozen at send time).
+  final String kind;
   final String text;
   final DateTime createdAt;
+
+  bool get isPlanCard => kind == 'PLAN';
 }

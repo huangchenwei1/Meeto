@@ -47,6 +47,7 @@ class ApiOrdersRepository implements OrdersRepository {
     double? placeLat,
     double? placeLng,
     required DateTime scheduledAt,
+    required String note,
   }) async {
     return LiveOrder.fromJson(
       await _client.post(
@@ -56,6 +57,7 @@ class ApiOrdersRepository implements OrdersRepository {
           'placeLat': ?placeLat,
           'placeLng': ?placeLng,
           'scheduledAt': scheduledAt.toUtc().toIso8601String(),
+          'note': note,
         },
       ) as Map<String, dynamic>,
     );

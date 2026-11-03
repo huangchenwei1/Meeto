@@ -186,6 +186,8 @@ model Order {
   planLat         Float     @default(0)
   planLng         Float     @default(0)
   planAt          DateTime?
+  // The itinerary: what the activity actually covers, step by step.
+  planNote        String    @default("")
   planProposedAt  DateTime?
   planConfirmedAt DateTime?
 
@@ -211,6 +213,10 @@ model Message {
   order     Order    @relation(fields: [orderId], references: [id])
   senderId  String
   sender    User     @relation(fields: [senderId], references: [id])
+  // TEXT carries plain chat in [text]. PLAN is the plan card sent into the
+  // stream: [text] then holds a JSON snapshot {place, scheduledAt, note}
+  // frozen at send time, so re-proposals never rewrite history.
+  kind      String   @default("TEXT")
   text      String
   createdAt DateTime @default(now())
 

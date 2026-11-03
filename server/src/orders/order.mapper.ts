@@ -31,11 +31,12 @@ export interface OrderDto {
   placeLat: number;
   placeLng: number;
   /// The host's proposed plan awaiting / after the poster's confirmation.
-  /// Chat stays locked until the plan is proposed.
+  /// Chat opens at payment; the confirmed plan only gates the meet code.
   planPlace: string;
   planLat: number;
   planLng: number;
   planAt: Date | null;
+  planNote: string;
   planProposedAt: Date | null;
   planConfirmedAt: Date | null;
   /// Set when the escrow settled (poster completion or auto-settle).
@@ -71,6 +72,7 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     planLat: order.planLat,
     planLng: order.planLng,
     planAt: order.planAt,
+    planNote: order.planNote,
     planProposedAt: order.planProposedAt,
     planConfirmedAt: order.planConfirmedAt,
     completedAt: order.completedAt,
@@ -82,6 +84,9 @@ export interface MessageDto {
   id: string;
   orderId: string;
   senderId: string;
+  /// TEXT for plain chat; PLAN for a plan card ([text] then carries the
+  /// JSON snapshot {place, scheduledAt, note} frozen at send time).
+  kind: string;
   text: string;
   createdAt: Date;
 }
@@ -91,6 +96,7 @@ export function toMessageDto(message: Message): MessageDto {
     id: message.id,
     orderId: message.orderId,
     senderId: message.senderId,
+    kind: message.kind,
     text: message.text,
     createdAt: message.createdAt,
   };

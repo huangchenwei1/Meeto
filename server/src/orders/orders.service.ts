@@ -156,6 +156,7 @@ export class OrdersService {
       placeLat?: number;
       placeLng?: number;
       scheduledAt: string;
+      note: string;
     },
   ): Promise<OrderDto> {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
@@ -174,6 +175,21 @@ export class OrdersService {
         postId: order.postId,
         orderId: order.id,
       });
+      // The plan card lands in the conversation as a message, frozen as a
+      // snapshot: a later re-proposal adds a new card instead of rewriting
+      // this one.
+      await tx.message.create({
+        data: {
+          orderId: order.id,
+          senderId: caller.id,
+          kind: 'PLAN',
+          text: JSON.stringify({
+            place: input.place,
+            scheduledAt: input.scheduledAt,
+            note: input.note,
+          }),
+        },
+      });
       return tx.order.update({
         where: { id: order.id },
         data: {
@@ -181,6 +197,7 @@ export class OrdersService {
           planLat: input.placeLat ?? 0,
           planLng: input.placeLng ?? 0,
           planAt: new Date(input.scheduledAt),
+          planNote: input.note,
           planProposedAt: new Date(),
           planConfirmedAt: null,
         },

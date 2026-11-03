@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -100,6 +101,17 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     }
   }
 
+  /// The newest plan card in the stream: the only one showing the live
+  /// confirmation status and actions (older cards are frozen history).
+  String? get _latestPlanCardId {
+    for (final OrderMessage message in _messages.reversed) {
+      if (message.isPlanCard) {
+        return message.id;
+      }
+    }
+    return null;
+  }
+
   /// The host proposes (or edits) the concrete plan via a bottom sheet.
   Future<void> _proposePlan() async {
     final LiveOrder? order = _order;
@@ -109,14 +121,15 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     // The sheet owns its text controller (its own State disposes it after
     // the route fully unmounts); disposing here right after the await
     // crashes the exit animation ('_dependents.isEmpty').
-    final (String, DateTime)? plan =
-        await showModalBottomSheet<(String, DateTime)>(
+    final (String, DateTime, String)? plan =
+        await showModalBottomSheet<(String, DateTime, String)>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => _PlanSheet(
         initialPlace: order.planPlace,
         initialAt: order.planAt,
+        initialNote: order.planNote,
       ),
     );
     if (plan == null || !mounted) {
@@ -128,6 +141,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         widget.orderId,
         place: plan.$1,
         scheduledAt: plan.$2,
+        note: plan.$3,
       );
       if (mounted) {
         setState(() => _order = updated);
@@ -436,18 +450,22 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: _messages.length + 1,
+            itemCount: _messages.length,
             itemBuilder: (BuildContext context, int index) {
-              if (index == 0) {
-                return _PlanCard(
+              final OrderMessage message = _messages[index];
+              if (message.isPlanCard) {
+                // The plan card lives in the stream like any message; only
+                // the newest card carries the live status and actions.
+                return _PlanCardBubble(
+                  message: message,
                   order: order,
                   myId: _myId,
                   busy: _busy,
+                  isLatest: message.id == _latestPlanCardId,
                   onPropose: _proposePlan,
                   onConfirm: _confirmPlan,
                 );
               }
-              final OrderMessage message = _messages[index - 1];
               return _MessageBubble(
                 text: message.text,
                 isMine: message.senderId == _myId,
@@ -455,6 +473,14 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
             },
           ),
         ),
+        // Invitation orders arrive without a plan: the host sends the plan
+        // card from here (the chat itself is already open).
+        if (chatOpen && !order.planProposed)
+          _PlanPromptBanner(
+            iAmHost: !order.isPayer(_myId),
+            busy: _busy,
+            onPropose: _proposePlan,
+          ),
         if (chatOpen || order.status == 'COMPLETED')
           SafeArea(
             top: false,
@@ -496,14 +522,20 @@ String _formatPlanDateTime(BuildContext context, DateTime at) {
       '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }
 
-/// Plan proposal sheet. A proper StatefulWidget (not a closure over the
-/// caller's controller) so the text controller is disposed by the sheet's
-/// own State after the route fully unmounts. Pops `(place, scheduledAt)`.
+/// Plan composer sheet: place, time and the itinerary, in a tall neutral
+/// modal. A proper StatefulWidget (not a closure over the caller's
+/// controllers) so the controllers are disposed by the sheet's own State
+/// after the route fully unmounts. Pops `(place, scheduledAt, note)`.
 class _PlanSheet extends StatefulWidget {
-  const _PlanSheet({required this.initialPlace, required this.initialAt});
+  const _PlanSheet({
+    required this.initialPlace,
+    required this.initialAt,
+    required this.initialNote,
+  });
 
   final String initialPlace;
   final DateTime? initialAt;
+  final String initialNote;
 
   @override
   State<_PlanSheet> createState() => _PlanSheetState();
@@ -511,18 +543,21 @@ class _PlanSheet extends StatefulWidget {
 
 class _PlanSheetState extends State<_PlanSheet> {
   late final TextEditingController _placeController;
+  late final TextEditingController _noteController;
   DateTime? _scheduledAt;
 
   @override
   void initState() {
     super.initState();
     _placeController = TextEditingController(text: widget.initialPlace);
+    _noteController = TextEditingController(text: widget.initialNote);
     _scheduledAt = widget.initialAt;
   }
 
   @override
   void dispose() {
     _placeController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -560,71 +595,136 @@ class _PlanSheetState extends State<_PlanSheet> {
   void _submit() {
     final String place = _placeController.text.trim();
     final DateTime? at = _scheduledAt;
-    if (place.isEmpty || at == null) {
+    final String note = _noteController.text.trim();
+    if (place.isEmpty || at == null || note.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.planRequiredHint)),
       );
       return;
     }
-    Navigator.of(context).pop((place, at));
+    Navigator.of(context).pop((place, at, note));
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final double height = MediaQuery.of(context).size.height * 0.72;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            AppStrings.planSheetTitle,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            key: const ValueKey<String>('planPlaceField'),
-            controller: _placeController,
-            maxLength: 160,
-            decoration: const InputDecoration(
-              hintText: AppStrings.planPlaceHint,
-              prefixIcon: Icon(Icons.place_outlined, size: 20),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const ValueKey<String>('planTimeButton'),
-            onPressed: _pickTime,
-            icon: const Icon(Icons.schedule, size: 18),
-            label: Text(
-              _scheduledAt == null
-                  ? AppStrings.publishPickTime
-                  : _formatPlanDateTime(context, _scheduledAt!),
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey<String>('planSubmitButton'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.darkCard,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SizedBox(
+        height: height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      AppStrings.planSheetTitle,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      AppStrings.planSheetSub,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _sectionLabel(AppStrings.planPlaceLabel),
+                    TextField(
+                      key: const ValueKey<String>('planPlaceField'),
+                      controller: _placeController,
+                      maxLength: 160,
+                      decoration: const InputDecoration(
+                        hintText: AppStrings.planPlaceHint,
+                        prefixIcon: Icon(Icons.place_outlined, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _sectionLabel(AppStrings.planTimeLabel),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey<String>('planTimeButton'),
+                        onPressed: _pickTime,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        icon: const Icon(Icons.schedule, size: 18),
+                        label: Text(
+                          _scheduledAt == null
+                              ? AppStrings.publishPickTime
+                              : _formatPlanDateTime(context, _scheduledAt!),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _sectionLabel(AppStrings.planNoteLabel),
+                    TextField(
+                      key: const ValueKey<String>('planNoteField'),
+                      controller: _noteController,
+                      maxLength: 500,
+                      minLines: 4,
+                      maxLines: 8,
+                      decoration: const InputDecoration(
+                        hintText: AppStrings.planNoteHint,
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: _submit,
-              child: const Text(AppStrings.planProposeCta),
             ),
-          ),
-        ],
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const ValueKey<String>('planSubmitButton'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.textPrimary,
+                      foregroundColor: AppColors.onDarkPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: _submit,
+                    child: const Text(AppStrings.planProposeCta),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -825,20 +925,26 @@ class _InfoStrip extends StatelessWidget {
   }
 }
 
-/// The plan card: the first element of the conversation. The host edits,
-/// the poster confirms; read-only once the order completes.
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
+/// A plan card inside the message stream: the frozen snapshot of place,
+/// time and itinerary the host sent at that moment. Only the newest card
+/// carries the live confirmation status and actions; older cards remain
+/// as untouched history.
+class _PlanCardBubble extends StatelessWidget {
+  const _PlanCardBubble({
+    required this.message,
     required this.order,
     required this.myId,
     required this.busy,
+    required this.isLatest,
     required this.onPropose,
     required this.onConfirm,
   });
 
+  final OrderMessage message;
   final LiveOrder order;
   final String myId;
   final bool busy;
+  final bool isLatest;
   final VoidCallback onPropose;
   final VoidCallback onConfirm;
 
@@ -846,61 +952,232 @@ class _PlanCard extends StatelessWidget {
 
   bool get _editable => order.status == 'ACTIVE';
 
+  ({String place, DateTime? at, String note}) _payload() {
+    try {
+      final Map<String, dynamic> json =
+          jsonDecode(message.text) as Map<String, dynamic>;
+      return (
+        place: json['place'] as String? ?? '',
+        at: json['scheduledAt'] == null
+            ? null
+            : DateTime.parse(json['scheduledAt'] as String).toLocal(),
+        note: json['note'] as String? ?? '',
+      );
+    } on FormatException {
+      return (place: order.planPlace, at: order.planAt, note: order.planNote);
+    }
+  }
+
+  Widget _badge() {
+    if (!isLatest) {
+      return const _PlanBadge(
+        label: AppStrings.planOutdatedBadge,
+        background: AppColors.otherMessageBubble,
+        foreground: AppColors.textHint,
+      );
+    }
+    if (order.planConfirmed) {
+      return const _PlanBadge(
+        label: AppStrings.planConfirmedBadge,
+        background: AppColors.accentSoft,
+        foreground: AppColors.accent,
+      );
+    }
+    return const _PlanBadge(
+      label: AppStrings.planAwaitingBadge,
+      background: AppColors.otherMessageBubble,
+      foreground: AppColors.textSecondary,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              const Icon(Icons.map_outlined,
-                  size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 7),
-              const Text(
-                AppStrings.planCardTitle,
-                style: TextStyle(
+    final ({String place, DateTime? at, String note}) plan = _payload();
+    final bool isMine = message.senderId == myId;
+    final bool live = isLatest && _editable;
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        constraints: const BoxConstraints(maxWidth: 300),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.map_outlined,
+                    size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: 7),
+                const Text(
+                  AppStrings.planCardTitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                _badge(),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              plan.place,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (plan.at != null) ...<Widget>[
+              const SizedBox(height: 3),
+              Text(
+                _formatPlanDateTime(context, plan.at!),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+            if (plan.note.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Text(
+                plan.note,
+                style: const TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  height: 1.45,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Spacer(),
-              if (order.planConfirmed)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentSoft,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    AppStrings.planConfirmedBadge,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
+            ],
+            if (live && !order.planConfirmed) ...<Widget>[
+              const SizedBox(height: 12),
+              if (_iAmHost)
+                Row(
+                  children: <Widget>[
+                    const Expanded(
+                      child: Text(
+                        AppStrings.planAwaitingConfirm,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textHint,
+                        ),
+                      ),
                     ),
+                    TextButton(
+                      key: const ValueKey<String>('planEditButton'),
+                      onPressed: busy ? null : onPropose,
+                      child: const Text(AppStrings.planEditCta),
+                    ),
+                  ],
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const ValueKey<String>('planConfirmButton'),
+                    onPressed: busy ? null : onConfirm,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.textPrimary,
+                      foregroundColor: AppColors.onDarkPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: const Text(AppStrings.planConfirmCta),
                   ),
                 ),
+            ] else if (live && order.planConfirmed && _iAmHost) ...<Widget>[
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const ValueKey<String>('planEditButton'),
+                  onPressed: busy ? null : onPropose,
+                  child: const Text(AppStrings.planEditCta),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 8),
-          if (!order.planProposed) ...<Widget>[
-            // Invitation orders: no plan yet after payment. The chat is
-            // already open; the host sends the plan card to unlock the
-            // meet code later.
-            Text(
-              _iAmHost
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanBadge extends StatelessWidget {
+  const _PlanBadge({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: foreground,
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown above the composer while an invitation order has no plan yet:
+/// the chat is open, the plan card is still owed by the host.
+class _PlanPromptBanner extends StatelessWidget {
+  const _PlanPromptBanner({
+    required this.iAmHost,
+    required this.busy,
+    required this.onPropose,
+  });
+
+  final bool iAmHost;
+  final bool busy;
+  final VoidCallback onPropose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.edit_calendar_outlined,
+              size: 17, color: AppColors.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              iAmHost
                   ? AppStrings.planHostPrompt
                   : AppStrings.planWaitingHost,
               style: const TextStyle(
@@ -908,93 +1185,23 @@ class _PlanCard extends StatelessWidget {
                 color: AppColors.textSecondary,
               ),
             ),
-            if (_editable && _iAmHost) ...<Widget>[
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('planProposeButton'),
-                  onPressed: busy ? null : onPropose,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.darkCard,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text(AppStrings.planProposeCta),
-                ),
-              ),
-            ],
-          ] else ...<Widget>[
-          Text(
-            order.planPlace,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
           ),
-          if (order.planAt != null) ...<Widget>[
-            const SizedBox(height: 3),
-            Text(
-              _formatPlanDateTime(context, order.planAt!),
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-          ],
-          if (order.planProposed && _editable && !order.planConfirmed)
-            ...<Widget>[
-            const SizedBox(height: 10),
-            if (_iAmHost)
-              Row(
-                children: <Widget>[
-                  const Expanded(
-                    child: Text(
-                      AppStrings.planAwaitingConfirm,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    key: const ValueKey<String>('planEditButton'),
-                    onPressed: busy ? null : onPropose,
-                    child: const Text(AppStrings.planEditCta),
-                  ),
-                ],
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('planConfirmButton'),
-                  onPressed: busy ? null : onConfirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
-                    foregroundColor: AppColors.onDarkPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text(AppStrings.planConfirmCta),
+          if (iAmHost) ...<Widget>[
+            const SizedBox(width: 8),
+            FilledButton(
+              key: const ValueKey<String>('planProposeButton'),
+              onPressed: busy ? null : onPropose,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.textPrimary,
+                foregroundColor: AppColors.onDarkPrimary,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-          ] else if (_editable && order.planConfirmed && _iAmHost) ...<Widget>[
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                key: const ValueKey<String>('planEditButton'),
-                onPressed: busy ? null : onPropose,
-                child: const Text(AppStrings.planEditCta),
-              ),
+              child: const Text(AppStrings.planProposeCta),
             ),
           ],
         ],

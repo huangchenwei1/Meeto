@@ -806,6 +806,21 @@ describe('Meeto API (e2e)', () => {
       expect(current.body.planConfirmedAt).not.toBeNull();
       expect(current.body.place).toBe(PLAN_CARD.place);
       expect(current.body.scheduledAt).toBe(PLAN_CARD.scheduledAt);
+      // The sign-up pitch doubles as the itinerary.
+      expect(current.body.planNote).toBe(PLAN_CARD.proposal);
+
+      // The approved plan card opened the conversation as a PLAN message
+      // carrying the frozen snapshot of the card.
+      const opening = await api()
+        .get(`/orders/${orderId}/messages`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(opening.body[0].kind).toBe('PLAN');
+      expect(JSON.parse(opening.body[0].text)).toEqual({
+        place: PLAN_CARD.place,
+        scheduledAt: PLAN_CARD.scheduledAt,
+        note: PLAN_CARD.proposal,
+      });
 
       // Only the host (earner) can re-propose.
       await api()
@@ -814,6 +829,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           place: 'Single Origin, Makati',
           scheduledAt: '2026-12-24T19:00:00.000Z',
+          note: 'Hand brew flight, then a walk in the park',
         })
         .expect(403);
 
@@ -827,12 +843,27 @@ describe('Meeto API (e2e)', () => {
           placeLat: 14.5531,
           placeLng: 121.0215,
           scheduledAt: '2026-12-24T19:00:00.000Z',
+          note: 'Hand brew flight, then a walk in the park',
         })
         .expect(201);
       expect(reproposed.body.planProposedAt).not.toBeNull();
       expect(reproposed.body.planConfirmedAt).toBeNull();
       expect(reproposed.body.place).toBe('');
       expect(reproposed.body.scheduledAt).toBeNull();
+
+      // The re-proposal lands as a NEW plan card message; the original
+      // card stays in the history untouched.
+      const stream = await api()
+        .get(`/orders/${orderId}/messages`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const planCards = stream.body.filter(
+        (m: { kind: string }) => m.kind === 'PLAN',
+      );
+      expect(planCards.length).toBe(2);
+      expect(JSON.parse(planCards[1].text).place).toBe(
+        'Single Origin, Makati',
+      );
 
       // The poster was notified of the new proposal.
       const inbox = await api()
@@ -888,10 +919,13 @@ describe('Meeto API (e2e)', () => {
         .get(`/orders/${orderId}/messages`)
         .set('X-User-Id', ANDREA)
         .expect(200);
-      // Including the message sent right after the payment landed.
-      expect(allRes.body.length).toBe(3);
-      expect(allRes.body[0].text).toBe('hi right after paying');
-      expect(allRes.body[1].text).toBe('See you at 7!');
+      // The stream: sign-up plan card, the post-payment hello, the
+      // re-proposed plan card, then this exchange.
+      expect(allRes.body.length).toBe(5);
+      expect(allRes.body[0].kind).toBe('PLAN');
+      expect(allRes.body[1].text).toBe('hi right after paying');
+      expect(allRes.body[2].kind).toBe('PLAN');
+      expect(allRes.body[3].text).toBe('See you at 7!');
 
       // incremental poll: only messages after the anchor id
       const afterRes = await api()
@@ -1081,6 +1115,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           place: 'Toyo Eatery, Makati',
           scheduledAt: '2026-01-10T19:00:00.000Z',
+          note: 'Tasting menu, then a nightcap nearby',
         })
         .expect(201);
 
