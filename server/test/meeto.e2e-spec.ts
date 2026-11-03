@@ -33,6 +33,9 @@ describe('Meeto API (e2e)', () => {
     rmSync('prisma/test.db', { force: true });
     execSync('npx prisma db push --skip-generate', { env });
     execSync('node prisma/seed.mjs', { env });
+    // Hall demo content (posts, pitches, applications, escrow order) is
+    // test-only: the dev hall starts empty.
+    execSync('node prisma/fixtures.e2e.mjs', { env });
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
