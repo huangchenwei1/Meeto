@@ -346,7 +346,8 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
       default:
         // Paid orders chat freely; the plan card (confirmed at selection
         // for hall orders, proposed post-payment for invitations) leads
-        // the conversation and gates the meet code only.
+        // the conversation. Once the order settles or cancels, the thread
+        // turns read-only.
         return _chatPhase(order);
     }
   }
@@ -481,7 +482,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
             busy: _busy,
             onPropose: _proposePlan,
           ),
-        if (chatOpen || order.status == 'COMPLETED')
+        if (chatOpen)
           SafeArea(
             top: false,
             child: Padding(
@@ -505,6 +506,27 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
                     ),
                     onPressed: _send,
                     icon: const Icon(Icons.send_rounded, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          // The conversation died with the activity: history stays
+          // readable, the composer is gone.
+          const SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(top: 8, bottom: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(Icons.lock_outline, size: 14, color: AppColors.textHint),
+                  SizedBox(width: 6),
+                  Text(
+                    AppStrings.chatReadOnlyNote,
+                    style:
+                        TextStyle(fontSize: 12.5, color: AppColors.textHint),
                   ),
                 ],
               ),

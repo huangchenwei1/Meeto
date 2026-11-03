@@ -970,6 +970,20 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(409);
 
+      // The conversation dies with the activity: the thread turns
+      // read-only, while the history stays listable for both sides.
+      const closed = await api()
+        .post(`/orders/${orderId}/messages`)
+        .set('X-User-Id', ANDREA)
+        .send({ text: 'one more thing...' })
+        .expect(409);
+      expect(closed.body.message).toBe('CHAT_CLOSED');
+      const history = await api()
+        .get(`/orders/${orderId}/messages`)
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      expect(history.body.length).toBeGreaterThan(0);
+
       // Balanced books: escrow emptied, earner paid net, platform booked
       // the commission.
       const escrow = await prisma.ledgerEntry.aggregate({

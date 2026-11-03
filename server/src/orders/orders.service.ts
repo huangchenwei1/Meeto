@@ -377,15 +377,20 @@ export class OrdersService {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
     // The paywall: no contact channel of any kind before the fee is
     // escrowed (same rule as phone disclosure).
-    if (
-      order.status === OrderStatus.awaitingPayment ||
-      order.status === OrderStatus.cancelled
-    ) {
+    if (order.status === OrderStatus.awaitingPayment) {
       throw new ConflictException('PAYMENT_REQUIRED');
     }
+    // The conversation lives and dies with the activity: once the order
+    // settles or cancels, the thread turns read-only (history stays
+    // listable for both sides and for dispute reviews).
+    if (
+      order.status === OrderStatus.completed ||
+      order.status === OrderStatus.cancelled
+    ) {
+      throw new ConflictException('CHAT_CLOSED');
+    }
     // Escrowed money IS the anti-bypass mechanism: once paid, both sides
-    // chat freely. (Invitation orders still need the plan card before the
-    // meet code, but that never locks the conversation.)
+    // chat freely while the activity is live.
     const message = await this.prisma.message.create({
       data: { orderId: order.id, senderId: caller.id, text },
     });

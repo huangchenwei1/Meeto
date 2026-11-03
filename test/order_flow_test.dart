@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meeto/core/network/api_client.dart';
 import 'package:meeto/core/session/auth_session.dart';
 import 'package:meeto/features/orders/data/orders_repository.dart';
 import 'package:meeto/features/orders/models/live_order.dart';
@@ -63,6 +64,15 @@ void main() {
       updated = await repository.complete(active.id);
       expect(updated.status, 'COMPLETED');
       expect(updated.completedAt, isNotNull);
+
+      // The conversation dies with the activity: read-only afterwards.
+      await expectLater(
+        repository.sendMessage(active.id, 'too late'),
+        throwsA(isA<ApiException>()),
+      );
+      final List<OrderMessage> history =
+          await repository.listMessages(active.id);
+      expect(history, isNotEmpty);
     });
 
     test('cancel is a terminal side exit; seeds carry completedAt', () async {

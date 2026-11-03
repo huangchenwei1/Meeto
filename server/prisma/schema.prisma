@@ -181,7 +181,7 @@ model Order {
   // The concrete plan (place + time). Selection orders inherit it from the
   // sign-up plan card already approved; invitation orders get it from the
   // host after payment. Chat opens at payment either way; the confirmed
-  // plan gates the meet code, not the conversation.
+  // plan just becomes the order's effective place and time.
   planPlace       String    @default("")
   planLat         Float     @default(0)
   planLng         Float     @default(0)

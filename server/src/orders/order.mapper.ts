@@ -31,7 +31,8 @@ export interface OrderDto {
   placeLat: number;
   placeLng: number;
   /// The host's proposed plan awaiting / after the poster's confirmation.
-  /// Chat opens at payment; the confirmed plan only gates the meet code.
+  /// Chat opens at payment and never re-locks while the order is active;
+  /// the confirmed plan just becomes the effective place and time.
   planPlace: string;
   planLat: number;
   planLng: number;

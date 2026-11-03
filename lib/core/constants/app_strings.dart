@@ -487,7 +487,7 @@ abstract final class AppStrings {
   static const String planConfirmCta = '确认计划';
   static const String planConfirmedBadge = '已确认';
   static const String planSheetTitle = '制定计划';
-  static const String planSheetSub = '写清楚地点、时间和流程，对方确认后才能领取见面码';
+  static const String planSheetSub = '写清楚地点、时间和流程，发给对方确认';
   static const String planPlaceLabel = '地点';
   static const String planTimeLabel = '时间';
   static const String planNoteLabel = '流程安排';
@@ -497,6 +497,7 @@ abstract final class AppStrings {
   static const String planRequiredHint = '先填好地点、时间和流程安排';
   static const String planAwaitingBadge = '待确认';
   static const String planOutdatedBadge = '已更新';
+  static const String chatReadOnlyNote = '活动已结束，会话仅可读';
   static const String planProposedSnack = '计划卡已发送，等待确认';
   static const String planConfirmedSnack = '计划已确认';
   static String notifyPlanProposed(String name) => '$name 发来了计划卡 — 查看并确认';

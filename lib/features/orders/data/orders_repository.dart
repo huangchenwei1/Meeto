@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/constants/scene_pricing.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/models/post_author.dart';
@@ -25,7 +26,7 @@ abstract interface class OrdersRepository {
 
   /// The host proposes (or re-proposes) the concrete plan: place, time
   /// and the itinerary. Each proposal lands in the chat as a plan card
-  /// message; the confirmed plan gates the meet code.
+  /// message; confirming makes it the order's effective place and time.
   Future<LiveOrder> proposePlan(
     String orderId, {
     required String place,
@@ -51,8 +52,8 @@ abstract interface class OrdersRepository {
 
 /// Local order state machine for the demo build. Mirrors the server rules:
 /// AWAITING_PAYMENT -> (pay) ACTIVE -> (poster completes) COMPLETED, with
-/// cancel as the side exit. Chat opens at payment; the confirmed plan
-/// gates the meet code only.
+/// cancel as the side exit. Chat opens at payment and turns read-only
+/// once the order settles or cancels.
 class MockOrdersRepository implements OrdersRepository {
   MockOrdersRepository() {
     _seed();
@@ -330,6 +331,11 @@ class MockOrdersRepository implements OrdersRepository {
   Future<OrderMessage> sendMessage(String orderId, String text) async {
     await Future<void>.delayed(const Duration(milliseconds: 80));
     final _MockOrder order = _of(orderId);
+    // Mirrors the server: the thread turns read-only once the activity
+    // settles or cancels.
+    if (order.status != 'ACTIVE') {
+      throw const ApiException(409, 'CHAT_CLOSED');
+    }
     _say(order, AuthSession.currentUserId, text);
     return order.messages.last;
   }
