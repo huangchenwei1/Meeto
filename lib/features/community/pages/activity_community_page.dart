@@ -6,12 +6,11 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../hosts/data/hosts_repository.dart';
-import '../../hosts/pages/proposal_composer_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/community_repository.dart';
 import '../models/activity_template.dart';
+import 'activity_composer_page.dart';
 import 'feed_page.dart';
-import 'publish_page.dart';
 
 /// Tab 1, identical for both roles: the activity community. "Hot
 /// activities" is the curated template shelf — picking one prefills the
@@ -75,31 +74,51 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
     _feedKey.currentState?.reload();
   }
 
-  /// Launching from a template prefills the role-appropriate composer:
-  /// users publish an activity request, hosts publish a pitch.
+  /// Launching from a template opens the one shared composer: users
+  /// publish an activity request, hosts publish a pitch. Same form —
+  /// whoever launches the activity picks the budget tier; only the
+  /// budget note copy and the submit action differ.
   Future<void> _launch(ActivityTemplate template) async {
-    final bool? posted;
-    if (AuthSession.isHost) {
-      posted = await Navigator.of(context).push(
-        MaterialPageRoute<bool>(
-          fullscreenDialog: true,
-          builder: (_) => ProposalComposerPage(
-            repository: widget.hostsRepository,
-            template: template,
-          ),
+    final bool isHost = AuthSession.isHost;
+    final bool? posted = await Navigator.of(context).push(
+      MaterialPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (_) => ActivityComposerPage(
+          pageTitle: isHost
+              ? AppStrings.proposalComposerTitle
+              : AppStrings.publishTitle,
+          budgetNote: isHost
+              ? AppStrings.budgetCoversNoteHost
+              : AppStrings.budgetCoversNoteUser,
+          template: template,
+          onSubmit: (ActivityDraft draft) async {
+            if (isHost) {
+              await widget.hostsRepository.createProposal(
+                title: draft.title,
+                description: draft.description,
+                sceneTag: draft.sceneTag,
+                imageUrl: draft.imageUrl,
+                area: draft.area,
+                timeSlot: draft.timeSlot,
+                budget: draft.budget,
+              );
+            } else {
+              await widget.communityRepository.createPost(
+                CreatePostInput(
+                  sceneTag: draft.sceneTag,
+                  title: draft.title,
+                  description: draft.description,
+                  timeSlot: draft.timeSlot,
+                  area: draft.area,
+                  budget: draft.budget,
+                  imageUrl: draft.imageUrl,
+                ),
+              );
+            }
+          },
         ),
-      );
-    } else {
-      posted = await Navigator.of(context).push(
-        MaterialPageRoute<bool>(
-          fullscreenDialog: true,
-          builder: (_) => PublishPage(
-            repository: widget.communityRepository,
-            template: template,
-          ),
-        ),
-      );
-    }
+      ),
+    );
     if ((posted ?? false) && mounted) {
       widget.onPosted?.call();
     }

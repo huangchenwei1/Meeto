@@ -41,63 +41,6 @@ class FormFieldLabel extends StatelessWidget {
   }
 }
 
-/// Scene selector chips (no money: the budget tier picker carries the
-/// price, so the scene chip is just the activity type).
-class ScenePriceChips extends StatelessWidget {
-  const ScenePriceChips({
-    super.key,
-    required this.scenes,
-    required this.selected,
-    required this.onSelect,
-    this.keyPrefix = 'scene',
-  });
-
-  final List<String> scenes;
-  final String? selected;
-  final ValueChanged<String> onSelect;
-
-  /// ValueKey prefix so each composer's chips stay addressable in tests.
-  final String keyPrefix;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: <Widget>[
-        for (final String scene in scenes)
-          InkWell(
-            key: ValueKey<String>('$keyPrefix$scene'),
-            onTap: () => onSelect(scene),
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: selected == scene
-                    ? AppColors.darkCard
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                AppStrings.sceneLabel(scene),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: selected == scene
-                      ? AppColors.onDarkPrimary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Single-select chip row for optional fields (fuzzy time window, rough
 /// area): tapping the selected chip again clears it. [labelOf] maps the
 /// stored identifier to its display label.
@@ -295,62 +238,6 @@ class BudgetTierChips extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Read-only budget range block for the host composer: the pitch itself
-/// carries no price — the inviting user picks the tier — so the host just
-/// sees what the scene can pay.
-class BudgetRangePanel extends StatelessWidget {
-  const BudgetRangePanel({
-    super.key,
-    required this.sceneTag,
-    required this.note,
-  });
-
-  final String sceneTag;
-
-  /// One-liner explaining what the budget covers.
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<int> tiers = ScenePricing.tiersForScene(sceneTag);
-    final String range = tiers.length == 1
-        ? MoneyFormat.format(tiers.first)
-        : '${MoneyFormat.format(tiers.first)}\u2013'
-            '${MoneyFormat.format(tiers.last)}';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            range,
-            key: const ValueKey<String>('activityBudgetAmount'),
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: AppColors.accent,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            note,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

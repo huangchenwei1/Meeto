@@ -169,8 +169,8 @@ class HallPageState extends State<HallPage> {
     unawaited(_load());
   }
 
-  /// Inviting from a pitch: the scene is fixed by the proposal, and the
-  /// pitch title travels as the default note.
+  /// Inviting from a pitch: the scene and the price are both locked to
+  /// the proposal, and the pitch title travels as the default note.
   Future<void> _invite(ProposalCard proposal) async {
     await runInviteFlow(
       context,
@@ -178,6 +178,7 @@ class HallPageState extends State<HallPage> {
       hostId: proposal.hostId,
       hostName: proposal.hostName,
       scene: proposal.sceneTag,
+      budget: proposal.budgetAmount,
       defaultNote: proposal.title,
     );
   }
@@ -461,9 +462,10 @@ class _RequestCard extends StatelessWidget {
   }
 }
 
-/// One host pitch in the shared feed-post card: rough location in the
-/// footer, the invite pill for users; hosts browse the competition
-/// read-only. The fee waits for the invite sheet.
+/// One host pitch in the shared feed-post card, mirroring the request
+/// card: time window and rough location in the info line, the host's
+/// picked price on the footer (inviting pays exactly this), the invite
+/// pill for users; hosts browse the competition read-only.
 class _ProposalTile extends StatelessWidget {
   const _ProposalTile({
     required this.proposal,
@@ -499,8 +501,14 @@ class _ProposalTile extends StatelessWidget {
       sceneLabel: AppStrings.sceneLabel(proposal.sceneTag),
       title: proposal.title,
       description: proposal.description,
-      footerIcon: Iconsax.location,
-      footerText: proposal.locationLine,
+      infoIcon: Iconsax.location,
+      infoText: <String>[
+        if (proposal.timeSlot.isNotEmpty)
+          AppStrings.timeSlotLabel(proposal.timeSlot),
+        proposal.locationLine,
+      ].join(' \u00b7 '),
+      footerIcon: Iconsax.empty_wallet,
+      footerText: MoneyFormat.format(proposal.budgetAmount),
       action: canInvite
           ? FeedActionPill(
               key: ValueKey<String>('inviteProposal${proposal.id}'),

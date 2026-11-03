@@ -1,45 +1,44 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
-import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/hosts_repository.dart';
 
 /// Opens the invitation confirm sheet and sends the invite, handling the
-/// verification prompt and duplicate-invite conflict. Shared by the hall
-/// (scene fixed by the proposal) and the host profile ([scene] null: the
-/// sheet lets the user pick any priced scene).
+/// verification prompt and duplicate-invite conflict. Invitations only
+/// start from a concrete activity pitch — the product trades activities,
+/// not people — so the scene and the price are both locked to the pitch:
+/// whoever launches the activity prices it.
 ///
 /// [defaultNote] fills in when the user leaves the note empty — e.g. the
-/// proposal title the invitation came from, so the host sees the context.
+/// pitch title the invitation came from, so the host sees the context.
 Future<void> runInviteFlow(
   BuildContext context, {
   required HostsRepository repository,
   required String hostId,
   required String hostName,
-  String? scene,
+  required String scene,
+  required int budget,
   String defaultNote = '',
 }) async {
-  final (String, int, String)? result =
-      await showModalBottomSheet<(String, int, String)>(
+  final String? note = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => InviteSheet(hostName: hostName, scene: scene),
+    builder: (_) =>
+        InviteSheet(hostName: hostName, scene: scene, budget: budget),
   );
-  if (result == null || !context.mounted) {
+  if (note == null || !context.mounted) {
     return;
   }
-  final (String sceneTag, int budget, String note) = result;
   await _send(
     context,
     repository: repository,
     hostId: hostId,
-    sceneTag: sceneTag,
+    sceneTag: scene,
     budget: budget,
     note: note.isEmpty ? defaultNote : note,
   );
@@ -92,17 +91,24 @@ Future<void> _send(
   }
 }
 
-/// Invitation confirm sheet. With a fixed [scene] (invited from a pitch)
-/// it shows the scene pill; with none (invited from the host profile) it
-/// offers all priced scenes as chips. Either way the inviter picks a
-/// platform budget tier for the activity. A proper StatefulWidget so the
-/// note controller is disposed by the sheet's own State after the route
-/// fully unmounts. Pops the chosen (scene, budget, note) on send.
+/// Invitation confirm sheet. The scene and price come from the pitch and
+/// are read-only here: the sheet just shows what the user is agreeing to
+/// pay and collects an optional note. A proper StatefulWidget so the note
+/// controller is disposed by the sheet's own State after the route fully
+/// unmounts. Pops the note text on send.
 class InviteSheet extends StatefulWidget {
-  const InviteSheet({super.key, required this.hostName, this.scene});
+  const InviteSheet({
+    super.key,
+    required this.hostName,
+    required this.scene,
+    required this.budget,
+  });
 
   final String hostName;
-  final String? scene;
+  final String scene;
+
+  /// The pitch's budget tier (whole pesos), locked.
+  final int budget;
 
   @override
   State<InviteSheet> createState() => _InviteSheetState();
@@ -110,16 +116,6 @@ class InviteSheet extends StatefulWidget {
 
 class _InviteSheetState extends State<InviteSheet> {
   final TextEditingController _noteController = TextEditingController();
-  late String _scene = widget.scene ?? ScenePricing.scenes.first;
-  late int _budget = ScenePricing.defaultBudgetForScene(_scene);
-
-  void _pickScene(String scene) {
-    setState(() {
-      _scene = scene;
-      // Each scene prices in its own tiers; re-default to the middle one.
-      _budget = ScenePricing.defaultBudgetForScene(scene);
-    });
-  }
 
   @override
   void dispose() {
@@ -129,7 +125,7 @@ class _InviteSheetState extends State<InviteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final String fee = MoneyFormat.format(_budget);
+    final String fee = MoneyFormat.format(widget.budget);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         24,
@@ -150,18 +146,10 @@ class _InviteSheetState extends State<InviteSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          if (widget.scene == null)
-            // Profile entry: the user picks the activity type first.
-            ScenePriceChips(
-              scenes: ScenePricing.scenes,
-              selected: _scene,
-              onSelect: _pickScene,
-              keyPrefix: 'inviteScene',
-            )
-          else
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
+          // Scene pill + the pitch's locked price side by side.
+          Row(
+            children: <Widget>[
+              Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
@@ -171,7 +159,7 @@ class _InviteSheetState extends State<InviteSheet> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  AppStrings.sceneLabel(_scene),
+                  AppStrings.sceneLabel(widget.scene),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -179,16 +167,22 @@ class _InviteSheetState extends State<InviteSheet> {
                   ),
                 ),
               ),
-            ),
-          const SizedBox(height: 14),
-          // The inviter picks the activity budget tier; the note under the
-          // chips explains what the money covers.
-          BudgetTierChips(
-            sceneTag: _scene,
-            selected: _budget,
-            onSelect: (int tier) => setState(() => _budget = tier),
-            note: AppStrings.budgetCoversNoteUser,
-            keyPrefix: 'inviteBudget',
+              const Spacer(),
+              Text(
+                fee,
+                key: const ValueKey<String>('inviteLockedPrice'),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.budgetCoversNoteUser,
+            style: const TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
           const SizedBox(height: 14),
           TextField(
@@ -218,8 +212,8 @@ class _InviteSheetState extends State<InviteSheet> {
                 backgroundColor: AppColors.darkCard,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () => Navigator.of(context)
-                  .pop((_scene, _budget, _noteController.text.trim())),
+              onPressed: () =>
+                  Navigator.of(context).pop(_noteController.text.trim()),
               child: const Text(AppStrings.inviteSendCta),
             ),
           ),

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../data/hosts_repository.dart';
 import '../models/host_card.dart';
-import '../widgets/invite_flow.dart';
 
-/// Host profile + the direct invitation entry (user side).
+/// Host profile, read-only. The product trades concrete activities, not
+/// people: invitations start from a pitch on the wall (price locked
+/// there), never from the profile.
 class HostDetailPage extends StatefulWidget {
   const HostDetailPage({
     super.key,
@@ -28,7 +28,6 @@ class HostDetailPage extends StatefulWidget {
 
 class _HostDetailPageState extends State<HostDetailPage> {
   HostCard? _host;
-  bool _busy = false;
 
   @override
   void initState() {
@@ -45,24 +44,6 @@ class _HostDetailPageState extends State<HostDetailPage> {
       }
     } on Exception {
       // Keep the initial card if the refresh fails.
-    }
-  }
-
-  /// Invitation sheet from the profile: no pre-declared scene list
-  /// anymore, so the user picks any priced scene inside the sheet.
-  Future<void> _openInviteSheet() async {
-    setState(() => _busy = true);
-    try {
-      await runInviteFlow(
-        context,
-        repository: widget.repository,
-        hostId: widget.hostId,
-        hostName: _host!.name,
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
     }
   }
 
@@ -213,35 +194,6 @@ class _HostDetailPageState extends State<HostDetailPage> {
           ],
         ],
       ),
-      // Users invite from the profile with a scene picked in the sheet;
-      // hosts browsing a peer's profile just read.
-      bottomNavigationBar: AuthSession.isHost
-          ? null
-          : Container(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                12,
-                20,
-                12 + MediaQuery.paddingOf(context).bottom,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.background,
-                border: Border(top: BorderSide(color: AppColors.divider)),
-              ),
-              child: FilledButton(
-                key: const ValueKey<String>('hostInviteButton'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.darkCard,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                onPressed: _busy ? null : _openInviteSheet,
-                child: const Text(AppStrings.hostInviteCta),
-              ),
-            ),
     );
   }
 }

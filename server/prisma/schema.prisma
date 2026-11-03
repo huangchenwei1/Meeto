@@ -72,6 +72,12 @@ model Proposal {
   // Rough area of the pitch (e.g. "Poblacion", "BGC"), picked from a fixed
   // list client-side. The exact venue still comes via the order plan flow.
   area      String   @default("")
+  // Fuzzy time window (e.g. "weekend"), same options as demand posts.
+  timeSlot  String   @default("")
+  // The host picks one of the platform's budget tiers for the scene when
+  // publishing: whoever launches the activity prices it. Invitations from
+  // this pitch lock to this tier.
+  budgetMinor Int    @default(0)
   createdAt DateTime @default(now())
 
   @@index([createdAt])

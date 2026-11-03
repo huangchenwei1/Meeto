@@ -12,14 +12,17 @@ abstract interface class HostsRepository {
   /// User home feed: hosts' activity pitches, newest first.
   Future<List<ProposalCard>> fetchProposals();
 
-  /// Publishes an activity pitch (host side). [imageUrl] is the optional
-  /// cover photo, already uploaded; [area] the optional rough area.
+  /// Publishes an activity pitch (host side). Whoever launches the
+  /// activity prices it: [budget] is the platform tier the host picked
+  /// (whole pesos); invitations from this pitch lock to it.
   Future<ProposalCard> createProposal({
     required String title,
     String description = '',
     required String sceneTag,
     String imageUrl = '',
     String area = '',
+    String timeSlot = '',
+    required int budget,
   });
 
   /// Sends a direct invitation (user side). The concrete plan still comes
@@ -131,6 +134,7 @@ class MockHostsRepository implements HostsRepository {
       imageUrl:
           'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
       area: 'Poblacion',
+      budgetAmount: 3500,
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       hostId: 'host-205',
       hostName: 'Noel',
@@ -148,6 +152,7 @@ class MockHostsRepository implements HostsRepository {
       imageUrl:
           'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
       area: 'Legazpi Village',
+      budgetAmount: 1500,
       createdAt: DateTime.now().subtract(const Duration(hours: 5)),
       hostId: 'host-201',
       hostName: 'Bianca',
@@ -165,6 +170,7 @@ class MockHostsRepository implements HostsRepository {
       imageUrl:
           'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
       area: 'Little Tokyo',
+      budgetAmount: 4000,
       createdAt: DateTime.now().subtract(const Duration(hours: 9)),
       hostId: 'host-202',
       hostName: 'Kat',
@@ -182,6 +188,7 @@ class MockHostsRepository implements HostsRepository {
       imageUrl:
           'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
       area: 'Rockwell',
+      budgetAmount: 2500,
       createdAt: DateTime.now().subtract(const Duration(hours: 20)),
       hostId: 'host-203',
       hostName: 'Liza',
@@ -215,6 +222,8 @@ class MockHostsRepository implements HostsRepository {
     required String sceneTag,
     String imageUrl = '',
     String area = '',
+    String timeSlot = '',
+    required int budget,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     _sequence += 1;
@@ -225,6 +234,8 @@ class MockHostsRepository implements HostsRepository {
       sceneTag: sceneTag,
       imageUrl: imageUrl,
       area: area,
+      timeSlot: timeSlot,
+      budgetAmount: budget,
       createdAt: DateTime.now(),
       hostId: 'host-you',
       hostName: 'You',

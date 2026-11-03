@@ -260,8 +260,19 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<List<LiveOrder>> listMine() async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
+    // Mirrors the server: the conversation lives and dies with the
+    // activity — closed orders linger for a grace week (read-only), then
+    // leave the list. The records themselves are kept.
+    const Duration grace = Duration(days: 7);
+    final DateTime cutoff = DateTime.now().subtract(grace);
     return _ids
         .map((String id) => _toLive(_orders[id]!))
+        .where((LiveOrder order) {
+          if (order.status != 'COMPLETED' && order.status != 'CANCELLED') {
+            return true;
+          }
+          return (order.completedAt ?? order.createdAt).isAfter(cutoff);
+        })
         .toList(growable: false);
   }
 

@@ -39,6 +39,10 @@ export interface ProposalDto {
   sceneTag: string;
   imageUrl: string;
   area: string;
+  timeSlot: string;
+  /// The budget tier the host picked at publish time (minor units):
+  /// invitations from this pitch lock to it.
+  budgetMinor: number;
   createdAt: Date;
   host: PublicUser;
   hostCompletedActivities: number;
@@ -105,11 +109,19 @@ export class HostsService {
     sceneTag: string,
     imageUrl: string,
     area: string,
+    timeSlot: string,
+    budgetMinor?: number,
   ): Promise<ProposalDto> {
     assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can publish proposals');
     }
+    // Whoever launches the activity prices it: the host picks one of the
+    // platform tiers, exactly like a poster pricing a demand post.
+    const budget = await this.pricingService.resolveBudget(
+      sceneTag,
+      budgetMinor,
+    );
     const [proposal, completed] = await Promise.all([
       this.prisma.proposal.create({
         data: {
@@ -119,6 +131,8 @@ export class HostsService {
           sceneTag,
           imageUrl,
           area,
+          timeSlot,
+          budgetMinor: budget,
         },
         include: { host: true },
       }),
@@ -133,6 +147,8 @@ export class HostsService {
       sceneTag: proposal.sceneTag,
       imageUrl: proposal.imageUrl,
       area: proposal.area,
+      timeSlot: proposal.timeSlot,
+      budgetMinor: proposal.budgetMinor,
       createdAt: proposal.createdAt,
       host: toPublicUser(proposal.host),
       hostCompletedActivities: completed,
@@ -163,6 +179,8 @@ export class HostsService {
       sceneTag: p.sceneTag,
       imageUrl: p.imageUrl,
       area: p.area,
+      timeSlot: p.timeSlot,
+      budgetMinor: p.budgetMinor,
       createdAt: p.createdAt,
       host: toPublicUser(p.host),
       hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,

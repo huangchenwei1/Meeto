@@ -49,6 +49,11 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /// How long a settled/cancelled conversation stays in the list before
+  /// it disappears for the participants. The records themselves are kept
+  /// (read-only) for dispute reviews.
+  private static readonly CLOSED_ORDER_GRACE_MS = 7 * 24 * 3600 * 1000;
+
   async listMine(caller: User): Promise<OrderDto[]> {
     const orders = await this.prisma.order.findMany({
       where: { OR: [{ payerId: caller.id }, { earnerId: caller.id }] },
@@ -58,7 +63,20 @@ export class OrdersService {
     const settled = await Promise.all(
       orders.map((order) => this.maybeSettle(order)),
     );
-    return settled.map(toOrderDto);
+    // The conversation lives and dies with the activity: closed orders
+    // linger for a grace week (read-only), then leave the list.
+    const cutoff = Date.now() - OrdersService.CLOSED_ORDER_GRACE_MS;
+    const visible = settled.filter((order) => {
+      if (
+        order.status !== OrderStatus.completed &&
+        order.status !== OrderStatus.cancelled
+      ) {
+        return true;
+      }
+      const closedAt = order.completedAt ?? order.createdAt;
+      return closedAt.getTime() >= cutoff;
+    });
+    return visible.map(toOrderDto);
   }
 
   async getOne(caller: User, orderId: string): Promise<OrderDto> {

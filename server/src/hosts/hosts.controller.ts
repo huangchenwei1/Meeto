@@ -44,6 +44,18 @@ class CreateProposalDto {
   @IsString()
   @MaxLength(60)
   area?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  timeSlot?: string;
+
+  /// Platform budget tier picked by the host (minor units); the middle
+  /// tier of the scene when omitted.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  budgetMinor?: number;
 }
 
 class InviteDto {
@@ -105,6 +117,8 @@ export class ProposalsController {
       dto.sceneTag,
       dto.imageUrl ?? '',
       dto.area ?? '',
+      dto.timeSlot ?? '',
+      dto.budgetMinor,
     );
   }
 }

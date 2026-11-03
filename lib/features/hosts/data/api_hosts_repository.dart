@@ -42,6 +42,8 @@ class ApiHostsRepository implements HostsRepository {
     required String sceneTag,
     String imageUrl = '',
     String area = '',
+    String timeSlot = '',
+    required int budget,
   }) async {
     return ProposalCard.fromJson(
       await _client.post(
@@ -49,9 +51,11 @@ class ApiHostsRepository implements HostsRepository {
         body: <String, dynamic>{
           'title': title,
           'sceneTag': sceneTag,
+          'budgetMinor': pesosToMinor(budget),
           if (description.isNotEmpty) 'description': description,
           if (imageUrl.isNotEmpty) 'imageUrl': imageUrl,
           if (area.isNotEmpty) 'area': area,
+          if (timeSlot.isNotEmpty) 'timeSlot': timeSlot,
         },
       ) as Map<String, dynamic>,
     );

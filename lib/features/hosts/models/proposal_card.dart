@@ -12,6 +12,8 @@ class ProposalCard {
     required this.sceneTag,
     this.imageUrl = '',
     this.area = '',
+    this.timeSlot = '',
+    this.budgetAmount = 0,
     required this.createdAt,
     required this.hostId,
     required this.hostName,
@@ -31,6 +33,8 @@ class ProposalCard {
       sceneTag: json['sceneTag'] as String,
       imageUrl: resolveMediaUrl(json['imageUrl'] as String? ?? ''),
       area: json['area'] as String? ?? '',
+      timeSlot: json['timeSlot'] as String? ?? '',
+      budgetAmount: minorToPesos(json['budgetMinor'] as int? ?? 0),
       createdAt: DateTime.parse(json['createdAt'] as String),
       hostId: host['id'] as String,
       hostName: host['name'] as String,
@@ -61,6 +65,13 @@ class ProposalCard {
   /// Rough area of the pitch (e.g. "Poblacion"); the exact venue comes
   /// later via the order plan flow.
   final String area;
+
+  /// Fuzzy time window key (e.g. "weekend"), same options as demand posts.
+  final String timeSlot;
+
+  /// The budget tier the host picked at publish time (whole pesos):
+  /// inviting from this pitch pays exactly this.
+  final int budgetAmount;
 
   final DateTime createdAt;
   final String hostId;

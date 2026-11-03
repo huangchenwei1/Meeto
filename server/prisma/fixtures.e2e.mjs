@@ -135,6 +135,7 @@ const PROPOSALS = [
     id: 'proposal-001',
     hostId: 'host-205',
     sceneTag: 'Bar',
+    budgetMinor: 350000,
     area: 'Poblacion',
     imageUrl:
       'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
@@ -146,6 +147,7 @@ const PROPOSALS = [
     id: 'proposal-002',
     hostId: 'host-201',
     sceneTag: 'Coffee',
+    budgetMinor: 150000,
     area: 'Legazpi Village',
     imageUrl:
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
@@ -157,6 +159,7 @@ const PROPOSALS = [
     id: 'proposal-003',
     hostId: 'host-202',
     sceneTag: 'Dinner',
+    budgetMinor: 400000,
     area: 'Little Tokyo',
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
@@ -168,6 +171,7 @@ const PROPOSALS = [
     id: 'proposal-004',
     hostId: 'host-203',
     sceneTag: 'Movie',
+    budgetMinor: 250000,
     area: 'Rockwell',
     imageUrl:
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
@@ -179,6 +183,7 @@ const PROPOSALS = [
     id: 'proposal-005',
     hostId: 'host-204',
     sceneTag: 'Coffee',
+    budgetMinor: 150000,
     area: 'Salcedo Village',
     imageUrl:
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
@@ -190,6 +195,7 @@ const PROPOSALS = [
     id: 'proposal-006',
     hostId: 'host-203',
     sceneTag: 'Tea',
+    budgetMinor: 180000,
     area: 'Ayala Triangle',
     imageUrl:
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',

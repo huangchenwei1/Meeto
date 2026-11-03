@@ -1490,19 +1490,37 @@ describe('Meeto API (e2e)', () => {
         .expect(403);
 
       // No registration-declared scene list anymore: what a host offers
-      // is whatever they actually pitch.
-      await api()
+      // is whatever they actually pitch. Omitting the budget lands on the
+      // scene's middle platform tier.
+      const barPitch = await api()
         .post('/proposals')
         .set('X-User-Id', BIANCA)
         .send({ title: 'Rooftop crawl', sceneTag: 'Bar' })
         .expect(201);
+      expect(barPitch.body.budgetMinor).toBe(350000);
 
+      // Whoever launches the activity prices it: the host picks a
+      // platform tier; made-up prices are rejected.
+      await api()
+        .post('/proposals')
+        .set('X-User-Id', BIANCA)
+        .send({
+          title: 'Free pricing is not a thing',
+          sceneTag: 'Coffee',
+          budgetMinor: 99,
+        })
+        .expect(400);
       const created = await api()
         .post('/proposals')
         .set('X-User-Id', BIANCA)
-        .send({ title: 'Morning filter tasting in Salcedo', sceneTag: 'Coffee' })
+        .send({
+          title: 'Morning filter tasting in Salcedo',
+          sceneTag: 'Coffee',
+          budgetMinor: 250000,
+        })
         .expect(201);
       expect(created.body.host.id).toBe(BIANCA);
+      expect(created.body.budgetMinor).toBe(250000);
 
       // The fresh pitch leads the feed.
       const feed = await api()
