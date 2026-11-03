@@ -15,6 +15,7 @@ import '../../../shared/widgets/form_widgets.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
+import '../../community/pages/activity_composer_page.dart';
 import '../../community/pages/post_detail_page.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/models/host_card.dart';
@@ -169,6 +170,20 @@ class HallPageState extends State<HallPage> {
     unawaited(_load());
   }
 
+  /// Free-form publish from the hall: no template, so the composer asks
+  /// for the scene and a curated cover. The fresh card should show up
+  /// right away, so reload on success.
+  Future<void> _publish() async {
+    final bool? posted = await openActivityComposer(
+      context,
+      communityRepository: widget.communityRepository,
+      hostsRepository: widget.hostsRepository,
+    );
+    if ((posted ?? false) && mounted) {
+      unawaited(_load());
+    }
+  }
+
   /// Inviting from a pitch: the scene and the price are both locked to
   /// the proposal, and the pitch title travels as the default note.
   Future<void> _invite(ProposalCard proposal) async {
@@ -260,15 +275,32 @@ class HallPageState extends State<HallPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 12, 10),
-              child: Text(
-                AppStrings.hallTitle,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+              child: Row(
+                children: <Widget>[
+                  const Text(
+                    AppStrings.hallTitle,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Free-form publish, next to the shelf-template path:
+                  // the composer opens blank and the author picks the
+                  // scene and a curated cover inside.
+                  IconButton(
+                    key: const ValueKey<String>('hallPublishButton'),
+                    icon: const Icon(
+                      Iconsax.add_square,
+                      size: 24,
+                      color: AppColors.textPrimary,
+                    ),
+                    onPressed: _publish,
+                  ),
+                ],
               ),
             ),
             Padding(

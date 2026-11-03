@@ -41,6 +41,65 @@ class FormFieldLabel extends StatelessWidget {
   }
 }
 
+/// Required single-select scene pills for the free-form composer: the
+/// activity type is always one of the platform's priced scenes (pricing
+/// and default covers hang off the scene tag), so unlike [OptionChips]
+/// a selection cannot be cleared, only switched.
+class SceneChips extends StatelessWidget {
+  const SceneChips({
+    super.key,
+    required this.scenes,
+    required this.selected,
+    required this.onSelect,
+    this.keyPrefix = 'scene',
+  });
+
+  final List<String> scenes;
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  /// ValueKey prefix so each composer's chips stay addressable in tests.
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (final String scene in scenes)
+          InkWell(
+            key: ValueKey<String>('$keyPrefix$scene'),
+            onTap: () => onSelect(scene),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: selected == scene
+                    ? AppColors.darkCard
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                AppStrings.sceneLabel(scene),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: selected == scene
+                      ? AppColors.onDarkPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Single-select chip row for optional fields (fuzzy time window, rough
 /// area): tapping the selected chip again clears it. [labelOf] maps the
 /// stored identifier to its display label.

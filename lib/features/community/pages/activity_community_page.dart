@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../hosts/data/hosts_repository.dart';
@@ -79,45 +78,11 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
   /// whoever launches the activity picks the budget tier; only the
   /// budget note copy and the submit action differ.
   Future<void> _launch(ActivityTemplate template) async {
-    final bool isHost = AuthSession.isHost;
-    final bool? posted = await Navigator.of(context).push(
-      MaterialPageRoute<bool>(
-        fullscreenDialog: true,
-        builder: (_) => ActivityComposerPage(
-          pageTitle: isHost
-              ? AppStrings.proposalComposerTitle
-              : AppStrings.publishTitle,
-          budgetNote: isHost
-              ? AppStrings.budgetCoversNoteHost
-              : AppStrings.budgetCoversNoteUser,
-          template: template,
-          onSubmit: (ActivityDraft draft) async {
-            if (isHost) {
-              await widget.hostsRepository.createProposal(
-                title: draft.title,
-                description: draft.description,
-                sceneTag: draft.sceneTag,
-                imageUrl: draft.imageUrl,
-                area: draft.area,
-                timeSlot: draft.timeSlot,
-                budget: draft.budget,
-              );
-            } else {
-              await widget.communityRepository.createPost(
-                CreatePostInput(
-                  sceneTag: draft.sceneTag,
-                  title: draft.title,
-                  description: draft.description,
-                  timeSlot: draft.timeSlot,
-                  area: draft.area,
-                  budget: draft.budget,
-                  imageUrl: draft.imageUrl,
-                ),
-              );
-            }
-          },
-        ),
-      ),
+    final bool? posted = await openActivityComposer(
+      context,
+      communityRepository: widget.communityRepository,
+      hostsRepository: widget.hostsRepository,
+      template: template,
     );
     if ((posted ?? false) && mounted) {
       widget.onPosted?.call();

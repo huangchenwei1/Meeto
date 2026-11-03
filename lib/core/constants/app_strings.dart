@@ -134,6 +134,8 @@ abstract final class AppStrings {
 
   // Publish
   static const String publishTitle = '发布活动';
+  static const String composerSceneLabel = '活动类型';
+  static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
   static const String budgetCoversNoteUser = '预算包含全部活动开销，由主持人安排这场活动';
   static const String budgetCoversNoteHost = '预算包含活动开销，安排得当，结余就是你的收入';
