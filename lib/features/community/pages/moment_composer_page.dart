@@ -7,6 +7,7 @@ import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/pages/verification_page.dart';
+import '../../../shared/widgets/form_widgets.dart';
 import '../data/community_repository.dart';
 
 /// Composer for a community recap (moment): short text + up to 3 photos.
@@ -23,6 +24,7 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
   static const int _maxPhotos = 3;
 
   final TextEditingController _textController = TextEditingController();
+  final TextEditingController _venueController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   final List<String> _photoUrls = <String>[];
   bool _busy = false;
@@ -33,6 +35,7 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
   @override
   void dispose() {
     _textController.dispose();
+    _venueController.dispose();
     super.dispose();
   }
 
@@ -68,15 +71,24 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
 
   Future<void> _submit() async {
     final String text = _textController.text.trim();
+    final String venue = _venueController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.momentTextRequiredHint)),
       );
       return;
     }
+    // The venue is the recommendation itself: a recap without the place
+    // has no reuse value for the next reader.
+    if (venue.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.momentVenueRequiredHint)),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
-      await widget.repository.createMoment(text, _photoUrls);
+      await widget.repository.createMoment(text, _photoUrls, venue);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
@@ -117,6 +129,17 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
             maxLines: 8,
             decoration: const InputDecoration(
               hintText: AppStrings.momentTextHint,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const FormFieldLabel(AppStrings.momentVenueLabel),
+          TextField(
+            key: const ValueKey<String>('momentVenueField'),
+            controller: _venueController,
+            maxLength: 80,
+            decoration: const InputDecoration(
+              hintText: AppStrings.momentVenueHint,
+              prefixIcon: Icon(Iconsax.location, size: 18),
             ),
           ),
           if (_photosEnabled) ...<Widget>[

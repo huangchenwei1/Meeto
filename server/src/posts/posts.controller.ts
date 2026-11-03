@@ -63,7 +63,12 @@ export class PostsController {
     @CurrentUser() user: User,
     @Body() input: CreateMomentDto,
   ): Promise<PostDto> {
-    return this.postsService.createMoment(user, input.text, input.images ?? []);
+    return this.postsService.createMoment(
+      user,
+      input.text,
+      input.images ?? [],
+      input.venue,
+    );
   }
 
   @Delete(':id')

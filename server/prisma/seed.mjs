@@ -185,6 +185,7 @@ const MOMENTS = [
       'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
     ]),
+    venue: 'Hidden cafe at Solidaridad Bookshop, Legazpi Village',
     feeMinor: 0,
     createdAt: hoursAgo(6),
   },
@@ -204,6 +205,7 @@ const MOMENTS = [
     imagesJson: JSON.stringify([
       'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
     ]),
+    venue: 'Tsukiji omakase counter, Little Tokyo',
     feeMinor: 0,
     createdAt: hoursAgo(12),
   },

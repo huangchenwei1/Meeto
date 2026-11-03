@@ -72,7 +72,11 @@ abstract interface class CommunityRepository {
   Future<ActivityPost> signUp(String postId, String proposal);
 
   /// Publishes a community recap (photos + text). Open to both roles.
-  Future<ActivityPost> createMoment(String text, List<String> images);
+  Future<ActivityPost> createMoment(
+    String text,
+    List<String> images,
+    String venue,
+  );
 
   /// Emits the current candidate pool of the caller's own post, then again
   /// whenever it changes. In production this arrives via server push.
@@ -278,6 +282,7 @@ class MockCommunityRepository implements CommunityRepository {
           'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
           'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
         ],
+        venue: 'Hidden cafe at Solidaridad Bookshop, Legazpi Village',
         author: _andrea,
         createdAt: now.subtract(const Duration(hours: 6)),
         budgetAmount: 0,
@@ -297,6 +302,7 @@ class MockCommunityRepository implements CommunityRepository {
         images: <String>[
           'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
         ],
+        venue: 'Tsukiji omakase counter, Little Tokyo',
         author: _paolo,
         createdAt: now.subtract(const Duration(hours: 12)),
         budgetAmount: 0,
@@ -459,7 +465,11 @@ class MockCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<ActivityPost> createMoment(String text, List<String> images) async {
+  Future<ActivityPost> createMoment(
+    String text,
+    List<String> images,
+    String venue,
+  ) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     final ActivityPost post = ActivityPost(
       id: 'post-${++_postSequence}',
@@ -468,6 +478,7 @@ class MockCommunityRepository implements CommunityRepository {
       title: text,
       description: text,
       detail: text,
+      venue: venue,
       signedCount: 0,
       imageUrl: images.isEmpty ? '' : images.first,
       images: images,

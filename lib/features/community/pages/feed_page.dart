@@ -127,7 +127,16 @@ class FeedPageState extends State<FeedPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                   itemCount: _moments.length + (_moments.isEmpty ? 2 : 1),
-                  separatorBuilder: (_, _) => const SizedBox(height: 20),
+                  // WeChat-Moments-style wall: flat cells split by a thin
+                  // hairline instead of floating cards.
+                  separatorBuilder: (_, _) => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Divider(
+                      height: 1,
+                      thickness: 0.6,
+                      color: AppColors.divider,
+                    ),
+                  ),
                   itemBuilder: (BuildContext context, int index) {
                     if (index == 0) {
                       return const GuidelinesBanner();

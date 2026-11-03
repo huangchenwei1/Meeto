@@ -1423,10 +1423,12 @@ describe('Meeto API (e2e)', () => {
         .send({
           text: 'Best coffee afternoon in months, thanks to my host',
           images: ['/uploads/recap1.jpg', '/uploads/recap2.jpg'],
+          venue: 'Single Origin, Salcedo Village',
         })
         .expect(201);
       expect(userMoment.body.type).toBe('MOMENT');
       expect(userMoment.body.feeMinor).toBe(0);
+      expect(userMoment.body.venue).toBe('Single Origin, Salcedo Village');
       expect(userMoment.body.images).toEqual([
         '/uploads/recap1.jpg',
         '/uploads/recap2.jpg',
@@ -1435,14 +1437,24 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post('/posts/moments')
         .set('X-User-Id', JAMES)
-        .send({ text: 'Hosted a great cafe crawl today' })
+        .send({
+          text: 'Hosted a great cafe crawl today',
+          venue: 'Yardstick Coffee, Legazpi Village',
+        })
         .expect(201);
 
       // Text is required.
       await api()
         .post('/posts/moments')
         .set('X-User-Id', ANDREA)
-        .send({ images: ['/uploads/x.jpg'] })
+        .send({ images: ['/uploads/x.jpg'], venue: 'Somewhere' })
+        .expect(400);
+
+      // The venue is the recommendation: a recap without it is rejected.
+      await api()
+        .post('/posts/moments')
+        .set('X-User-Id', ANDREA)
+        .send({ text: 'Great afternoon' })
         .expect(400);
 
       const wall = await api()

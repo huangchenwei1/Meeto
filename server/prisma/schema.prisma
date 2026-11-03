@@ -129,6 +129,9 @@ model Post {
   area        String   @default("")
   imageUrl    String   @default("")
   imagesJson  String   @default("[]") // JSON array of photo URLs (moments)
+  // Venue name on MOMENT recaps (e.g. a cafe name); recommendation content,
+  // required at publish. Empty on demand posts.
+  venue       String   @default("")
   status      String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
   // FEED: publicly listed in the community. DIRECT: backing post of a
   // private invitation deal; never shown in the community feed.

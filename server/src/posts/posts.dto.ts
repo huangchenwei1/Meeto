@@ -56,6 +56,13 @@ export class CreateMomentDto {
   @ArrayMaxSize(6)
   @IsString({ each: true })
   images?: string[];
+
+  /// Venue name (e.g. a cafe or cinema): the recommendation itself, so it
+  /// is required — a recap without the place has no reuse value.
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  venue!: string;
 }
 
 export class SelectionDto {

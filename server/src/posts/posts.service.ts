@@ -42,6 +42,8 @@ export interface PostDto {
   timeSlot: string;
   /// Rough district picked at publish time; empty if unset.
   area: string;
+  /// Venue name on MOMENT recaps (empty on demand posts).
+  venue: string;
   imageUrl: string;
   images: string[];
   applicantCount: number;
@@ -103,6 +105,7 @@ export class PostsService {
     author: User,
     text: string,
     images: string[],
+    venue: string,
   ): Promise<PostDto> {
     assertVerified(author);
     const post = await this.prisma.post.create({
@@ -114,6 +117,7 @@ export class PostsService {
         description: text,
         imageUrl: images[0] ?? '',
         imagesJson: JSON.stringify(images),
+        venue: venue.trim(),
         feeMinor: 0,
       },
       include: { author: true },
@@ -346,6 +350,7 @@ export class PostsService {
       detail: post.detail,
       timeSlot: post.timeSlot,
       area: post.area,
+      venue: post.venue,
       imageUrl: post.imageUrl,
       images: PostsService.parseImages(post.imagesJson),
       applicantCount: applications.filter(

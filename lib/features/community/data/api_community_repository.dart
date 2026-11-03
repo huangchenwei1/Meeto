@@ -88,11 +88,15 @@ class ApiCommunityRepository implements CommunityRepository {
   }
 
   @override
-  Future<ActivityPost> createMoment(String text, List<String> images) async {
+  Future<ActivityPost> createMoment(
+    String text,
+    List<String> images,
+    String venue,
+  ) async {
     return _toActivityPost(
       await _client.post(
         '/posts/moments',
-        body: <String, dynamic>{'text': text, 'images': images},
+        body: <String, dynamic>{'text': text, 'images': images, 'venue': venue},
       ) as Map<String, dynamic>,
     );
   }
@@ -210,6 +214,7 @@ class ApiCommunityRepository implements CommunityRepository {
           : json['detail'] as String,
       timeSlot: json['timeSlot'] as String? ?? '',
       area: json['area'] as String? ?? '',
+      venue: json['venue'] as String? ?? '',
       signedCount: json['applicantCount'] as int? ?? 0,
       // Demand cards fall back to the scene image; moments keep whatever
       // photos the author attached (possibly none).

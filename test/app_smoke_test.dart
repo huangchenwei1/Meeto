@@ -36,7 +36,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.bannerCta), findsOneWidget);
-    expect(find.textContaining('omakase counter'), findsOneWidget);
+    // The WeChat-Moments-style cells are taller, so only the newest recap
+    // fits the test viewport: assert its text plus the venue line.
+    expect(find.textContaining('hidden inside a bookshop'), findsOneWidget);
+    expect(find.textContaining('Solidaridad Bookshop'), findsOneWidget);
     expect(
       find.text('Show me a cafe worth leaving BGC for'),
       findsNothing,

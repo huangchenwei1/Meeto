@@ -464,6 +464,9 @@ abstract final class AppStrings {
   static const String momentComposerTitle = '分享动态';
   static const String momentTextHint = '活动怎么样？给你的主持人一个好评吧';
   static const String momentTextRequiredHint = '先写点什么吧';
+  static const String momentVenueLabel = '活动地点';
+  static const String momentVenueHint = '店名或地标，让大家也能找到这里';
+  static const String momentVenueRequiredHint = '填一下活动地点，这是分享的精华';
   static const String momentPostCta = '发布';
   static const String momentPhotoFailed = '照片上传失败，请重试';
 

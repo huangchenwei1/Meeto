@@ -19,6 +19,7 @@ class ActivityPost {
     required this.detail,
     this.timeSlot = '',
     this.area = '',
+    this.venue = '',
     required this.signedCount,
     required this.imageUrl,
     this.images = const <String>[],
@@ -40,6 +41,7 @@ class ActivityPost {
       detail: json['detail'] as String,
       timeSlot: json['timeSlot'] as String? ?? '',
       area: json['area'] as String? ?? '',
+      venue: json['venue'] as String? ?? '',
       signedCount: json['signedCount'] as int,
       imageUrl: json['imageUrl'] as String,
       images:
@@ -82,6 +84,10 @@ class ActivityPost {
 
   /// Rough district picked at publish time; empty if unset.
   final String area;
+
+  /// Venue name on MOMENT recaps (e.g. a cafe name); the recommendation
+  /// itself, required at publish. Empty on demand posts.
+  final String venue;
 
   /// Number of candidates who signed up so far.
   final int signedCount;
@@ -126,6 +132,7 @@ class ActivityPost {
       detail: detail,
       timeSlot: timeSlot,
       area: area,
+      venue: venue,
       signedCount: signedCount ?? this.signedCount,
       imageUrl: imageUrl,
       images: images,
