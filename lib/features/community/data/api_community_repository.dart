@@ -108,6 +108,7 @@ class ApiCommunityRepository implements CommunityRepository {
     String proposal, {
     required String place,
     required DateTime scheduledAt,
+    required int durationMinutes,
   }) async {
     await _client.post(
       '/posts/$postId/applications',
@@ -115,6 +116,7 @@ class ApiCommunityRepository implements CommunityRepository {
         'proposal': proposal,
         'place': place,
         'scheduledAt': scheduledAt.toUtc().toIso8601String(),
+        'durationMinutes': durationMinutes,
       },
     );
     return _fetchPost(postId);
@@ -203,6 +205,8 @@ class ApiCommunityRepository implements CommunityRepository {
         planAt: application['planAt'] == null
             ? null
             : DateTime.parse(application['planAt'] as String).toLocal(),
+        planDurationMinutes:
+            (application['planDurationMinutes'] as num?)?.toInt() ?? 0,
       );
       pool[author.id] = (
         applicationId: application['id'] as String,

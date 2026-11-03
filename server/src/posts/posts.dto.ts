@@ -97,4 +97,10 @@ export class ApplyDto {
   /// the paid order starts with chat open and the plan already locked.
   @IsISO8601()
   scheduledAt!: string;
+
+  /// How long the activity runs, in minutes.
+  @IsInt()
+  @Min(30)
+  @Max(720)
+  durationMinutes!: number;
 }

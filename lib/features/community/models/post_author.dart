@@ -10,6 +10,7 @@ class PostAuthor {
     this.proposal = '',
     this.planPlace = '',
     this.planAt,
+    this.planDurationMinutes = 0,
   });
 
   factory PostAuthor.fromJson(Map<String, dynamic> json) {
@@ -24,6 +25,7 @@ class PostAuthor {
       planAt: json['planAt'] == null
           ? null
           : DateTime.parse(json['planAt'] as String),
+      planDurationMinutes: (json['planDurationMinutes'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -46,10 +48,14 @@ class PostAuthor {
   /// ...and time. Selecting the candidate approves this plan.
   final DateTime? planAt;
 
+  /// How long the activity is planned to run, in minutes.
+  final int planDurationMinutes;
+
   PostAuthor withProposal(
     String proposal, {
     String planPlace = '',
     DateTime? planAt,
+    int planDurationMinutes = 0,
   }) {
     return PostAuthor(
       id: id,
@@ -60,6 +66,7 @@ class PostAuthor {
       proposal: proposal,
       planPlace: planPlace,
       planAt: planAt,
+      planDurationMinutes: planDurationMinutes,
     );
   }
 

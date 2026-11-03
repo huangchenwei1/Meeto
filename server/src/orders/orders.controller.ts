@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import {
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -55,6 +56,12 @@ class PlanDto {
   @IsNotEmpty()
   @MaxLength(500)
   note!: string;
+
+  // How long the activity runs, in minutes.
+  @IsInt()
+  @Min(30)
+  @Max(720)
+  durationMinutes!: number;
 }
 
 @Controller('orders')

@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/form_widgets.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
@@ -121,8 +122,8 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     // The sheet owns its text controller (its own State disposes it after
     // the route fully unmounts); disposing here right after the await
     // crashes the exit animation ('_dependents.isEmpty').
-    final (String, DateTime, String)? plan =
-        await showModalBottomSheet<(String, DateTime, String)>(
+    final (String, DateTime, String, int)? plan =
+        await showModalBottomSheet<(String, DateTime, String, int)>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -130,6 +131,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         initialPlace: order.planPlace,
         initialAt: order.planAt,
         initialNote: order.planNote,
+        initialDurationMinutes: order.planDurationMinutes,
       ),
     );
     if (plan == null || !mounted) {
@@ -142,6 +144,7 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         place: plan.$1,
         scheduledAt: plan.$2,
         note: plan.$3,
+        durationMinutes: plan.$4,
       );
       if (mounted) {
         setState(() => _order = updated);
@@ -553,11 +556,13 @@ class _PlanSheet extends StatefulWidget {
     required this.initialPlace,
     required this.initialAt,
     required this.initialNote,
+    required this.initialDurationMinutes,
   });
 
   final String initialPlace;
   final DateTime? initialAt;
   final String initialNote;
+  final int initialDurationMinutes;
 
   @override
   State<_PlanSheet> createState() => _PlanSheetState();
@@ -567,6 +572,7 @@ class _PlanSheetState extends State<_PlanSheet> {
   late final TextEditingController _placeController;
   late final TextEditingController _noteController;
   DateTime? _scheduledAt;
+  late int _durationMinutes;
 
   @override
   void initState() {
@@ -574,6 +580,9 @@ class _PlanSheetState extends State<_PlanSheet> {
     _placeController = TextEditingController(text: widget.initialPlace);
     _noteController = TextEditingController(text: widget.initialNote);
     _scheduledAt = widget.initialAt;
+    _durationMinutes = widget.initialDurationMinutes > 0
+        ? widget.initialDurationMinutes
+        : planDurationOptions[1];
   }
 
   @override
@@ -624,7 +633,7 @@ class _PlanSheetState extends State<_PlanSheet> {
       );
       return;
     }
-    Navigator.of(context).pop((place, at, note));
+    Navigator.of(context).pop((place, at, note, _durationMinutes));
   }
 
   Widget _sectionLabel(String text) {
@@ -704,6 +713,14 @@ class _PlanSheetState extends State<_PlanSheet> {
                               : _formatPlanDateTime(context, _scheduledAt!),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 18),
+                    _sectionLabel(AppStrings.planDurationLabel),
+                    DurationChips(
+                      selected: _durationMinutes,
+                      onSelect: (int minutes) =>
+                          setState(() => _durationMinutes = minutes),
+                      keyPrefix: 'planDuration',
                     ),
                     const SizedBox(height: 18),
                     _sectionLabel(AppStrings.planNoteLabel),
@@ -974,7 +991,8 @@ class _PlanCardBubble extends StatelessWidget {
 
   bool get _editable => order.status == 'ACTIVE';
 
-  ({String place, DateTime? at, String note}) _payload() {
+  ({String place, DateTime? at, String note, int durationMinutes})
+      _payload() {
     try {
       final Map<String, dynamic> json =
           jsonDecode(message.text) as Map<String, dynamic>;
@@ -984,9 +1002,15 @@ class _PlanCardBubble extends StatelessWidget {
             ? null
             : DateTime.parse(json['scheduledAt'] as String).toLocal(),
         note: json['note'] as String? ?? '',
+        durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
       );
     } on FormatException {
-      return (place: order.planPlace, at: order.planAt, note: order.planNote);
+      return (
+        place: order.planPlace,
+        at: order.planAt,
+        note: order.planNote,
+        durationMinutes: order.planDurationMinutes,
+      );
     }
   }
 
@@ -1014,7 +1038,8 @@ class _PlanCardBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ({String place, DateTime? at, String note}) plan = _payload();
+    final ({String place, DateTime? at, String note, int durationMinutes})
+        plan = _payload();
     final bool isMine = message.senderId == myId;
     final bool live = isLatest && _editable;
     return Align(
@@ -1062,7 +1087,10 @@ class _PlanCardBubble extends StatelessWidget {
             if (plan.at != null) ...<Widget>[
               const SizedBox(height: 3),
               Text(
-                _formatPlanDateTime(context, plan.at!),
+                plan.durationMinutes > 0
+                    ? '${_formatPlanDateTime(context, plan.at!)} \u00b7 '
+                        '${AppStrings.durationAbout(plan.durationMinutes)}'
+                    : _formatPlanDateTime(context, plan.at!),
                 style: const TextStyle(
                   fontSize: 12.5,
                   color: AppColors.textSecondary,

@@ -44,6 +44,7 @@ void main() {
         'Cafe in Makati, Saturday 3pm',
         place: 'Single Origin, Salcedo Village',
         scheduledAt: DateTime.now().add(const Duration(days: 3)),
+        durationMinutes: 180,
       );
       expect(updated.hasApplied, isTrue);
       expect(updated.signedCount, posts.first.signedCount + 1);

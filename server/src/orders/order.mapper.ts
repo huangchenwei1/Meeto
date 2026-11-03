@@ -38,6 +38,7 @@ export interface OrderDto {
   planLng: number;
   planAt: Date | null;
   planNote: string;
+  planDurationMinutes: number;
   planProposedAt: Date | null;
   planConfirmedAt: Date | null;
   /// Set when the escrow settled (poster completion or auto-settle).
@@ -74,6 +75,7 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     planLng: order.planLng,
     planAt: order.planAt,
     planNote: order.planNote,
+    planDurationMinutes: order.planDurationMinutes,
     planProposedAt: order.planProposedAt,
     planConfirmedAt: order.planConfirmedAt,
     completedAt: order.completedAt,

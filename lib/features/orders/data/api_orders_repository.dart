@@ -48,6 +48,7 @@ class ApiOrdersRepository implements OrdersRepository {
     double? placeLng,
     required DateTime scheduledAt,
     required String note,
+    required int durationMinutes,
   }) async {
     return LiveOrder.fromJson(
       await _client.post(
@@ -58,6 +59,7 @@ class ApiOrdersRepository implements OrdersRepository {
           'placeLng': ?placeLng,
           'scheduledAt': scheduledAt.toUtc().toIso8601String(),
           'note': note,
+          'durationMinutes': durationMinutes,
         },
       ) as Map<String, dynamic>,
     );

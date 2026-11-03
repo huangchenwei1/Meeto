@@ -160,6 +160,8 @@ model Application {
   // up front, so selecting a candidate approves the plan in the same tap.
   planPlace   String   @default("")
   planAt      DateTime?
+  // How long the activity is planned to run.
+  planDurationMinutes Int @default(0)
   createdAt   DateTime @default(now())
 
   @@unique([postId, applicantId])
@@ -188,6 +190,8 @@ model Order {
   planAt          DateTime?
   // The itinerary: what the activity actually covers, step by step.
   planNote        String    @default("")
+  // How long the activity is planned to run.
+  planDurationMinutes Int   @default(0)
   planProposedAt  DateTime?
   planConfirmedAt DateTime?
 

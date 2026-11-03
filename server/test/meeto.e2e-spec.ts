@@ -29,6 +29,7 @@ const PLAN_CARD = {
   proposal: 'Cafe in Makati, Saturday 3pm',
   place: 'Single Origin, Salcedo Village',
   scheduledAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+  durationMinutes: 180,
 };
 
 describe('Meeto API (e2e)', () => {
@@ -733,6 +734,7 @@ describe('Meeto API (e2e)', () => {
       expect(res.body[0].proposal).toBe(PLAN_CARD.proposal);
       expect(res.body[0].planPlace).toBe(PLAN_CARD.place);
       expect(res.body[0].planAt).toBe(PLAN_CARD.scheduledAt);
+      expect(res.body[0].planDurationMinutes).toBe(180);
     });
 
     it('selection creates an order where the poster pays the host', async () => {
@@ -820,6 +822,7 @@ describe('Meeto API (e2e)', () => {
         place: PLAN_CARD.place,
         scheduledAt: PLAN_CARD.scheduledAt,
         note: PLAN_CARD.proposal,
+        durationMinutes: PLAN_CARD.durationMinutes,
       });
 
       // Only the host (earner) can re-propose.
@@ -830,6 +833,7 @@ describe('Meeto API (e2e)', () => {
           place: 'Single Origin, Makati',
           scheduledAt: '2026-12-24T19:00:00.000Z',
           note: 'Hand brew flight, then a walk in the park',
+          durationMinutes: 150,
         })
         .expect(403);
 
@@ -844,6 +848,7 @@ describe('Meeto API (e2e)', () => {
           placeLng: 121.0215,
           scheduledAt: '2026-12-24T19:00:00.000Z',
           note: 'Hand brew flight, then a walk in the park',
+          durationMinutes: 150,
         })
         .expect(201);
       expect(reproposed.body.planProposedAt).not.toBeNull();
@@ -1130,6 +1135,7 @@ describe('Meeto API (e2e)', () => {
           place: 'Toyo Eatery, Makati',
           scheduledAt: '2026-01-10T19:00:00.000Z',
           note: 'Tasting menu, then a nightcap nearby',
+          durationMinutes: 120,
         })
         .expect(201);
 

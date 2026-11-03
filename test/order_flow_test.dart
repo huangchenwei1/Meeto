@@ -42,6 +42,7 @@ void main() {
         place: 'Greenbelt Cinema',
         scheduledAt: at,
         note: 'Dinner first, then the 8pm screening',
+        durationMinutes: 240,
       );
       expect(updated.planProposed, isTrue);
       expect(updated.planConfirmed, isFalse);

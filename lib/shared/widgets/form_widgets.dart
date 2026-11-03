@@ -158,6 +158,67 @@ class OptionChips extends StatelessWidget {
   }
 }
 
+/// Platform-suggested activity durations, in minutes.
+const List<int> planDurationOptions = <int>[120, 180, 240, 360];
+
+/// Duration picker for plan cards: how long the activity runs. Same pill
+/// style as [BudgetTierChips]; used by the sign-up plan composer and the
+/// host's plan sheet.
+class DurationChips extends StatelessWidget {
+  const DurationChips({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+    this.keyPrefix = 'planDuration',
+  });
+
+  /// Currently picked duration, in minutes.
+  final int selected;
+
+  final ValueChanged<int> onSelect;
+
+  /// ValueKey prefix so each surface's chips stay addressable in tests.
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (final int minutes in planDurationOptions)
+          InkWell(
+            key: ValueKey<String>('$keyPrefix$minutes'),
+            onTap: () => onSelect(minutes),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 9,
+              ),
+              decoration: BoxDecoration(
+                color: selected == minutes
+                    ? AppColors.darkCard
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                AppStrings.durationLabel(minutes),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected == minutes
+                      ? AppColors.onDarkPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Budget tier picker: the platform prices the whole activity in a few
 /// tiers per scene and the poster picks one — free pricing never exists.
 /// Used by the request composer and the invite sheet.

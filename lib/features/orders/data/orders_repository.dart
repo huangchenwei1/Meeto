@@ -34,6 +34,7 @@ abstract interface class OrdersRepository {
     double? placeLng,
     required DateTime scheduledAt,
     required String note,
+    required int durationMinutes,
   });
 
   /// The poster locks in the proposed plan.
@@ -103,6 +104,7 @@ class MockOrdersRepository implements OrdersRepository {
       ..planPlace = 'Power Plant Cinema, Rockwell'
       ..planAt = now.add(const Duration(days: 2))
       ..planNote = 'Early dinner at the food hall, then the 8pm screening'
+      ..planDurationMinutes = 180
       ..planProposedAt = now.subtract(const Duration(hours: 18))
       ..planConfirmedAt = now.subtract(const Duration(hours: 17));
     _sayPlanCard(
@@ -111,6 +113,7 @@ class MockOrdersRepository implements OrdersRepository {
       active.planPlace,
       active.planAt!,
       active.planNote,
+      active.planDurationMinutes,
     );
     _say(active, _liza.id, 'Tickets reserved \u2014 see you Saturday!');
 
@@ -152,9 +155,11 @@ class MockOrdersRepository implements OrdersRepository {
         ..planPlace = host.planPlace
         ..planAt = host.planAt
         ..planNote = host.proposal
+        ..planDurationMinutes = host.planDurationMinutes
         ..planProposedAt = now
         ..planConfirmedAt = now;
-      _sayPlanCard(order, host.id, host.planPlace, host.planAt!, host.proposal);
+      _sayPlanCard(order, host.id, host.planPlace, host.planAt!,
+          host.proposal, host.planDurationMinutes);
     }
     return _toLive(order);
   }
@@ -187,16 +192,18 @@ class MockOrdersRepository implements OrdersRepository {
     String place,
     DateTime scheduledAt,
     String note,
+    int durationMinutes,
   ) {
     order.messages.add(
       OrderMessage(
         id: 'msg-${++_messageSequence}',
         senderId: senderId,
         kind: 'PLAN',
-        text: jsonEncode(<String, String>{
+        text: jsonEncode(<String, Object>{
           'place': place,
           'scheduledAt': scheduledAt.toUtc().toIso8601String(),
           'note': note,
+          'durationMinutes': durationMinutes,
         }),
         createdAt: DateTime.now(),
       ),
@@ -242,6 +249,7 @@ class MockOrdersRepository implements OrdersRepository {
       planLng: o.planLng,
       planAt: o.planAt,
       planNote: o.planNote,
+      planDurationMinutes: o.planDurationMinutes,
       planProposedAt: o.planProposedAt,
       planConfirmedAt: o.planConfirmedAt,
       completedAt: o.completedAt,
@@ -290,6 +298,7 @@ class MockOrdersRepository implements OrdersRepository {
     double? placeLng,
     required DateTime scheduledAt,
     required String note,
+    required int durationMinutes,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
     final _MockOrder order = _of(orderId)
@@ -298,9 +307,11 @@ class MockOrdersRepository implements OrdersRepository {
       ..planLng = placeLng ?? 0
       ..planAt = scheduledAt
       ..planNote = note
+      ..planDurationMinutes = durationMinutes
       ..planProposedAt = DateTime.now()
       ..planConfirmedAt = null;
-    _sayPlanCard(order, order.earner.id, place, scheduledAt, note);
+    _sayPlanCard(order, order.earner.id, place, scheduledAt, note,
+        durationMinutes);
     return _toLive(order);
   }
 
@@ -381,6 +392,7 @@ class _MockOrder {
   double planLng = 0;
   DateTime? planAt;
   String planNote = '';
+  int planDurationMinutes = 0;
   DateTime? planProposedAt;
   DateTime? planConfirmedAt;
   DateTime? completedAt;

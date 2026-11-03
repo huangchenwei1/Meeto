@@ -17,6 +17,7 @@ import '../../orders/pages/order_room_page.dart';
 import '../../orders/pages/payment_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
+import 'signup_plan_page.dart';
 import '../data/community_repository.dart';
 import '../models/activity_post.dart';
 import '../models/post_author.dart';
@@ -55,29 +56,29 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   bool get _isMine => _post.author.id == AuthSession.currentUserId;
 
-  /// Collects the pitch plus the plan card (place + time), then signs up.
-  /// If the poster selects this candidate, the plan is approved in the
-  /// same tap and the order starts ready to chat once paid.
+  /// Collects the pitch plus the plan card (place + time + duration), then
+  /// signs up. If the poster selects this candidate, the plan is approved
+  /// in the same tap and the order starts ready to chat once paid.
   Future<void> _signUp() async {
-    final (String, String, DateTime)? card = await _askProposal();
+    final (String, String, DateTime, int)? card = await _askProposal();
     if (card == null || !mounted) {
       return;
     }
     await _signUpWith(card);
   }
 
-  Future<(String, String, DateTime)?> _askProposal() {
-    // The sheet owns its controllers (disposed by its own State after
-    // the route fully unmounts). Pops (proposal, place, scheduledAt).
-    return showModalBottomSheet<(String, String, DateTime)>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => const _ProposalSheet(),
+  Future<(String, String, DateTime, int)?> _askProposal() {
+    // A formal full-screen composer, not a casual bottom sheet. Pops
+    // (proposal, place, scheduledAt, durationMinutes).
+    return Navigator.of(context).push<(String, String, DateTime, int)>(
+      MaterialPageRoute<(String, String, DateTime, int)>(
+        fullscreenDialog: true,
+        builder: (_) => const SignUpPlanPage(),
+      ),
     );
   }
 
-  Future<void> _signUpWith((String, String, DateTime) card) async {
+  Future<void> _signUpWith((String, String, DateTime, int) card) async {
     setState(() => _signedUp = true);
     final ActivityPost updated;
     try {
@@ -86,6 +87,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
         card.$1,
         place: card.$2,
         scheduledAt: card.$3,
+        durationMinutes: card.$4,
       );
     } on ApiException catch (e) {
       if (!mounted) {
@@ -546,8 +548,12 @@ class _CandidateRow extends StatelessWidget {
                   // The plan card: approved as-is when this candidate is
                   // selected.
                   Text(
-                    '${candidate.planPlace} \u00b7 '
-                    '${_formatPlanDateTime(context, candidate.planAt!)}',
+                    candidate.planDurationMinutes > 0
+                        ? '${candidate.planPlace} \u00b7 '
+                            '${_formatPlanDateTime(context, candidate.planAt!)} \u00b7 '
+                            '${AppStrings.durationAbout(candidate.planDurationMinutes)}'
+                        : '${candidate.planPlace} \u00b7 '
+                            '${_formatPlanDateTime(context, candidate.planAt!)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -816,155 +822,6 @@ class _PosterBottomBar extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Sign-up proposal sheet. A proper StatefulWidget so the text controller
-/// is disposed by the sheet's own State after the route fully unmounts.
-/// Pops the proposal text.
-class _ProposalSheet extends StatefulWidget {
-  const _ProposalSheet();
-
-  @override
-  State<_ProposalSheet> createState() => _ProposalSheetState();
-}
-
-class _ProposalSheetState extends State<_ProposalSheet> {
-  final TextEditingController _controller = TextEditingController();
-  final TextEditingController _placeController = TextEditingController();
-  DateTime? _scheduledAt;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _placeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickTime() async {
-    final DateTime now = DateTime.now();
-    final DateTime? date = await showDatePicker(
-      context: context,
-      initialDate: _scheduledAt ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 60)),
-    );
-    if (date == null || !mounted) {
-      return;
-    }
-    final TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: _scheduledAt != null
-          ? TimeOfDay.fromDateTime(_scheduledAt!)
-          : const TimeOfDay(hour: 19, minute: 0),
-    );
-    if (time == null) {
-      return;
-    }
-    setState(() {
-      _scheduledAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
-  }
-
-  void _submit() {
-    final String text = _controller.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.proposalRequiredHint)),
-      );
-      return;
-    }
-    final String place = _placeController.text.trim();
-    final DateTime? at = _scheduledAt;
-    if (place.isEmpty || at == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.planRequiredHint)),
-      );
-      return;
-    }
-    Navigator.of(context).pop((text, place, at));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            AppStrings.proposalSheetTitle,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            AppStrings.proposalSheetSub,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const ValueKey<String>('proposalField'),
-            controller: _controller,
-            autofocus: true,
-            maxLength: 200,
-            maxLines: 3,
-            minLines: 2,
-            decoration: const InputDecoration(
-              hintText: AppStrings.proposalHint,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            key: const ValueKey<String>('proposalPlaceField'),
-            controller: _placeController,
-            maxLength: 120,
-            decoration: const InputDecoration(
-              hintText: AppStrings.planPlaceHint,
-              prefixIcon: Icon(Icons.place_outlined, size: 20),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const ValueKey<String>('proposalTimeButton'),
-            onPressed: _pickTime,
-            icon: const Icon(Icons.schedule, size: 18),
-            label: Text(
-              _scheduledAt == null
-                  ? AppStrings.publishPickTime
-                  : _formatPlanDateTime(context, _scheduledAt!),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey<String>('proposalSubmitButton'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.textPrimary,
-                foregroundColor: AppColors.onDarkPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              onPressed: _submit,
-              child: const Text(AppStrings.signUpCta),
             ),
           ),
         ],

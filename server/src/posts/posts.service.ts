@@ -65,6 +65,7 @@ export interface ApplicationDto {
   proposal: string;
   /// The structured plan card delivered at sign-up: venue...
   planPlace: string;
+  planDurationMinutes: number;
   /// ...and time. Selection approves this plan.
   planAt: Date | null;
   createdAt: Date;
@@ -241,6 +242,7 @@ export class PostsService {
         proposal: input.proposal,
         planPlace: input.place,
         planAt: new Date(input.scheduledAt),
+        planDurationMinutes: input.durationMinutes,
       },
       include: { applicant: true },
     });
@@ -328,6 +330,7 @@ export class PostsService {
             ? {
                 planPlace: application.planPlace,
                 planAt: application.planAt,
+                planDurationMinutes: application.planDurationMinutes,
                 // The sign-up pitch doubles as the itinerary.
                 planNote: application.proposal,
                 planProposedAt: planApproved,
@@ -348,6 +351,7 @@ export class PostsService {
             text: JSON.stringify({
               place: application.planPlace,
               scheduledAt: application.planAt.toISOString(),
+              durationMinutes: application.planDurationMinutes,
               note: application.proposal,
             }),
           },
@@ -431,6 +435,7 @@ export class PostsService {
       proposal: application.proposal,
       planPlace: application.planPlace,
       planAt: application.planAt,
+      planDurationMinutes: application.planDurationMinutes,
       createdAt: application.createdAt,
     };
   }

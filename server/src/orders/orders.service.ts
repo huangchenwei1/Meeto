@@ -157,6 +157,7 @@ export class OrdersService {
       placeLng?: number;
       scheduledAt: string;
       note: string;
+      durationMinutes: number;
     },
   ): Promise<OrderDto> {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
@@ -187,6 +188,7 @@ export class OrdersService {
             place: input.place,
             scheduledAt: input.scheduledAt,
             note: input.note,
+            durationMinutes: input.durationMinutes,
           }),
         },
       });
@@ -198,6 +200,7 @@ export class OrdersService {
           planLng: input.placeLng ?? 0,
           planAt: new Date(input.scheduledAt),
           planNote: input.note,
+          planDurationMinutes: input.durationMinutes,
           planProposedAt: new Date(),
           planConfirmedAt: null,
         },

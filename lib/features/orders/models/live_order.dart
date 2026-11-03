@@ -25,6 +25,7 @@ class LiveOrder {
     required this.planLng,
     required this.planAt,
     this.planNote = '',
+    this.planDurationMinutes = 0,
     required this.planProposedAt,
     required this.planConfirmedAt,
     required this.completedAt,
@@ -55,6 +56,7 @@ class LiveOrder {
       planLng: (json['planLng'] as num?)?.toDouble() ?? 0,
       planAt: parseDate(json['planAt']),
       planNote: json['planNote'] as String? ?? '',
+      planDurationMinutes: (json['planDurationMinutes'] as num?)?.toInt() ?? 0,
       planProposedAt: parseDate(json['planProposedAt']),
       planConfirmedAt: parseDate(json['planConfirmedAt']),
       completedAt: parseDate(json['completedAt']),
@@ -98,6 +100,9 @@ class LiveOrder {
 
   /// The itinerary: what the activity actually covers.
   final String planNote;
+
+  /// How long the activity is planned to run, in minutes.
+  final int planDurationMinutes;
   final DateTime? planProposedAt;
   final DateTime? planConfirmedAt;
 

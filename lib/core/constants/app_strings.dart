@@ -498,6 +498,20 @@ abstract final class AppStrings {
   static const String planAwaitingBadge = '待确认';
   static const String planOutdatedBadge = '已更新';
   static const String chatReadOnlyNote = '活动已结束，会话仅可读';
+  static const String planDurationLabel = '游玩时长';
+  static const String proposalPitchLabel = '方案介绍';
+  static const String proposalPlaceLabel = '地点';
+  static const String proposalTimeLabel = '时间';
+
+  /// '2 小时' / '2.5 小时' from minutes.
+  static String durationLabel(int minutes) {
+    return minutes % 60 == 0
+        ? '${minutes ~/ 60} 小时'
+        : '${(minutes / 60).toStringAsFixed(1)} 小时';
+  }
+
+  /// '约 2 小时' for plan cards and candidate rows.
+  static String durationAbout(int minutes) => '约 ${durationLabel(minutes)}';
   static const String planProposedSnack = '计划卡已发送，等待确认';
   static const String planConfirmedSnack = '计划已确认';
   static String notifyPlanProposed(String name) => '$name 发来了计划卡 — 查看并确认';

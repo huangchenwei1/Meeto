@@ -81,6 +81,7 @@ abstract interface class CommunityRepository {
     String proposal, {
     required String place,
     required DateTime scheduledAt,
+    required int durationMinutes,
   });
 
   /// Publishes a community recap (photos + text). Open to both roles.
@@ -179,6 +180,7 @@ class MockCommunityRepository implements CommunityRepository {
           'upstairs seats and the best hand brew flight in Makati',
       planPlace: 'Single Origin, Salcedo Village',
       planAt: DateTime.now().add(const Duration(days: 3)),
+      planDurationMinutes: 180,
     ),
     PostAuthor(
       id: 'host-205',
@@ -190,6 +192,7 @@ class MockCommunityRepository implements CommunityRepository {
           'then the best whiskey list in the block',
       planPlace: 'Apotheka, Poblacion',
       planAt: DateTime.now().add(const Duration(days: 4)),
+      planDurationMinutes: 240,
     ),
   ];
 
@@ -514,6 +517,7 @@ class MockCommunityRepository implements CommunityRepository {
     String proposal, {
     required String place,
     required DateTime scheduledAt,
+    required int durationMinutes,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     final int index = _posts.indexWhere((ActivityPost p) => p.id == postId);
