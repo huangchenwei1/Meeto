@@ -145,7 +145,6 @@ abstract final class AppStrings {
   static const String publishTipPayNote = '选定主持人时支付的服务费 · 由 Meeto 托管';
   static const String publishSubmit = '发布';
   static const String publishSuccess = '发布成功！等待报名';
-  static const String publishDefaultDesc = '找个伴，轻松就好，没有压力';
 
   // User profile
   static const String profileTitle = '个人主页';
@@ -421,7 +420,6 @@ abstract final class AppStrings {
   static const String proposalComposerTitle = '发布活动提案';
   static const String proposalTitleHint = '想带大家去做什么？比如：去听一场 live';
   static const String proposalDescHint = '例如：店里安静、豆子好，适合慢慢聊……';
-  static const String proposalCoverLabel = '封面图（选填）';
   static const String proposalAreaLabel = '活动区域（选填）';
   static const String proposalPublishCta = '发布';
   static const String proposalPostedSnack = '提案已发布';
@@ -502,6 +500,8 @@ abstract final class AppStrings {
   static const String proposalPitchLabel = '方案介绍';
   static const String proposalPlaceLabel = '地点';
   static const String proposalTimeLabel = '时间';
+  static const String publishTemplateQuoteLabel = '发起的活动';
+  static const String publishFieldsRequiredHint = '先填好标题和描述';
 
   /// '2 小时' / '2.5 小时' from minutes.
   static String durationLabel(int minutes) {

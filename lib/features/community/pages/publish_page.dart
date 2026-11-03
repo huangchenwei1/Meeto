@@ -9,13 +9,13 @@ import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/community_repository.dart';
 import '../models/activity_template.dart';
+import '../widgets/template_quote_card.dart';
 
-/// Full-screen form to publish a new activity request: scene, title,
-/// description, plus an optional fuzzy time window and rough district.
-/// The exact schedule stays absent on purpose: the selected host proposes
-/// the concrete plan after the match (the plan flow). The platform fee
-/// rides on the scene chips. Launching from a template on the community
-/// shelf prefills everything, so posting is "choose and confirm".
+/// Full-screen form to publish a new activity request. The launched
+/// template is quoted on top (the platform curates the activity type and
+/// content); the title and description are the user's own words — never
+/// pre-written. The exact schedule stays absent on purpose: the selected
+/// host proposes the concrete plan after the match (the plan flow).
 ///
 /// Pops with `true` when a post was published.
 class PublishPage extends StatefulWidget {
@@ -50,16 +50,6 @@ class _PublishPageState extends State<PublishPage> {
   bool _submitting = false;
 
   @override
-  void initState() {
-    super.initState();
-    final ActivityTemplate? template = widget.template;
-    if (template != null && template.id.isNotEmpty) {
-      _titleController.text = template.title;
-      _descController.text = template.description;
-    }
-  }
-
-  @override
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
@@ -68,17 +58,23 @@ class _PublishPageState extends State<PublishPage> {
 
   Future<void> _submit() async {
     final String scene = _scene;
+    // The user's own words are required: no pre-written copy to fall
+    // back on.
+    final String title = _titleController.text.trim();
+    final String description = _descController.text.trim();
+    if (title.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.publishFieldsRequiredHint)),
+      );
+      return;
+    }
     setState(() => _submitting = true);
     try {
       await widget.repository.createPost(
         CreatePostInput(
           sceneTag: scene,
-          title: _titleController.text.trim().isEmpty
-              ? scene
-              : _titleController.text.trim(),
-          description: _descController.text.trim().isEmpty
-              ? AppStrings.publishDefaultDesc
-              : _descController.text.trim(),
+          title: title,
+          description: description,
           timeSlot: _timeSlot,
           area: _area,
           budget: _budget,
@@ -128,6 +124,12 @@ class _PublishPageState extends State<PublishPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: <Widget>[
+          // The launched platform activity, quoted: the type and content
+          // are curated — users describe it in their own words below.
+          if (widget.template != null) ...<Widget>[
+            const FormFieldLabel(AppStrings.publishTemplateQuoteLabel),
+            TemplateQuoteCard(template: widget.template!),
+          ],
           const FormFieldLabel(AppStrings.activityBudgetLabel),
           BudgetTierChips(
             sceneTag: _scene,

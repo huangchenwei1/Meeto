@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
-import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../community/models/activity_template.dart';
+import '../../community/widgets/template_quote_card.dart';
 import '../data/hosts_repository.dart';
 
-/// Host-side composer for an activity pitch: scene, title and description
-/// — the same field set as the users' request composer, so both sides of
-/// the board read identically — plus the supply-side extras (cover photo,
-/// rough area). No time or place; those come later through the standard
-/// order plan flow. Launching from a community-shelf template prefills
-/// the text and cover.
+/// Host-side composer for an activity pitch. The launched template is
+/// quoted on top (the platform curates the activity type and content);
+/// the title and description are the host's own words — never
+/// pre-written. The pitch keeps the template's curated cover; no user
+/// uploads here. No time or place either; those come later through the
+/// standard order plan flow.
 class ProposalComposerPage extends StatefulWidget {
   const ProposalComposerPage({
     super.key,
@@ -46,23 +44,10 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         ? fromTemplate
         : _scenes.first;
   }();
-  final ImagePicker _picker = ImagePicker();
-  late String _imageUrl = widget.template?.imageUrl ?? '';
+  // The pitch keeps the template's curated cover: no user uploads.
+  late final String _imageUrl = widget.template?.imageUrl ?? '';
   String _area = '';
   bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final ActivityTemplate? template = widget.template;
-    if (template != null && template.id.isNotEmpty) {
-      _titleController.text = template.title;
-      _descController.text = template.description;
-    }
-  }
-
-  /// Photo upload needs the API; mock mode posts text-only pitches.
-  bool get _photoEnabled => AppEnv.useRemoteApi;
 
   @override
   void dispose() {
@@ -71,46 +56,24 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
     super.dispose();
   }
 
-  Future<void> _pickCover() async {
-    final XFile? picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) {
+  Future<void> _publish() async {
+    if (_busy) {
       return;
     }
-    setState(() => _busy = true);
-    try {
-      final ApiClient client = ApiClient(baseUrl: AppEnv.apiBaseUrl);
-      final String url =
-          await client.uploadImage(await picked.readAsBytes(), picked.name);
-      if (mounted) {
-        setState(() => _imageUrl = url);
-      }
-    } on Exception {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.momentPhotoFailed)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  Future<void> _publish() async {
+    // The host's own words are required: no pre-written copy.
     final String title = _titleController.text.trim();
-    if (title.isEmpty || _busy) {
+    final String description = _descController.text.trim();
+    if (title.isEmpty || description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.publishFieldsRequiredHint)),
+      );
       return;
     }
     setState(() => _busy = true);
     try {
       await widget.repository.createProposal(
         title: title,
-        description: _descController.text.trim(),
+        description: description,
         sceneTag: _scene,
         imageUrl: _imageUrl,
         area: _area,
@@ -154,6 +117,12 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: <Widget>[
+            // The launched platform activity, quoted: the type and content
+            // are curated — the host describes it in their own words.
+            if (widget.template != null) ...<Widget>[
+              const FormFieldLabel(AppStrings.publishTemplateQuoteLabel),
+              TemplateQuoteCard(template: widget.template!),
+            ],
             // Budget -> title -> description: same order and widgets as
             // the users' request composer. The pitch itself carries no
             // price: the inviting user picks the tier, so the host sees
@@ -185,41 +154,6 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
                 hintText: AppStrings.proposalDescHint,
               ),
             ),
-            if (_photoEnabled) ...<Widget>[
-              const FormFieldLabel(AppStrings.proposalCoverLabel),
-              // Optional cover photo: one image, replaced on re-pick.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: InkWell(
-                  key: const ValueKey<String>('proposalAddPhoto'),
-                  onTap: _busy ? null : _pickCover,
-                  borderRadius: BorderRadius.circular(12),
-                  child: _imageUrl.isEmpty
-                      ? Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: const Icon(
-                            Iconsax.gallery_add,
-                            color: AppColors.textHint,
-                          ),
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            resolveMediaUrl(_imageUrl),
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                ),
-              ),
-            ],
             const FormFieldLabel(AppStrings.proposalAreaLabel),
             OptionChips(
               options: AppStrings.manilaAreas,
