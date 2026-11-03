@@ -22,15 +22,10 @@ class ProposalComposerPage extends StatefulWidget {
   const ProposalComposerPage({
     super.key,
     required this.repository,
-    required this.offeredScenes,
     this.template,
   });
 
   final HostsRepository repository;
-
-  /// The host's offered scenes; falls back to the full priced list for
-  /// hosts without a published list (the server accepts any scene then).
-  final List<String> offeredScenes;
 
   /// When launched from the "hot activities" shelf; null for a blank form.
   final ActivityTemplate? template;
@@ -42,16 +37,9 @@ class ProposalComposerPage extends StatefulWidget {
 class _ProposalComposerPageState extends State<ProposalComposerPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-  // Only priced scene tags qualify (callers may pass interest tags for
-  // hosts without a published scene list).
-  late final List<String> _scenes = () {
-    final List<String> offered = widget.offeredScenes
-        .where(ScenePricing.config.sceneFees.containsKey)
-        .toList(growable: false);
-    return offered.isNotEmpty
-        ? offered
-        : ScenePricing.config.sceneFees.keys.toList(growable: false);
-  }();
+  // Any priced scene goes: what a host offers is whatever they pitch.
+  late final List<String> _scenes =
+      ScenePricing.config.sceneFees.keys.toList(growable: false);
   late String _scene = () {
     final String? fromTemplate = widget.template?.sceneTag;
     return fromTemplate != null && _scenes.contains(fromTemplate)

@@ -103,8 +103,6 @@ class ApiProfileRepository implements ProfileRepository {
       ),
       bio: json['bio'] as String? ?? '',
       tags: (json['tags'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
-      hostScenes: (json['hostScenes'] as List<dynamic>? ?? <dynamic>[])
-          .cast<String>(),
       photos: (json['photos'] as List<dynamic>? ?? <dynamic>[])
           .cast<String>()
           .map(resolveMediaUrl)

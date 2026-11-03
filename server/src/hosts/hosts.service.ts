@@ -58,17 +58,6 @@ export interface InvitationDto {
 
 type InvitationWithParties = Invitation & { from: User; host: User };
 
-function parseScenes(json: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(json);
-    return Array.isArray(parsed)
-      ? parsed.filter((s): s is string => typeof s === 'string')
-      : [];
-  } catch {
-    return [];
-  }
-}
-
 @Injectable()
 export class HostsService {
   constructor(
@@ -104,9 +93,9 @@ export class HostsService {
     return this.toHostCard(host);
   }
 
-  /// A host publishes an activity pitch to the user home feed. Scene
-  /// validation mirrors [invite]: the pitch must be within the host's
-  /// offered scenes because the invitation it attracts will be.
+  /// A host publishes an activity pitch to the hall. Any priced scene
+  /// goes: what a host "offers" is whatever they actually pitch, not a
+  /// list declared at registration.
   async createProposal(
     caller: User,
     title: string,
@@ -118,10 +107,6 @@ export class HostsService {
     assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can publish proposals');
-    }
-    const offered = parseScenes(caller.hostScenesJson);
-    if (offered.length > 0 && !offered.includes(sceneTag)) {
-      throw new ConflictException('SCENE_NOT_OFFERED');
     }
     const [proposal, completed] = await Promise.all([
       this.prisma.proposal.create({
@@ -199,12 +184,8 @@ export class HostsService {
     if (!host || host.role !== Role.host) {
       throw new NotFoundException('Host not found');
     }
-    // Invitations are bound to the host's offered scenes (picked at
-    // registration); hosts without a published list take any scene.
-    const offered = parseScenes(host.hostScenesJson);
-    if (offered.length > 0 && !offered.includes(sceneTag)) {
-      throw new ConflictException('SCENE_NOT_OFFERED');
-    }
+    // Any priced scene is invitable; the host simply declines what they
+    // do not want to run.
     const pending = await this.prisma.invitation.findFirst({
       where: {
         fromUserId: caller.id,

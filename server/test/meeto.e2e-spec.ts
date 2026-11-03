@@ -1205,16 +1205,7 @@ describe('Meeto API (e2e)', () => {
       await api().get(`/hosts/${MIGUEL}`).set('X-User-Id', ANDREA).expect(404);
     });
 
-    it('a user invites a host within their offered scenes', async () => {
-      // Invitations are bound to the host's offered scenes: Bianca hosts
-      // Coffee/Tea, so a Bar invitation is rejected outright.
-      const offScene = await api()
-        .post('/invitations')
-        .set('X-User-Id', ANDREA)
-        .send({ hostId: BIANCA, sceneTag: 'Bar', note: '' })
-        .expect(409);
-      expect(offScene.body.message).toBe('SCENE_NOT_OFFERED');
-
+    it('a user invites a host on any priced scene', async () => {
       const res = await api()
         .post('/invitations')
         .set('X-User-Id', ANDREA)
@@ -1229,15 +1220,8 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.from.id).toBe(ANDREA);
       expect(res.body.host.id).toBe(BIANCA);
 
-      // The directory card carries the offered scenes for the price list.
-      const card = await api()
-        .get(`/hosts/${BIANCA}`)
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      expect(card.body.user.hostScenes).toEqual(['Coffee', 'Tea']);
-
       // Duplicate pending invitation to the same host conflicts, even on
-      // another offered scene.
+      // another scene.
       await api()
         .post('/invitations')
         .set('X-User-Id', ANDREA)
@@ -1396,20 +1380,20 @@ describe('Meeto API (e2e)', () => {
       expect(typeof pitch.hostCompletedActivities).toBe('number');
     });
 
-    it('only hosts publish, and only within their offered scenes', async () => {
+    it('only hosts publish; any priced scene goes', async () => {
       await api()
         .post('/proposals')
         .set('X-User-Id', ANDREA)
         .send({ title: 'Users cannot pitch', sceneTag: 'Coffee' })
         .expect(403);
 
-      // Bianca offers Coffee/Tea, so a Bar pitch is rejected.
-      const offScene = await api()
+      // No registration-declared scene list anymore: what a host offers
+      // is whatever they actually pitch.
+      await api()
         .post('/proposals')
         .set('X-User-Id', BIANCA)
         .send({ title: 'Rooftop crawl', sceneTag: 'Bar' })
-        .expect(409);
-      expect(offScene.body.message).toBe('SCENE_NOT_OFFERED');
+        .expect(201);
 
       const created = await api()
         .post('/proposals')

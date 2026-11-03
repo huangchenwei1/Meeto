@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
+import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../data/hosts_repository.dart';
@@ -48,10 +48,9 @@ class _HostDetailPageState extends State<HostDetailPage> {
     }
   }
 
-  /// Invitation confirm sheet for one scene, opened from the activity
-  /// price list. The scene is fixed by the row the user tapped; the whole
-  /// sheet-and-send flow is shared with the proposal feed.
-  Future<void> _openInviteSheet(String scene) async {
+  /// Invitation sheet from the profile: no pre-declared scene list
+  /// anymore, so the user picks any priced scene inside the sheet.
+  Future<void> _openInviteSheet() async {
     setState(() => _busy = true);
     try {
       await runInviteFlow(
@@ -59,7 +58,6 @@ class _HostDetailPageState extends State<HostDetailPage> {
         repository: widget.repository,
         hostId: widget.hostId,
         hostName: _host!.name,
-        scene: scene,
       );
     } finally {
       if (mounted) {
@@ -180,20 +178,6 @@ class _HostDetailPageState extends State<HostDetailPage> {
                   .toList(growable: false),
             ),
           ],
-          const SizedBox(height: 20),
-          const Text(
-            AppStrings.hostActivitiesTitle,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _ActivityPriceList(
-            host: host,
-            onInvite: _busy ? null : _openInviteSheet,
-          ),
           if (host.recentProposals.isNotEmpty) ...<Widget>[
             const SizedBox(height: 20),
             const Text(
@@ -229,95 +213,35 @@ class _HostDetailPageState extends State<HostDetailPage> {
           ],
         ],
       ),
-    );
-  }
-}
-
-/// Price list of the activities this host offers (picked at registration),
-/// with the platform-set fee per scene. Each row is the invitation entry
-/// for that scene. Hosts without a published list take any scene.
-class _ActivityPriceList extends StatelessWidget {
-  const _ActivityPriceList({required this.host, required this.onInvite});
-
-  final HostCard host;
-  final ValueChanged<String>? onInvite;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<String> scenes = host.hostScenes.isNotEmpty
-        ? host.hostScenes
-        : ScenePricing.config.sceneFees.keys.toList(growable: false);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: <Widget>[
-          for (int i = 0; i < scenes.length; i++) ...<Widget>[
-            if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14),
-            InkWell(
-              key: ValueKey<String>('inviteScene${scenes[i]}'),
-              onTap:
-                  onInvite == null ? null : () => onInvite!(scenes[i]),
-              borderRadius: BorderRadius.circular(14),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+      // Users invite from the profile with a scene picked in the sheet;
+      // hosts browsing a peer's profile just read.
+      bottomNavigationBar: AuthSession.isHost
+          ? null
+          : Container(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                12 + MediaQuery.paddingOf(context).bottom,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.background,
+                border: Border(top: BorderSide(color: AppColors.divider)),
+              ),
+              child: FilledButton(
+                key: const ValueKey<String>('hostInviteButton'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.darkCard,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                child: Row(
-                  children: <Widget>[
-                    const Icon(
-                      Iconsax.calendar_1,
-                      size: 15,
-                      color: AppColors.textHint,
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        AppStrings.sceneLabel(scenes[i]),
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '\u20b1${ScenePricing.feeForScene(scenes[i])}',
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.textPrimary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        AppStrings.inviteRowCta,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.onDarkPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                onPressed: _busy ? null : _openInviteSheet,
+                child: const Text(AppStrings.hostInviteCta),
               ),
             ),
-          ],
-        ],
-      ),
     );
   }
 }

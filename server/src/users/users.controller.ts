@@ -81,14 +81,6 @@ class UpdateProfileDto {
   @MaxLength(30, { each: true })
   tags?: string[];
 
-  /// Scene tags a HOST offers; drives the host detail price list and
-  /// invitation validation.
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @MaxLength(30, { each: true })
-  hostScenes?: string[];
-
   @IsOptional()
   @IsString()
   avatarUrl?: string;
@@ -150,9 +142,6 @@ export class UsersController {
         ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}),
         ...(dto.tags !== undefined
           ? { tagsJson: JSON.stringify(dto.tags) }
-          : {}),
-        ...(dto.hostScenes !== undefined
-          ? { hostScenesJson: JSON.stringify(dto.hostScenes) }
           : {}),
         ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
         ...(dto.photos !== undefined

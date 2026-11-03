@@ -210,10 +210,6 @@ abstract final class AppStrings {
   static const String setupStepPhotosSub =
       '一张主照加最多 3 张照片。主照也是真人认证的比对依据。';
   static const String setupMainPhotoBadge = '主照';
-  static const String setupStepHostScenesTitle = '你可以主持哪些活动？';
-  static const String setupStepHostScenesSub = '至少选一项，用户会从这个列表邀请你。';
-  static const String setupHostScenesLabel = '可主持的活动';
-  static const String hostScenesRequiredHint = '至少选择一项你能主持的活动';
   static const String setupNext = '下一步';
   static const String setupFinish = '完成';
   static const String setupStepSkip = '跳过';
@@ -446,8 +442,6 @@ abstract final class AppStrings {
   static const String hostNewLabel = '新人主持';
   static const String hostRecentPlanLabel = '近期方案';
   static const String hostInviteCta = '邀请';
-  static const String hostActivitiesTitle = 'TA 可主持的活动';
-  static const String inviteRowCta = '邀请';
   static String inviteSheetTitle(String name) => '邀请 $name 来主持';
   static const String inviteNoteHint = '说说你的想法（选填）';
   static String inviteFeeNote(String fee) => '对方接受后，你需支付 $fee 服务费以开启计划';

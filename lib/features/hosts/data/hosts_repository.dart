@@ -53,7 +53,6 @@ class MockHostsRepository implements HostsRepository {
           'in Makati and BGC.',
       city: 'Manila',
       tags: <String>['Coffee', 'Dessert cafes', 'Board games'],
-      hostScenes: <String>['Coffee', 'Tea'],
       completedActivities: 12,
       recentProposals: <String>[
         'Hidden cafe inside a Legazpi bookshop, Sunday 2pm',
@@ -69,7 +68,6 @@ class MockHostsRepository implements HostsRepository {
           'people still talk about a month later.',
       city: 'Manila',
       tags: <String>['Dinner', 'Japanese food', 'Hidden gems'],
-      hostScenes: <String>['Dinner'],
       completedActivities: 21,
       recentProposals: <String>[
         'Omakase counter in Little Tokyo, Thursday 7:30pm',
@@ -85,7 +83,6 @@ class MockHostsRepository implements HostsRepository {
           'the dessert place for the post-movie debrief.',
       city: 'Manila',
       tags: <String>['Movies', 'Tea', 'Long walks'],
-      hostScenes: <String>['Movie', 'Tea'],
       completedActivities: 15,
       recentProposals: <String>[
         'Director\u2019s cut screening at Power Plant, Saturday 4pm',
@@ -100,7 +97,6 @@ class MockHostsRepository implements HostsRepository {
       bio: 'Specialty coffee host and third-wave cafe regular.',
       city: 'Manila',
       tags: <String>['Coffee', 'Basketball', 'Vinyl'],
-      hostScenes: <String>['Coffee'],
       completedActivities: 8,
       recentProposals: <String>[
         'Single Origin in Salcedo, Saturday 3pm',
@@ -116,7 +112,6 @@ class MockHostsRepository implements HostsRepository {
           'a Friday and which whiskey list is actually worth it.',
       city: 'Manila',
       tags: <String>['Bars', 'Whiskey', 'Live music'],
-      hostScenes: <String>['Bar'],
       completedActivities: 18,
       recentProposals: <String>[
         'Quiet rooftop in Poblacion, Friday 9pm',

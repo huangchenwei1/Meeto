@@ -4,12 +4,14 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/hosts_repository.dart';
 
-/// Opens the invitation confirm sheet for one fixed scene and sends the
-/// invite, handling the verification prompt and duplicate-invite conflict.
-/// Shared by the proposal feed and the host detail price list.
+/// Opens the invitation confirm sheet and sends the invite, handling the
+/// verification prompt and duplicate-invite conflict. Shared by the hall
+/// (scene fixed by the proposal) and the host profile ([scene] null: the
+/// sheet lets the user pick any priced scene).
 ///
 /// [defaultNote] fills in when the user leaves the note empty — e.g. the
 /// proposal title the invitation came from, so the host sees the context.
@@ -18,23 +20,25 @@ Future<void> runInviteFlow(
   required HostsRepository repository,
   required String hostId,
   required String hostName,
-  required String scene,
+  String? scene,
   String defaultNote = '',
 }) async {
-  final String? note = await showModalBottomSheet<String>(
+  final (String, String)? result =
+      await showModalBottomSheet<(String, String)>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (_) => InviteSheet(hostName: hostName, scene: scene),
   );
-  if (note == null || !context.mounted) {
+  if (result == null || !context.mounted) {
     return;
   }
+  final (String sceneTag, String note) = result;
   await _send(
     context,
     repository: repository,
     hostId: hostId,
-    sceneTag: scene,
+    sceneTag: sceneTag,
     note: note.isEmpty ? defaultNote : note,
   );
 }
@@ -79,14 +83,16 @@ Future<void> _send(
   }
 }
 
-/// Invitation confirm sheet for one fixed scene. A proper StatefulWidget
-/// so the note controller is disposed by the sheet's own State after the
-/// route fully unmounts. Pops the (possibly empty) note text on send.
+/// Invitation confirm sheet. With a fixed [scene] (invited from a pitch)
+/// it shows the scene pill; with none (invited from the host profile) it
+/// offers all priced scenes as chips. A proper StatefulWidget so the note
+/// controller is disposed by the sheet's own State after the route fully
+/// unmounts. Pops the chosen (scene, note) on send.
 class InviteSheet extends StatefulWidget {
-  const InviteSheet({super.key, required this.hostName, required this.scene});
+  const InviteSheet({super.key, required this.hostName, this.scene});
 
   final String hostName;
-  final String scene;
+  final String? scene;
 
   @override
   State<InviteSheet> createState() => _InviteSheetState();
@@ -94,6 +100,8 @@ class InviteSheet extends StatefulWidget {
 
 class _InviteSheetState extends State<InviteSheet> {
   final TextEditingController _noteController = TextEditingController();
+  late String _scene = widget.scene ??
+      ScenePricing.config.sceneFees.keys.first;
 
   @override
   void dispose() {
@@ -103,7 +111,7 @@ class _InviteSheetState extends State<InviteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final String fee = '\u20b1${ScenePricing.feeForScene(widget.scene)}';
+    final String fee = '\u20b1${ScenePricing.feeForScene(_scene)}';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         24,
@@ -124,37 +132,48 @@ class _InviteSheetState extends State<InviteSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.textPrimary,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  AppStrings.sceneLabel(widget.scene),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onDarkPrimary,
+          if (widget.scene == null)
+            // Profile entry: the user picks the activity; fees ride the
+            // chips as everywhere else.
+            ScenePriceChips(
+              scenes: ScenePricing.config.sceneFees.keys
+                  .toList(growable: false),
+              selected: _scene,
+              onSelect: (String scene) => setState(() => _scene = scene),
+              keyPrefix: 'inviteScene',
+            )
+          else
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.textPrimary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    AppStrings.sceneLabel(_scene),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onDarkPrimary,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                fee,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                const SizedBox(width: 10),
+                Text(
+                  fee,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 14),
           TextField(
             key: const ValueKey<String>('inviteNoteField'),
@@ -183,8 +202,8 @@ class _InviteSheetState extends State<InviteSheet> {
                 backgroundColor: AppColors.darkCard,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () =>
-                  Navigator.of(context).pop(_noteController.text.trim()),
+              onPressed: () => Navigator.of(context)
+                  .pop((_scene, _noteController.text.trim())),
               child: const Text(AppStrings.inviteSendCta),
             ),
           ),

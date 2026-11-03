@@ -8,7 +8,6 @@ import '../../../shared/widgets/app_network_image.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/pages/proposal_composer_page.dart';
 import '../../profile/data/profile_repository.dart';
-import '../../profile/models/user_detail.dart';
 import '../data/community_repository.dart';
 import '../models/activity_template.dart';
 import 'feed_page.dart';
@@ -81,25 +80,11 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
   Future<void> _launch(ActivityTemplate template) async {
     final bool? posted;
     if (AuthSession.isHost) {
-      // Hosts pitch with their own offered scenes; the template is just
-      // the starting text and cover.
-      List<String> offeredScenes = const <String>[];
-      try {
-        final UserDetail? me = await widget.profileRepository
-            .fetchUserDetail(AuthSession.currentUserId);
-        offeredScenes = me?.hostScenes ?? const <String>[];
-      } on Exception {
-        // The composer falls back to all priced scenes.
-      }
-      if (!mounted) {
-        return;
-      }
       posted = await Navigator.of(context).push(
         MaterialPageRoute<bool>(
           fullscreenDialog: true,
           builder: (_) => ProposalComposerPage(
             repository: widget.hostsRepository,
-            offeredScenes: offeredScenes,
             template: template,
           ),
         ),
