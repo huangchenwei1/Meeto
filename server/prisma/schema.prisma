@@ -87,6 +87,9 @@ model Invitation {
   hostId      String
   host        User      @relation("invitedHost", fields: [hostId], references: [id])
   sceneTag    String
+  // Activity budget tier the inviter picked; snapshotted so repricing
+  // never changes a pending invitation.
+  budgetMinor Int       @default(0)
   note        String    @default("")
   status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
   postId      String    @default("") // set when accepted
@@ -105,7 +108,7 @@ model PricingConfig {
   id                Int      @id @default(1)
   platformFeeRateBp Int
   defaultFeeMinor   Int
-  sceneFeesJson     String // JSON object: scene tag -> fee minor units
+  sceneBudgetTiersJson     String // JSON object: scene tag -> fee minor units
   updatedAt         DateTime @updatedAt
 }
 

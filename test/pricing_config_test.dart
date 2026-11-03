@@ -9,8 +9,13 @@ void main() {
       const PricingConfig config = PricingConfig.defaults;
       expect(config.platformFeeRate, 0.10);
       expect(config.platformFeeLabel, '10%');
-      expect(config.feeForScene('Dinner'), 4000);
-      expect(config.feeForScene('UnknownScene'), config.defaultFee);
+      expect(config.tiersForScene('Dinner'), <int>[3000, 4000, 6000]);
+      expect(config.defaultBudgetForScene('Dinner'), 4000);
+      expect(
+        config.tiersForScene('UnknownScene'),
+        <int>[config.defaultFee],
+      );
+      expect(config.defaultBudgetForScene('UnknownScene'), config.defaultFee);
       expect(config.netEarnings(1000), 900);
     });
 
@@ -21,12 +26,15 @@ void main() {
       // Simulates the platform tuning the commission via server config.
       ScenePricing.config = PricingConfig.fromJson(<String, dynamic>{
         'platformFeeRate': 0.15,
-        'sceneFees': <String, dynamic>{'Coffee': 700},
+        'sceneBudgetTiers': <String, dynamic>{
+          'Coffee': <dynamic>[500, 700, 900],
+        },
         'defaultFee': 700,
       });
 
       expect(ScenePricing.platformFeeLabel, '15%');
-      expect(ScenePricing.feeForScene('Coffee'), 700);
+      expect(ScenePricing.tiersForScene('Coffee'), <int>[500, 700, 900]);
+      expect(ScenePricing.defaultBudgetForScene('Coffee'), 700);
       expect(ScenePricing.netEarnings(700), 595);
     });
 

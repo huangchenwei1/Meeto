@@ -41,9 +41,8 @@ class FormFieldLabel extends StatelessWidget {
   }
 }
 
-/// Scene selector with the platform fee inline on each chip — the single
-/// place either composer surfaces pricing (fees are platform-set, so the
-/// chip is informational, not an input).
+/// Scene selector chips (no money: the budget tier picker carries the
+/// price, so the scene chip is just the activity type).
 class ScenePriceChips extends StatelessWidget {
   const ScenePriceChips({
     super.key,
@@ -83,8 +82,7 @@ class ScenePriceChips extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                '${AppStrings.sceneLabel(scene)} \u00b7 '
-                '${MoneyFormat.format(ScenePricing.feeForScene(scene))}',
+                AppStrings.sceneLabel(scene),
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -160,25 +158,108 @@ class OptionChips extends StatelessWidget {
   }
 }
 
-/// Prominent read-only budget block shared by both composers. The platform
-/// prices the whole activity: the host arranges and pays for it out of the
-/// budget and keeps the remainder, so the composers show the number instead
-/// of a scene picker (the scene is fixed by the launched template).
-class ActivityBudgetPanel extends StatelessWidget {
-  const ActivityBudgetPanel({
+/// Budget tier picker: the platform prices the whole activity in a few
+/// tiers per scene and the poster picks one — free pricing never exists.
+/// Used by the request composer and the invite sheet.
+class BudgetTierChips extends StatelessWidget {
+  const BudgetTierChips({
+    super.key,
+    required this.sceneTag,
+    required this.selected,
+    required this.onSelect,
+    required this.note,
+    this.keyPrefix = 'budgetTier',
+  });
+
+  /// Scene whose platform tiers are offered (from the launched template).
+  final String sceneTag;
+
+  /// Currently picked tier (whole pesos).
+  final int selected;
+
+  final ValueChanged<int> onSelect;
+
+  /// Role-specific one-liner explaining what the budget covers.
+  final String note;
+
+  /// ValueKey prefix so each surface's chips stay addressable in tests.
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: <Widget>[
+            for (final int tier in ScenePricing.tiersForScene(sceneTag))
+              InkWell(
+                key: ValueKey<String>('$keyPrefix$tier'),
+                onTap: () => onSelect(tier),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected == tier
+                        ? AppColors.darkCard
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    MoneyFormat.format(tier),
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: selected == tier
+                          ? AppColors.onDarkPrimary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          note,
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Read-only budget range block for the host composer: the pitch itself
+/// carries no price — the inviting user picks the tier — so the host just
+/// sees what the scene can pay.
+class BudgetRangePanel extends StatelessWidget {
+  const BudgetRangePanel({
     super.key,
     required this.sceneTag,
     required this.note,
   });
 
-  /// Scene the budget is priced for (from the launched template).
   final String sceneTag;
 
-  /// Role-specific one-liner explaining what the budget covers.
+  /// One-liner explaining what the budget covers.
   final String note;
 
   @override
   Widget build(BuildContext context) {
+    final List<int> tiers = ScenePricing.tiersForScene(sceneTag);
+    final String range = tiers.length == 1
+        ? MoneyFormat.format(tiers.first)
+        : '${MoneyFormat.format(tiers.first)}\u2013'
+            '${MoneyFormat.format(tiers.last)}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -190,7 +271,7 @@ class ActivityBudgetPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            MoneyFormat.format(ScenePricing.feeForScene(sceneTag)),
+            range,
             key: const ValueKey<String>('activityBudgetAmount'),
             style: const TextStyle(
               fontSize: 26,

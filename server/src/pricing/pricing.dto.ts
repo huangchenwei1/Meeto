@@ -14,7 +14,8 @@ export class PricingConfigDto {
   @Type(() => Number)
   defaultFeeMinor!: number;
 
-  /// Scene tag -> match fee in minor units.
+  /// Scene tag -> selectable activity budget tiers (minor units, ascending).
+  /// The poster picks one; the middle tier is the default.
   @IsObject()
-  sceneFees!: Record<string, number>;
+  sceneBudgetTiers!: Record<string, number[]>;
 }

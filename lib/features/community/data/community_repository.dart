@@ -19,6 +19,7 @@ class CreatePostInput {
     this.timeSlot = '',
     this.area = '',
     this.imageUrl = '',
+    this.budget = 0,
   });
 
   final String sceneTag;
@@ -26,6 +27,10 @@ class CreatePostInput {
   final String description;
   final String timeSlot;
   final String area;
+
+  /// Activity budget tier pick (whole pesos); 0 -> the platform default
+  /// (middle) tier for the scene.
+  final int budget;
 
   /// Cover photo; template launches pass the template cover.
   final String imageUrl;
@@ -451,7 +456,9 @@ class MockCommunityRepository implements CommunityRepository {
           : SceneImages.forScene(input.sceneTag),
       author: currentUserAuthor,
       createdAt: DateTime.now(),
-      budgetAmount: ScenePricing.feeForScene(input.sceneTag),
+      budgetAmount: input.budget > 0
+          ? input.budget
+          : ScenePricing.defaultBudgetForScene(input.sceneTag),
     );
     _posts.insert(0, post);
     _scheduleDemoCandidates(post.id);

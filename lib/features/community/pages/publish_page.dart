@@ -40,10 +40,11 @@ class _PublishPageState extends State<PublishPage> {
   late final String _scene = () {
     final String? fromTemplate = widget.template?.sceneTag;
     return fromTemplate != null &&
-            ScenePricing.config.sceneFees.containsKey(fromTemplate)
+            ScenePricing.config.sceneBudgetTiers.containsKey(fromTemplate)
         ? fromTemplate
-        : ScenePricing.config.sceneFees.keys.first;
+        : ScenePricing.scenes.first;
   }();
+  late int _budget = ScenePricing.defaultBudgetForScene(_scene);
   String _timeSlot = '';
   String _area = '';
   bool _submitting = false;
@@ -80,6 +81,7 @@ class _PublishPageState extends State<PublishPage> {
               : _descController.text.trim(),
           timeSlot: _timeSlot,
           area: _area,
+          budget: _budget,
           // Template launches keep the curated cover; a scene default
           // covers blank launches server-side.
           imageUrl: scene == widget.template?.sceneTag
@@ -127,9 +129,12 @@ class _PublishPageState extends State<PublishPage> {
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: <Widget>[
           const FormFieldLabel(AppStrings.activityBudgetLabel),
-          ActivityBudgetPanel(
+          BudgetTierChips(
             sceneTag: _scene,
+            selected: _budget,
+            onSelect: (int tier) => setState(() => _budget = tier),
             note: AppStrings.budgetCoversNoteUser,
+            keyPrefix: 'publishBudget',
           ),
           const FormFieldLabel(AppStrings.publishFieldTitle),
           TextField(

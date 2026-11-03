@@ -134,6 +134,9 @@ class ApiClient {
 /// Converts server minor units (centavos) to the whole pesos the UI renders.
 int minorToPesos(int minor) => (minor / 100).round();
 
+/// Whole pesos -> server minor units (centavos).
+int pesosToMinor(int pesos) => pesos * 100;
+
 MediaType _imageMediaType(String filename) {
   final String ext = filename.split('.').last.toLowerCase();
   switch (ext) {

@@ -39,7 +39,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
   final TextEditingController _descController = TextEditingController();
   // Any priced scene goes: what a host offers is whatever they pitch.
   late final List<String> _scenes =
-      ScenePricing.config.sceneFees.keys.toList(growable: false);
+      ScenePricing.scenes;
   late final String _scene = () {
     final String? fromTemplate = widget.template?.sceneTag;
     return fromTemplate != null && _scenes.contains(fromTemplate)
@@ -155,9 +155,11 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: <Widget>[
             // Budget -> title -> description: same order and widgets as
-            // the users' request composer.
+            // the users' request composer. The pitch itself carries no
+            // price: the inviting user picks the tier, so the host sees
+            // the scene's range.
             const FormFieldLabel(AppStrings.activityBudgetLabel),
-            ActivityBudgetPanel(
+            BudgetRangePanel(
               sceneTag: _scene,
               note: AppStrings.budgetCoversNoteHost,
             ),

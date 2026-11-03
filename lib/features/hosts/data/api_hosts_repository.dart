@@ -61,6 +61,7 @@ class ApiHostsRepository implements HostsRepository {
   Future<InvitationRecord> invite({
     required String hostId,
     required String sceneTag,
+    required int budget,
     required String note,
   }) async {
     return InvitationRecord.fromJson(
@@ -69,6 +70,7 @@ class ApiHostsRepository implements HostsRepository {
         body: <String, dynamic>{
           'hostId': hostId,
           'sceneTag': sceneTag,
+          'budgetMinor': pesosToMinor(budget),
           'note': note,
         },
       ) as Map<String, dynamic>,

@@ -22,7 +22,7 @@ void main() {
       );
 
       // Pricing is platform-set per scene, not chosen by the poster.
-      expect(post.budgetAmount, ScenePricing.feeForScene('Dinner'));
+      expect(post.budgetAmount, ScenePricing.defaultBudgetForScene('Dinner'));
 
       final List<List<PostAuthor>> emissions = <List<PostAuthor>>[];
       final StreamSubscription<List<PostAuthor>> sub =

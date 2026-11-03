@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PricingConfigDto } from './pricing.dto.js';
 
@@ -24,7 +24,10 @@ export class PricingService {
     return {
       platformFeeRateBp: row.platformFeeRateBp,
       defaultFeeMinor: row.defaultFeeMinor,
-      sceneFees: JSON.parse(row.sceneFeesJson) as Record<string, number>,
+      sceneBudgetTiers: JSON.parse(row.sceneBudgetTiersJson) as Record<
+        string,
+        number[]
+      >,
     };
   }
 
@@ -34,15 +37,30 @@ export class PricingService {
       data: {
         platformFeeRateBp: input.platformFeeRateBp,
         defaultFeeMinor: input.defaultFeeMinor,
-        sceneFeesJson: JSON.stringify(input.sceneFees),
+        sceneBudgetTiersJson: JSON.stringify(input.sceneBudgetTiers),
       },
     });
     return input;
   }
 
-  async feeForScene(sceneTag: string): Promise<number> {
+  /// Resolves the activity budget for a post or invitation. The platform
+  /// prices in tiers: a missing pick falls back to the middle tier; a pick
+  /// outside the scene's tier list is rejected (posters cannot free-price).
+  async resolveBudget(
+    sceneTag: string,
+    budgetMinor?: number,
+  ): Promise<number> {
     const config = await this.getConfig();
-    return config.sceneFees[sceneTag] ?? config.defaultFeeMinor;
+    const tiers = config.sceneBudgetTiers[sceneTag] ?? [
+      config.defaultFeeMinor,
+    ];
+    if (budgetMinor === undefined) {
+      return tiers[Math.floor((tiers.length - 1) / 2)];
+    }
+    if (!tiers.includes(budgetMinor)) {
+      throw new BadRequestException('INVALID_BUDGET');
+    }
+    return budgetMinor;
   }
 
   /// ACCOUNTING INVARIANT: commission is rounded, net is the exact

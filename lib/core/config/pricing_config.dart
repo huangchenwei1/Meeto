@@ -2,7 +2,8 @@
 ///
 /// PRODUCT RULES (confirmed):
 /// - The price buys the whole activity, not companionship: the platform
-///   sets an activity budget per scene; posters cannot price.
+///   defines budget tiers per scene and the poster picks one; free
+///   pricing is never allowed.
 /// - The host covers the activity costs (food, drinks, tickets) out of the
 ///   budget and keeps the remainder as hosting income.
 /// - The poster always pays the budget; signing up as a host is free.
@@ -15,15 +16,20 @@
 class PricingConfig {
   const PricingConfig({
     required this.platformFeeRate,
-    required this.sceneFees,
+    required this.sceneBudgetTiers,
     required this.defaultFee,
   });
 
   factory PricingConfig.fromJson(Map<String, dynamic> json) {
     return PricingConfig(
       platformFeeRate: (json['platformFeeRate'] as num).toDouble(),
-      sceneFees: (json['sceneFees'] as Map<String, dynamic>)
-          .map((String key, dynamic value) => MapEntry(key, value as int)),
+      sceneBudgetTiers: (json['sceneBudgetTiers'] as Map<String, dynamic>)
+          .map(
+        (String key, dynamic value) => MapEntry(
+          key,
+          (value as List<dynamic>).cast<int>(),
+        ),
+      ),
       defaultFee: json['defaultFee'] as int,
     );
   }
@@ -31,12 +37,12 @@ class PricingConfig {
   /// Fallback used until the server config has loaded (and in tests).
   static const PricingConfig defaults = PricingConfig(
     platformFeeRate: 0.10,
-    sceneFees: <String, int>{
-      'Coffee': 1500,
-      'Dinner': 4000,
-      'Bar': 3500,
-      'Movie': 2500,
-      'Tea': 1800,
+    sceneBudgetTiers: <String, List<int>>{
+      'Coffee': <int>[1000, 1500, 2500],
+      'Tea': <int>[1200, 1800, 2800],
+      'Movie': <int>[1800, 2500, 3500],
+      'Bar': <int>[2500, 3500, 5000],
+      'Dinner': <int>[3000, 4000, 6000],
     },
     defaultFee: 2000,
   );
@@ -44,16 +50,24 @@ class PricingConfig {
   /// Platform commission taken from the service fee on settlement (0..1).
   final double platformFeeRate;
 
-  /// Platform-set service fee (whole pesos) per scene tag.
-  final Map<String, int> sceneFees;
+  /// Platform-defined activity budget tiers (whole pesos, ascending) per
+  /// scene tag; the poster picks one.
+  final Map<String, List<int>> sceneBudgetTiers;
 
-  /// Fee applied when a scene has no explicit entry.
+  /// Single-tier fallback when a scene has no explicit tier list.
   final int defaultFee;
 
   /// Display label derived from the rate, e.g. 0.10 -> "10%".
   String get platformFeeLabel => '${(platformFeeRate * 100).round()}%';
 
-  int feeForScene(String scene) => sceneFees[scene] ?? defaultFee;
+  List<int> tiersForScene(String scene) =>
+      sceneBudgetTiers[scene] ?? <int>[defaultFee];
+
+  /// The default pick: the middle tier.
+  int defaultBudgetForScene(String scene) {
+    final List<int> tiers = tiersForScene(scene);
+    return tiers[(tiers.length - 1) ~/ 2];
+  }
 
   /// What the host receives after the platform commission.
   int netEarnings(int fee) => (fee * (1 - platformFeeRate)).round();
@@ -61,7 +75,7 @@ class PricingConfig {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'platformFeeRate': platformFeeRate,
-      'sceneFees': sceneFees,
+      'sceneBudgetTiers': sceneBudgetTiers,
       'defaultFee': defaultFee,
     };
   }

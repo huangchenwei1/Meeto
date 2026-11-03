@@ -14,7 +14,16 @@ abstract final class ScenePricing {
   /// Display label derived from the rate, e.g. "10%".
   static String get platformFeeLabel => config.platformFeeLabel;
 
-  static int feeForScene(String scene) => config.feeForScene(scene);
+  /// Scene tags that have platform pricing (the composer scene universe).
+  static List<String> get scenes =>
+      config.sceneBudgetTiers.keys.toList(growable: false);
+
+  static List<int> tiersForScene(String scene) =>
+      config.tiersForScene(scene);
+
+  /// The default pick: the middle tier.
+  static int defaultBudgetForScene(String scene) =>
+      config.defaultBudgetForScene(scene);
 
   /// What the host receives after the platform commission.
   static int netEarnings(int fee) => config.netEarnings(fee);

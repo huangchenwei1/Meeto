@@ -51,7 +51,7 @@ class ApiCommunityRepository implements CommunityRepository {
   @override
   Future<List<String>> fetchScenes() async {
     // Scenes are defined by the platform pricing table.
-    return ScenePricing.config.sceneFees.keys.toList(growable: false);
+    return ScenePricing.scenes;
   }
 
   @override
@@ -74,6 +74,7 @@ class ApiCommunityRepository implements CommunityRepository {
         'detail': input.description,
         if (input.timeSlot.isNotEmpty) 'timeSlot': input.timeSlot,
         if (input.area.isNotEmpty) 'area': input.area,
+        if (input.budget > 0) 'budgetMinor': pesosToMinor(input.budget),
         'imageUrl': input.imageUrl.isNotEmpty
             ? input.imageUrl
             : SceneImages.forScene(input.sceneTag),

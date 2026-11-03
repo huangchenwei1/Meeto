@@ -14,14 +14,18 @@ class ApiConfigRepository implements ConfigRepository {
   Future<PricingConfig> fetchPricingConfig() async {
     final Map<String, dynamic> json =
         await _client.get('/config/pricing') as Map<String, dynamic>;
-    final Map<String, dynamic> sceneFees =
-        json['sceneFees'] as Map<String, dynamic>;
+    final Map<String, dynamic> tiers =
+        json['sceneBudgetTiers'] as Map<String, dynamic>;
     return PricingConfig(
       platformFeeRate: (json['platformFeeRateBp'] as int) / 10000,
       defaultFee: minorToPesos(json['defaultFeeMinor'] as int),
-      sceneFees: sceneFees.map(
-        (String scene, dynamic fee) =>
-            MapEntry(scene, minorToPesos(fee as int)),
+      sceneBudgetTiers: tiers.map(
+        (String scene, dynamic tierList) => MapEntry(
+          scene,
+          (tierList as List<dynamic>)
+              .map((dynamic t) => minorToPesos(t as int))
+              .toList(growable: false),
+        ),
       ),
     );
   }

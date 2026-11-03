@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -43,6 +44,13 @@ export class CreatePostDto {
   @IsString()
   @MaxLength(60)
   area?: string;
+
+  /// Activity budget tier pick (minor units). Must be one of the platform
+  /// tiers for the scene; omitted -> the middle tier.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  budgetMinor?: number;
 }
 
 export class CreateMomentDto {

@@ -27,6 +27,9 @@ abstract interface class HostsRepository {
   Future<InvitationRecord> invite({
     required String hostId,
     required String sceneTag,
+
+    /// Activity budget tier pick (whole pesos).
+    required int budget,
     required String note,
   });
 
@@ -244,6 +247,7 @@ class MockHostsRepository implements HostsRepository {
   Future<InvitationRecord> invite({
     required String hostId,
     required String sceneTag,
+    required int budget,
     required String note,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));

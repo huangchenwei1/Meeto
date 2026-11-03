@@ -9,10 +9,12 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import {
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { AuthGuard, CurrentUser } from '../common/auth.guard.js';
 import { HostsService } from './hosts.service.js';
@@ -53,6 +55,13 @@ class InviteDto {
   @IsNotEmpty()
   @MaxLength(40)
   sceneTag!: string;
+
+  /// Activity budget tier pick (minor units). Must be one of the platform
+  /// tiers for the scene; omitted -> the middle tier.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  budgetMinor?: number;
 
   @IsOptional()
   @IsString()
@@ -107,7 +116,13 @@ export class InvitationsController {
 
   @Post()
   invite(@CurrentUser() user: User, @Body() dto: InviteDto) {
-    return this.hosts.invite(user, dto.hostId, dto.sceneTag, dto.note ?? '');
+    return this.hosts.invite(
+      user,
+      dto.hostId,
+      dto.sceneTag,
+      dto.note ?? '',
+      dto.budgetMinor,
+    );
   }
 
   @Get()

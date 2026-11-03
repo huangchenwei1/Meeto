@@ -55,7 +55,9 @@ describe('Meeto API (e2e)', () => {
   it('serves the public pricing config without auth', async () => {
     const res = await api().get('/config/pricing').expect(200);
     expect(res.body.platformFeeRateBp).toBe(1000);
-    expect(res.body.sceneFees.Dinner).toBe(400000);
+    expect(res.body.sceneBudgetTiers.Dinner).toEqual([
+      300000, 400000, 600000,
+    ]);
   });
 
   it('rejects unauthenticated requests elsewhere', async () => {
@@ -352,6 +354,39 @@ describe('Meeto API (e2e)', () => {
       }
     });
 
+    it('the poster picks a platform tier; free pricing is rejected', async () => {
+      // Low Dinner tier picked explicitly.
+      const low = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          sceneTag: 'Dinner',
+          title: 'Dinner on the starter tier',
+          budgetMinor: 300000,
+        })
+        .expect(201);
+      expect(low.body.feeMinor).toBe(300000);
+
+      // An amount outside the scene's tier list is rejected: the platform
+      // prices, the poster only picks.
+      const rejected = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          sceneTag: 'Dinner',
+          title: 'Free-priced dinner',
+          budgetMinor: 123456,
+        })
+        .expect(400);
+      expect(rejected.body.message).toBe('INVALID_BUDGET');
+
+      // Clean up so the hall stays predictable for later tests.
+      await api()
+        .delete(`/posts/${low.body.id}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+    });
+
     it('demand posts carry the fuzzy slot and area through to the hall', async () => {
       // Publish from a template: fuzzy window + rough district only; the
       // exact schedule still arrives later via the plan flow.
@@ -625,6 +660,7 @@ describe('Meeto API (e2e)', () => {
         })
         .expect(201);
       postId = res.body.id;
+      // No explicit tier pick -> the middle Dinner tier.
       expect(res.body.feeMinor).toBe(400000);
       expect(res.body.status).toBe('OPEN');
       // Posts carry no structured time or place: the host proposes the
@@ -1216,10 +1252,12 @@ describe('Meeto API (e2e)', () => {
           hostId: BIANCA,
           sceneTag: 'Coffee',
           note: 'Plan me a quiet cafe afternoon',
+          budgetMinor: 250000, // top Coffee tier, snapshotted on the invite
         })
         .expect(201);
       invitationId = res.body.id;
       expect(res.body.status).toBe('PENDING');
+      expect(res.body.budgetMinor).toBe(250000);
       expect(res.body.from.id).toBe(ANDREA);
       expect(res.body.host.id).toBe(BIANCA);
 
@@ -1276,7 +1314,7 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(BIANCA);
-      expect(res.body.feeMinor).toBe(150000); // Coffee budget snapshot
+      expect(res.body.feeMinor).toBe(250000); // the tier picked at invite time
 
       // The inviter was notified with the order reference.
       const inbox = await api()
@@ -1485,7 +1523,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           platformFeeRateBp: 1500,
           defaultFeeMinor: 60000,
-          sceneFees: { Coffee: 70000 },
+          sceneBudgetTiers: { Coffee: [70000] },
         })
         .expect(403);
 
@@ -1495,7 +1533,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           platformFeeRateBp: 1500,
           defaultFeeMinor: 60000,
-          sceneFees: { Coffee: 70000, Dinner: 100000 },
+          sceneBudgetTiers: { Coffee: [70000], Dinner: [100000] },
         })
         .expect(200);
 

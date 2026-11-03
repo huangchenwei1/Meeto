@@ -47,6 +47,8 @@ export interface ProposalDto {
 export interface InvitationDto {
   id: string;
   sceneTag: string;
+  /// Activity budget tier snapshotted at invite time (minor units).
+  budgetMinor: number;
   note: string;
   status: string;
   from: PublicUser;
@@ -175,6 +177,7 @@ export class HostsService {
     hostId: string,
     sceneTag: string,
     note: string,
+    budgetMinor?: number,
   ): Promise<InvitationDto> {
     assertVerified(caller);
     if (caller.role === Role.host) {
@@ -196,8 +199,19 @@ export class HostsService {
     if (pending) {
       throw new ConflictException('INVITE_ALREADY_PENDING');
     }
+    // Snapshot the tier pick now so platform repricing never changes a
+    // pending invitation under the host's feet.
     const invitation = await this.prisma.invitation.create({
-      data: { fromUserId: caller.id, hostId, sceneTag, note },
+      data: {
+        fromUserId: caller.id,
+        hostId,
+        sceneTag,
+        note,
+        budgetMinor: await this.pricingService.resolveBudget(
+          sceneTag,
+          budgetMinor,
+        ),
+      },
       include: { from: true, host: true },
     });
     await this.notifications.notify(this.prisma, {
@@ -229,9 +243,12 @@ export class HostsService {
   async accept(caller: User, invitationId: string): Promise<OrderDto> {
     assertVerified(caller);
     const invitation = await this.findPendingForHost(caller, invitationId);
-    const feeMinor = await this.pricingService.feeForScene(
-      invitation.sceneTag,
-    );
+    // The budget was snapshotted at invite time; legacy rows without one
+    // fall back to the scene's default tier.
+    const feeMinor =
+      invitation.budgetMinor > 0
+        ? invitation.budgetMinor
+        : await this.pricingService.resolveBudget(invitation.sceneTag);
     const split = await this.pricingService.splitFee(feeMinor);
     const order = await this.prisma.$transaction(async (tx) => {
       const post = await tx.post.create({
@@ -352,6 +369,7 @@ export class HostsService {
     return {
       id: invitation.id,
       sceneTag: invitation.sceneTag,
+      budgetMinor: invitation.budgetMinor,
       note: invitation.note,
       status: invitation.status,
       from: toPublicUser(invitation.from),

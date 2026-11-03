@@ -5,18 +5,19 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Platform-set activity budgets: the price buys the whole activity. The
+// Platform-set activity budget tiers: the price buys the whole activity.
+// The poster picks one tier per scene (defaulting to the middle one); the
 // host covers the activity costs (food, drinks, tickets) out of it and
 // keeps the remainder as hosting income, minus the platform commission.
 const PRICING = {
   platformFeeRateBp: 1000, // 10%
-  defaultFeeMinor: 200000, // PHP 2,000.00
-  sceneFeesJson: JSON.stringify({
-    Coffee: 150000,
-    Dinner: 400000,
-    Bar: 350000,
-    Movie: 250000,
-    Tea: 180000,
+  defaultFeeMinor: 200000, // PHP 2,000.00 — scenes without a tier list
+  sceneBudgetTiersJson: JSON.stringify({
+    Coffee: [100000, 150000, 250000],
+    Tea: [120000, 180000, 280000],
+    Movie: [180000, 250000, 350000],
+    Bar: [250000, 350000, 500000],
+    Dinner: [300000, 400000, 600000],
   }),
 };
 

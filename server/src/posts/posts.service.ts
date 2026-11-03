@@ -80,8 +80,12 @@ export class PostsService {
     if (author.role === Role.host) {
       throw new ForbiddenException('Hosts cannot post activity requests');
     }
-    // Snapshot the platform fee so later repricing never affects this post.
-    const feeMinor = await this.pricingService.feeForScene(input.sceneTag);
+    // The poster picks a platform-defined budget tier (middle tier when
+    // unspecified); the snapshot keeps later repricing away from this post.
+    const feeMinor = await this.pricingService.resolveBudget(
+      input.sceneTag,
+      input.budgetMinor,
+    );
     const post = await this.prisma.post.create({
       data: {
         authorId: author.id,
