@@ -37,13 +37,13 @@ void main() {
       await pumpHall(tester);
 
       // Open demand posts appear with the pitch pill; in-progress
-      // activities and moments stay out. No money on cards — budgets live
-      // on the detail page.
+      // activities and moments stay out. The activity budget rides on the
+      // request card: it is the host's core take-the-gig signal.
       expect(
         find.text('Show me a cafe worth leaving BGC for'),
         findsOneWidget,
       );
-      expect(find.textContaining('\u20b1'), findsNothing);
+      expect(find.text('\u20b11,500'), findsWidgets);
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
       expect(find.text('Movie night with an actual plan'), findsNothing);
       expect(find.textContaining('omakase counter'), findsNothing);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
@@ -33,8 +34,16 @@ class _PublishPageState extends State<PublishPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
-  List<String> _scenes = <String>[];
-  String? _selectedScene;
+  // The scene is fixed by the launched template — the shelf is the only
+  // publish entry — so the composer surfaces the platform-set activity
+  // budget instead of a scene picker.
+  late final String _scene = () {
+    final String? fromTemplate = widget.template?.sceneTag;
+    return fromTemplate != null &&
+            ScenePricing.config.sceneFees.containsKey(fromTemplate)
+        ? fromTemplate
+        : ScenePricing.config.sceneFees.keys.first;
+  }();
   String _timeSlot = '';
   String _area = '';
   bool _submitting = false;
@@ -47,7 +56,6 @@ class _PublishPageState extends State<PublishPage> {
       _titleController.text = template.title;
       _descController.text = template.description;
     }
-    _loadScenes();
   }
 
   @override
@@ -57,23 +65,8 @@ class _PublishPageState extends State<PublishPage> {
     super.dispose();
   }
 
-  Future<void> _loadScenes() async {
-    final List<String> scenes = await widget.repository.fetchScenes();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _scenes = scenes;
-      final String? fromTemplate = widget.template?.sceneTag;
-      _selectedScene =
-          fromTemplate != null && scenes.contains(fromTemplate)
-              ? fromTemplate
-              : scenes.first;
-    });
-  }
-
   Future<void> _submit() async {
-    final String scene = _selectedScene ?? _scenes.first;
+    final String scene = _scene;
     setState(() => _submitting = true);
     try {
       await widget.repository.createPost(
@@ -133,13 +126,10 @@ class _PublishPageState extends State<PublishPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: <Widget>[
-          const FormFieldLabel(AppStrings.publishScene),
-          ScenePriceChips(
-            scenes: _scenes,
-            selected: _selectedScene,
-            onSelect: (String scene) =>
-                setState(() => _selectedScene = scene),
-            keyPrefix: 'publishScene',
+          const FormFieldLabel(AppStrings.activityBudgetLabel),
+          ActivityBudgetPanel(
+            sceneTag: _scene,
+            note: AppStrings.budgetCoversNoteUser,
           ),
           const FormFieldLabel(AppStrings.publishFieldTitle),
           TextField(

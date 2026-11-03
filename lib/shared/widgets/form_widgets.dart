@@ -159,3 +159,56 @@ class OptionChips extends StatelessWidget {
     );
   }
 }
+
+/// Prominent read-only budget block shared by both composers. The platform
+/// prices the whole activity: the host arranges and pays for it out of the
+/// budget and keeps the remainder, so the composers show the number instead
+/// of a scene picker (the scene is fixed by the launched template).
+class ActivityBudgetPanel extends StatelessWidget {
+  const ActivityBudgetPanel({
+    super.key,
+    required this.sceneTag,
+    required this.note,
+  });
+
+  /// Scene the budget is priced for (from the launched template).
+  final String sceneTag;
+
+  /// Role-specific one-liner explaining what the budget covers.
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: AppColors.accentSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            MoneyFormat.format(ScenePricing.feeForScene(sceneTag)),
+            key: const ValueKey<String>('activityBudgetAmount'),
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.accent,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            note,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

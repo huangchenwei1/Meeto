@@ -8,6 +8,7 @@ import '../../../core/env/app_env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/form_widgets.dart';
@@ -426,6 +427,10 @@ class _RequestCard extends StatelessWidget {
       description: post.description,
       infoIcon: Iconsax.clock,
       infoText: _infoLine,
+      // The activity budget is the host's core take-the-gig signal, so it
+      // rides on the card footer.
+      footerIcon: Iconsax.empty_wallet,
+      footerText: MoneyFormat.format(post.budgetAmount),
       action: !isHost
           ? const SizedBox.shrink()
           : post.hasApplied

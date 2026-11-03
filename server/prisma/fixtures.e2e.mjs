@@ -28,7 +28,7 @@ const POSTS = [
       'conversation. Time is flexible this week.',
     imageUrl:
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 60000,
+    feeMinor: 150000,
     createdAt: hoursAgo(1),
   },
   {
@@ -46,7 +46,7 @@ const POSTS = [
       'never find alone. Weeknights after 7 work best. Meal is on me.',
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 100000,
+    feeMinor: 400000,
     createdAt: hoursAgo(3),
   },
   {
@@ -67,7 +67,7 @@ const POSTS = [
       'it after. Saturday afternoon preferred. Tickets and snacks on me.',
     imageUrl:
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 80000,
+    feeMinor: 250000,
     createdAt: hoursAgo(24),
   },
   {
@@ -85,7 +85,7 @@ const POSTS = [
       'everything, I just show up. Desserts are on me.',
     imageUrl:
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 65000,
+    feeMinor: 180000,
     createdAt: hoursAgo(48),
   },
 ];
@@ -207,9 +207,9 @@ const ORDERS = [
     payerId: 'user-103',
     earnerId: 'host-203',
     status: 'ACTIVE',
-    feeMinor: 80000,
-    commissionMinor: 8000,
-    netMinor: 72000,
+    feeMinor: 250000,
+    commissionMinor: 25000,
+    netMinor: 225000,
   },
 ];
 

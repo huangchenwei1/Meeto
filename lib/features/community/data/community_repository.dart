@@ -205,7 +205,7 @@ class MockCommunityRepository implements CommunityRepository {
         imageUrl: SceneImages.forScene('Coffee'),
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),
-        budgetAmount: 600,
+        budgetAmount: 1500,
       ),
       ActivityPost(
         id: 'post-002',
@@ -223,7 +223,7 @@ class MockCommunityRepository implements CommunityRepository {
         imageUrl: SceneImages.forScene('Dinner'),
         author: _paolo,
         createdAt: now.subtract(const Duration(hours: 3)),
-        budgetAmount: 1000,
+        budgetAmount: 4000,
       ),
       ActivityPost(
         // In progress: Liza's plan is selected, mirroring the seeded
@@ -243,7 +243,7 @@ class MockCommunityRepository implements CommunityRepository {
         imageUrl: SceneImages.forScene('Movie'),
         author: _marco,
         createdAt: now.subtract(const Duration(hours: 24)),
-        budgetAmount: 800,
+        budgetAmount: 2500,
         status: 'MATCHED',
         selectedHost: _liza,
       ),
@@ -262,7 +262,7 @@ class MockCommunityRepository implements CommunityRepository {
         imageUrl: SceneImages.forScene('Tea'),
         author: _andrea,
         createdAt: now.subtract(const Duration(hours: 48)),
-        budgetAmount: 650,
+        budgetAmount: 1800,
       ),
       ActivityPost(
         id: 'moment-001',

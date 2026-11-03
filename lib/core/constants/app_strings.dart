@@ -134,7 +134,9 @@ abstract final class AppStrings {
 
   // Publish
   static const String publishTitle = '发布活动';
-  static const String publishScene = '场景';
+  static const String activityBudgetLabel = '活动预算';
+  static const String budgetCoversNoteUser = '预算包含全部活动开销，由主持人安排这场活动';
+  static const String budgetCoversNoteHost = '预算包含活动开销，安排得当，结余就是你的收入';
   static const String publishFieldTitle = '标题';
   static const String publishFieldDesc = '描述';
   static const String publishFieldDescHint = '说说你想做什么、期待什么样的同伴';
@@ -420,7 +422,6 @@ abstract final class AppStrings {
   static const String proposalTitleHint = '想带大家去做什么？比如：去听一场 live';
   static const String proposalDescHint = '例如：店里安静、豆子好，适合慢慢聊……';
   static const String proposalCoverLabel = '封面图（选填）';
-  static const String proposalSceneLabel = '活动场景';
   static const String proposalAreaLabel = '活动区域（选填）';
   static const String proposalPublishCta = '发布';
   static const String proposalPostedSnack = '提案已发布';

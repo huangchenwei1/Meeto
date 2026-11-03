@@ -9,7 +9,7 @@ void main() {
       const PricingConfig config = PricingConfig.defaults;
       expect(config.platformFeeRate, 0.10);
       expect(config.platformFeeLabel, '10%');
-      expect(config.feeForScene('Dinner'), 1000);
+      expect(config.feeForScene('Dinner'), 4000);
       expect(config.feeForScene('UnknownScene'), config.defaultFee);
       expect(config.netEarnings(1000), 900);
     });

@@ -1,8 +1,11 @@
 /// Platform pricing configuration.
 ///
 /// PRODUCT RULES (confirmed):
-/// - Service fees are set by the platform per scene; posters cannot price.
-/// - The poster always pays the service fee; signing up as a host is free.
+/// - The price buys the whole activity, not companionship: the platform
+///   sets an activity budget per scene; posters cannot price.
+/// - The host covers the activity costs (food, drinks, tickets) out of the
+///   budget and keeps the remainder as hosting income.
+/// - The poster always pays the budget; signing up as a host is free.
 /// - Payment is held in escrow by the platform and settled to the host
 ///   after the activity completes, minus [platformFeeRate].
 /// - Cancellation refunds the full amount.
@@ -29,13 +32,13 @@ class PricingConfig {
   static const PricingConfig defaults = PricingConfig(
     platformFeeRate: 0.10,
     sceneFees: <String, int>{
-      'Coffee': 600,
-      'Dinner': 1000,
-      'Bar': 1400,
-      'Movie': 800,
-      'Tea': 650,
+      'Coffee': 1500,
+      'Dinner': 4000,
+      'Bar': 3500,
+      'Movie': 2500,
+      'Tea': 1800,
     },
-    defaultFee: 600,
+    defaultFee: 2000,
   );
 
   /// Platform commission taken from the service fee on settlement (0..1).

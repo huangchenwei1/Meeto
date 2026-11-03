@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/pages/proposal_composer_page.dart';
@@ -318,10 +320,20 @@ class _TemplateCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 12),
-                      // No money on the shelf card; the fee shows up on
-                      // the composer's scene chips when launching.
+                      // The budget buys the whole activity (the host
+                      // arranges it out of this), so it leads the card.
                       Row(
                         children: <Widget>[
+                          Text(
+                            MoneyFormat.format(
+                              ScenePricing.feeForScene(template.sceneTag),
+                            ),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent,
+                            ),
+                          ),
                           const Spacer(),
                           InkWell(
                             key: ValueKey<String>(

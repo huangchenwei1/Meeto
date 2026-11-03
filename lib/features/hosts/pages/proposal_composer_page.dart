@@ -40,7 +40,7 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
   // Any priced scene goes: what a host offers is whatever they pitch.
   late final List<String> _scenes =
       ScenePricing.config.sceneFees.keys.toList(growable: false);
-  late String _scene = () {
+  late final String _scene = () {
     final String? fromTemplate = widget.template?.sceneTag;
     return fromTemplate != null && _scenes.contains(fromTemplate)
         ? fromTemplate
@@ -154,14 +154,12 @@ class _ProposalComposerPageState extends State<ProposalComposerPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: <Widget>[
-            // Scene -> title -> description: same order and widgets as the
-            // users' request composer.
-            const FormFieldLabel(AppStrings.proposalSceneLabel),
-            ScenePriceChips(
-              scenes: _scenes,
-              selected: _scene,
-              onSelect: (String scene) => setState(() => _scene = scene),
-              keyPrefix: 'proposalScene',
+            // Budget -> title -> description: same order and widgets as
+            // the users' request composer.
+            const FormFieldLabel(AppStrings.activityBudgetLabel),
+            ActivityBudgetPanel(
+              sceneTag: _scene,
+              note: AppStrings.budgetCoversNoteHost,
             ),
             const FormFieldLabel(AppStrings.publishFieldTitle),
             TextField(

@@ -55,7 +55,7 @@ describe('Meeto API (e2e)', () => {
   it('serves the public pricing config without auth', async () => {
     const res = await api().get('/config/pricing').expect(200);
     expect(res.body.platformFeeRateBp).toBe(1000);
-    expect(res.body.sceneFees.Dinner).toBe(100000);
+    expect(res.body.sceneFees.Dinner).toBe(400000);
   });
 
   it('rejects unauthenticated requests elsewhere', async () => {
@@ -625,7 +625,7 @@ describe('Meeto API (e2e)', () => {
         })
         .expect(201);
       postId = res.body.id;
-      expect(res.body.feeMinor).toBe(100000);
+      expect(res.body.feeMinor).toBe(400000);
       expect(res.body.status).toBe('OPEN');
       // Posts carry no structured time or place: the host proposes the
       // concrete plan on the order after matching.
@@ -698,9 +698,9 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(JAMES);
       // 10% commission, exact remainder to the earner.
-      expect(res.body.feeMinor).toBe(100000);
-      expect(res.body.commissionMinor).toBe(10000);
-      expect(res.body.netMinor).toBe(90000);
+      expect(res.body.feeMinor).toBe(400000);
+      expect(res.body.commissionMinor).toBe(40000);
+      expect(res.body.netMinor).toBe(360000);
 
       const post = await api()
         .get(`/posts/${postId}`)
@@ -746,7 +746,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_ESCROW', orderId },
         _sum: { amountMinor: true },
       });
-      expect(escrow._sum.amountMinor).toBe(100000);
+      expect(escrow._sum.amountMinor).toBe(400000);
     });
 
     it('the host proposes the concrete plan; the poster confirms it', async () => {
@@ -905,7 +905,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_REVENUE', orderId },
         _sum: { amountMinor: true },
       });
-      expect(revenue._sum.amountMinor).toBe(10000);
+      expect(revenue._sum.amountMinor).toBe(40000);
 
       // The earner was notified that the money landed.
       const inbox = await api()
@@ -925,8 +925,8 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(wallet.body.balanceMinor).toBe(90000);
-      expect(wallet.body.monthIncomeMinor).toBe(90000);
+      expect(wallet.body.balanceMinor).toBe(360000);
+      expect(wallet.body.monthIncomeMinor).toBe(360000);
 
       await api()
         .post('/wallet/withdrawals')
@@ -937,13 +937,13 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(after.body.balanceMinor).toBe(40000);
+      expect(after.body.balanceMinor).toBe(310000);
 
       // Overdraft rejected.
       await api()
         .post('/wallet/withdrawals')
         .set('X-User-Id', JAMES)
-        .send({ amountMinor: 100000 })
+        .send({ amountMinor: 400000 })
         .expect(409);
     });
 
@@ -1276,7 +1276,7 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(BIANCA);
-      expect(res.body.feeMinor).toBe(60000); // Coffee fee snapshot
+      expect(res.body.feeMinor).toBe(150000); // Coffee budget snapshot
 
       // The inviter was notified with the order reference.
       const inbox = await api()

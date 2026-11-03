@@ -5,15 +5,18 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Platform-set activity budgets: the price buys the whole activity. The
+// host covers the activity costs (food, drinks, tickets) out of it and
+// keeps the remainder as hosting income, minus the platform commission.
 const PRICING = {
   platformFeeRateBp: 1000, // 10%
-  defaultFeeMinor: 60000, // PHP 600.00
+  defaultFeeMinor: 200000, // PHP 2,000.00
   sceneFeesJson: JSON.stringify({
-    Coffee: 60000,
-    Dinner: 100000,
-    Bar: 140000,
-    Movie: 80000,
-    Tea: 65000,
+    Coffee: 150000,
+    Dinner: 400000,
+    Bar: 350000,
+    Movie: 250000,
+    Tea: 180000,
   }),
 };
 
@@ -214,7 +217,8 @@ const MOMENTS = [
 async function main() {
   await prisma.pricingConfig.upsert({
     where: { id: 1 },
-    update: {},
+    // Reseeding applies the current platform pricing to existing rows.
+    update: { ...PRICING },
     create: { id: 1, ...PRICING },
   });
   for (const user of USERS) {
