@@ -12,7 +12,7 @@ import '../hosts/data/api_hosts_repository.dart';
 import '../hosts/data/hosts_repository.dart';
 import '../orders/data/api_orders_repository.dart';
 import '../orders/data/orders_repository.dart';
-import '../orders/pages/orders_page.dart';
+import '../orders/pages/my_activities_page.dart';
 import '../profile/data/api_profile_repository.dart';
 import '../profile/data/profile_repository.dart';
 import '../profile/pages/profile_page.dart';
@@ -46,8 +46,8 @@ class _HomeShellState extends State<HomeShell> {
   final GlobalKey<ActivityCommunityPageState> _communityKey =
       GlobalKey<ActivityCommunityPageState>();
   final GlobalKey<HallPageState> _hallKey = GlobalKey<HallPageState>();
-  final GlobalKey<OrdersPageState> _messagesKey =
-      GlobalKey<OrdersPageState>();
+  final GlobalKey<MyActivitiesPageState> _activitiesKey =
+      GlobalKey<MyActivitiesPageState>();
 
   @override
   void initState() {
@@ -87,9 +87,12 @@ class _HomeShellState extends State<HomeShell> {
         hostsRepository: _hostsRepository,
         ordersRepository: _ordersRepository,
       ),
-      OrdersPage(
-        key: _messagesKey,
-        repository: _ordersRepository,
+      MyActivitiesPage(
+        key: _activitiesKey,
+        ordersRepository: _ordersRepository,
+        communityRepository: _communityRepository,
+        hostsRepository: _hostsRepository,
+        profileRepository: _profileRepository,
       ),
       ProfilePage(
         key: _profileKey,
@@ -115,7 +118,7 @@ class _HomeShellState extends State<HomeShell> {
             case 1:
               _hallKey.currentState?.reload();
             case 2:
-              _messagesKey.currentState?.reload();
+              _activitiesKey.currentState?.reload();
             default:
               _profileKey.currentState?.reload();
           }
@@ -132,9 +135,9 @@ class _HomeShellState extends State<HomeShell> {
             label: AppStrings.tabHall,
           ),
           NavigationDestination(
-            icon: Icon(Iconsax.message),
-            selectedIcon: Icon(Iconsax.message5),
-            label: AppStrings.tabMessages,
+            icon: Icon(Iconsax.calendar_1),
+            selectedIcon: Icon(Iconsax.calendar5),
+            label: AppStrings.tabMyActivities,
           ),
           NavigationDestination(
             icon: Icon(Iconsax.user),

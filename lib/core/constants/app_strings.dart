@@ -36,7 +36,7 @@ abstract final class AppStrings {
   static const String errorMessageNotSent = '消息发送失败，请重试';
 
   // Tabs
-  static const String tabMessages = '消息';
+  static const String tabMyActivities = '我的活动';
   static const String tabMe = '我的';
 
   // Feed (community activity wall)
@@ -178,7 +178,11 @@ abstract final class AppStrings {
   static const String messageInputHint = '输入消息...';
 
   // Live orders (API mode: both sides act from their own devices)
-  static const String ordersEmpty = '还没有计划 — 去报名或发布一个活动吧';
+  static const String myActivitiesEmpty = '还没有活动 — 去发布或报名一个吧';
+  static const String activityWaitingSignups = '等人报名';
+  static String activityInvites(int count) => '收到 $count 个邀约';
+  static const String activityWaitingInvites = '等人邀约';
+  static const String activityAwaitingSelection = '已报名 · 等待选择';
   static const String statusAwaitingPayment = '待支付';
   static const String statusPendingDate = '计划待定';
   static const String statusActive = '进行中';

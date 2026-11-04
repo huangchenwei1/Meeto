@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:meeto/app.dart';
@@ -52,9 +52,15 @@ void main() {
     expect(find.text(AppStrings.hallTitle), findsOneWidget);
     expect(find.text(AppStrings.hostInviteCta), findsWidgets);
 
-    // Messages tab: demo orders with status pills (same OrdersPage as API
-    // mode). The nav bar is icon-only, so tabs are addressed by icon.
-    await tester.tap(find.byIcon(Iconsax.message));
+    // My Activities tab: formed deals as cards (tap goes to chat), plus
+    // open journeys. The nav bar is icon-only, so the tab is addressed by
+    // its icon inside the navigation bar.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.byIcon(Iconsax.calendar_1),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Liza'), findsOneWidget);
     expect(find.text(AppStrings.statusActive), findsOneWidget);

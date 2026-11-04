@@ -497,6 +497,23 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(404);
 
+      // The applicant finds the pending signup on their activity board
+      // (view=applied); hosts who did not sign see nothing there.
+      const applied = await api()
+        .get('/posts?view=applied')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(
+        applied.body.find((p: { id: string }) => p.id === postId),
+      ).toBeDefined();
+      const notApplied = await api()
+        .get('/posts?view=applied')
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      expect(
+        notApplied.body.find((p: { id: string }) => p.id === postId),
+      ).toBeUndefined();
+
       // Other hosts see anonymous interest on the post: a count plus
       // avatar URLs only, never names, ids, or rival pitches.
       const asHost = await api()

@@ -49,6 +49,18 @@ class ApiCommunityRepository implements CommunityRepository {
   }
 
   @override
+  Future<List<ActivityPost>> fetchAppliedRequests() async {
+    final List<dynamic> json = await _client.get(
+      '/posts',
+      query: <String, String>{'view': 'applied'},
+    ) as List<dynamic>;
+    return json
+        .cast<Map<String, dynamic>>()
+        .map(_toActivityPost)
+        .toList(growable: false);
+  }
+
+  @override
   Future<List<String>> fetchScenes() async {
     // Scenes are defined by the platform pricing table.
     return ScenePricing.scenes;

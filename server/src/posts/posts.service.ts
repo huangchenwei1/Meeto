@@ -154,12 +154,14 @@ export class PostsService {
     authorId?: string,
     view?: string,
   ): Promise<PostDto[]> {
-    // Two public surfaces plus the author's own management view:
+    // Two public surfaces plus two personal views:
     // - default (the community wall): sharing posts (moments) only; demand
     //   posts never show here.
-    // - view=requests (the host gig hall): OPEN demand posts hosts can
-    //   still pitch on. Private invitation deals (DIRECT origin) are
-    //   excluded at all times.
+    // - view=requests (the host gig hall): demand posts in every live
+    //   status. Private invitation deals (DIRECT origin) are excluded at
+    //   all times.
+    // - view=applied: still-open demand posts the caller signed up for
+    //   and is waiting on (the host's side of the activity board).
     // - authorId: that author's posts in every status.
     const posts = await this.prisma.post.findMany({
       where: {
@@ -175,7 +177,18 @@ export class PostsService {
                 // drop out. (A time-based hiding window can come later.)
                 status: { not: PostStatus.cancelled },
               }
-            : { type: PostType.moment }),
+            : view === 'applied'
+              ? {
+                  type: PostType.demand,
+                  status: PostStatus.open,
+                  applications: {
+                    some: {
+                      applicantId: caller.id,
+                      status: ApplicationStatus.applied,
+                    },
+                  },
+                }
+              : { type: PostType.moment }),
         ...(scene ? { sceneTag: scene } : {}),
       },
       include: {

@@ -49,6 +49,10 @@ abstract interface class CommunityRepository {
   /// Host gig hall: OPEN activity requests hosts can still pitch on.
   Future<List<ActivityPost>> fetchOpenRequests();
 
+  /// Still-open demand posts the caller signed up for and is waiting on;
+  /// feeds the host's side of the My Activities board.
+  Future<List<ActivityPost>> fetchAppliedRequests();
+
   /// Returns all posts published by [authorId] (any status), used by the
   /// author's own management view.
   Future<List<ActivityPost>> fetchPostsByAuthor(String authorId);
@@ -364,6 +368,17 @@ class MockCommunityRepository implements CommunityRepository {
       ..sort(
         (ActivityPost a, ActivityPost b) => b.createdAt.compareTo(a.createdAt),
       );
+  }
+
+  @override
+  Future<List<ActivityPost>> fetchAppliedRequests() async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    return _posts
+        .where(
+          (ActivityPost post) =>
+              !post.isMoment && post.status == 'OPEN' && post.hasApplied,
+        )
+        .toList();
   }
 
   @override
