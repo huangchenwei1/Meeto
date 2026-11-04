@@ -10,6 +10,7 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
@@ -22,6 +23,8 @@ import '../../hosts/models/host_card.dart';
 import '../../hosts/models/proposal_card.dart';
 import '../../hosts/pages/host_detail_page.dart';
 import '../../hosts/widgets/invite_flow.dart';
+import '../../notifications/data/notifications_repository.dart';
+import '../../notifications/pages/notifications_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
@@ -41,12 +44,14 @@ class HallPage extends StatefulWidget {
     required this.profileRepository,
     required this.hostsRepository,
     required this.ordersRepository,
+    required this.notificationsRepository,
   });
 
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final HostsRepository hostsRepository;
   final OrdersRepository ordersRepository;
+  final NotificationsRepository notificationsRepository;
 
   @override
   State<HallPage> createState() => HallPageState();
@@ -61,6 +66,8 @@ class HallPageState extends State<HallPage> {
   List<ActivityPost> _requests = <ActivityPost>[];
   List<ProposalCard> _proposals = <ProposalCard>[];
   List<InvitationRecord> _pendingInvitations = <InvitationRecord>[];
+  int _unreadCount = 0;
+  String _unreadAvatarUrl = '';
   String _filter = _filterAll;
   bool _loaded = false;
   bool _respondingInvitation = false;
@@ -92,6 +99,7 @@ class HallPageState extends State<HallPage> {
         List<ActivityPost>,
         List<ProposalCard>,
         List<InvitationRecord>,
+        List<AppNotification>,
       ) result = await (
         widget.communityRepository.fetchOpenRequests(),
         widget.hostsRepository.fetchProposals(),
@@ -100,16 +108,24 @@ class HallPageState extends State<HallPage> {
             : Future<List<InvitationRecord>>.value(
                 const <InvitationRecord>[],
               ),
+        widget.notificationsRepository.list(),
       ).wait;
       if (!mounted) {
         return;
       }
+      // Newest-first inbox: the first unread actor fronts the pill, like
+      // the WeChat Moments notice.
+      final List<AppNotification> unread = result.$4
+          .where((AppNotification n) => !n.isRead)
+          .toList(growable: false);
       setState(() {
         _requests = result.$1;
         _proposals = result.$2;
         _pendingInvitations = result.$3
             .where((InvitationRecord i) => i.isPending)
             .toList(growable: false);
+        _unreadCount = unread.length;
+        _unreadAvatarUrl = unread.isEmpty ? '' : unread.first.actorAvatarUrl;
         _loaded = true;
       });
     } on Exception {
@@ -168,6 +184,28 @@ class HallPageState extends State<HallPage> {
       ),
     );
     unawaited(_load());
+  }
+
+  /// The unread pill goes to the shared inbox, which marks everything
+  /// read on open; the pill disappears when we come back.
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationsPage(
+          notificationsRepository: widget.notificationsRepository,
+          communityRepository: widget.communityRepository,
+          profileRepository: widget.profileRepository,
+          ordersRepository: widget.ordersRepository,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() {
+        _unreadCount = 0;
+        _unreadAvatarUrl = '';
+      });
+      unawaited(_load());
+    }
   }
 
   /// Free-form publish from the hall: no template, so the composer asks
@@ -346,6 +384,19 @@ class HallPageState extends State<HallPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 const GuidelinesBanner(),
+                                // The WeChat-Moments-style unread notice:
+                                // latest unread actor + count, centered
+                                // under the banner.
+                                if (_unreadCount > 0) ...<Widget>[
+                                  const SizedBox(height: 14),
+                                  Center(
+                                    child: _UnreadNoticePill(
+                                      count: _unreadCount,
+                                      avatarUrl: _unreadAvatarUrl,
+                                      onTap: _openNotifications,
+                                    ),
+                                  ),
+                                ],
                                 if (_pendingInvitations
                                     .isNotEmpty) ...<Widget>[
                                   const SizedBox(height: 14),
@@ -548,6 +599,59 @@ class _ProposalTile extends StatelessWidget {
               onTap: onInvite,
             )
           : const SizedBox.shrink(),
+    );
+  }
+}
+
+/// The WeChat-Moments-style unread notice pill: dark capsule with the
+/// latest unread actor's avatar and the unread count, opening the shared
+/// notifications inbox.
+class _UnreadNoticePill extends StatelessWidget {
+  const _UnreadNoticePill({
+    required this.count,
+    required this.avatarUrl,
+    required this.onTap,
+  });
+
+  final int count;
+  final String avatarUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: const ValueKey<String>('hallUnreadPill'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppColors.darkCard,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (avatarUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: AppNetworkImage(url: avatarUrl, width: 30, height: 30),
+              ),
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                AppStrings.unreadNoticePill(count),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onDarkPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

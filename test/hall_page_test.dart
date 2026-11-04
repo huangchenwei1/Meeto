@@ -5,6 +5,7 @@ import 'package:meeto/core/session/auth_session.dart';
 import 'package:meeto/features/community/data/community_repository.dart';
 import 'package:meeto/features/hall/pages/hall_page.dart';
 import 'package:meeto/features/hosts/data/hosts_repository.dart';
+import 'package:meeto/features/notifications/data/notifications_repository.dart';
 import 'package:meeto/features/orders/data/orders_repository.dart';
 import 'package:meeto/features/profile/data/profile_repository.dart';
 
@@ -17,6 +18,7 @@ void main() {
           profileRepository: MockProfileRepository(),
           hostsRepository: MockHostsRepository(),
           ordersRepository: MockOrdersRepository(),
+          notificationsRepository: MockNotificationsRepository(),
         ),
       ),
     );

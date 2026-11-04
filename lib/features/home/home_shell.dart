@@ -90,6 +90,7 @@ class _HomeShellState extends State<HomeShell> {
         profileRepository: _profileRepository,
         hostsRepository: _hostsRepository,
         ordersRepository: _ordersRepository,
+        notificationsRepository: _notificationsRepository,
       ),
       OrdersPage(
         key: _messagesKey,

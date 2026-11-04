@@ -134,6 +134,7 @@ abstract final class AppStrings {
 
   // Publish
   static const String publishTitle = '发布活动';
+  static String unreadNoticePill(int count) => '$count 条新消息';
   static const String composerSceneLabel = '活动类型';
   static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
