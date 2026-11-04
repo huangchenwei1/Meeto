@@ -7,7 +7,6 @@ import {
 import type { Application, Post, User } from '@prisma/client';
 import {
   ApplicationStatus,
-  NotificationType,
   OrderStatus,
   PostOrigin,
   PostStatus,
@@ -16,7 +15,6 @@ import {
 } from '../common/enums.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
-import { NotificationsService } from '../notifications/notifications.module.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
@@ -93,7 +91,6 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pricingService: PricingService,
-    private readonly notifications: NotificationsService,
   ) {}
 
   async create(author: User, input: CreatePostDto): Promise<PostDto> {
@@ -265,13 +262,6 @@ export class PostsService {
       },
       include: { applicant: true },
     });
-    await this.notifications.notify(this.prisma, {
-      userId: post.authorId,
-      type: NotificationType.newApplicant,
-      actorName: caller.name,
-      actorAvatarUrl: caller.avatarUrl,
-      postId,
-    });
     return PostsService.toApplicationDto(application);
   }
 
@@ -377,14 +367,6 @@ export class PostsService {
           },
         });
       }
-      await this.notifications.notify(tx, {
-        userId: application.applicantId,
-        type: NotificationType.selected,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId,
-        orderId: created.id,
-      });
       return created;
     });
     // The caller is the payer: the one party allowed to see the meet code.

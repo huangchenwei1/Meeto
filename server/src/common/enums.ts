@@ -7,16 +7,6 @@ export const Gender = {
 } as const;
 export type Gender = (typeof Gender)[keyof typeof Gender];
 
-export const NotificationType = {
-  newApplicant: 'NEW_APPLICANT',
-  selected: 'SELECTED',
-  orderPaid: 'ORDER_PAID',
-  orderCancelled: 'ORDER_CANCELLED',
-  orderSettled: 'ORDER_SETTLED',
-  inviteReceived: 'INVITE_RECEIVED',
-  inviteAccepted: 'INVITE_ACCEPTED',
-} as const;
-
 // A user's invitation on a host's proposal: PENDING until the host picks
 // it (ACCEPTED). Mirrors ApplicationStatus on the demand side.
 export const InvitationStatus = {

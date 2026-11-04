@@ -8,7 +8,6 @@ import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
-import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../../shared/widgets/guidelines_banner.dart';
@@ -19,8 +18,6 @@ import '../../community/pages/post_detail_page.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../hosts/models/proposal_card.dart';
 import '../../hosts/pages/proposal_detail_page.dart';
-import '../../notifications/data/notifications_repository.dart';
-import '../../notifications/pages/notifications_page.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../profile/data/profile_repository.dart';
 
@@ -38,14 +35,12 @@ class HallPage extends StatefulWidget {
     required this.profileRepository,
     required this.hostsRepository,
     required this.ordersRepository,
-    required this.notificationsRepository,
   });
 
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final HostsRepository hostsRepository;
   final OrdersRepository ordersRepository;
-  final NotificationsRepository notificationsRepository;
 
   @override
   State<HallPage> createState() => HallPageState();
@@ -59,8 +54,6 @@ const String _filterProposals = 'PROPOSALS';
 class HallPageState extends State<HallPage> {
   List<ActivityPost> _requests = <ActivityPost>[];
   List<ProposalCard> _proposals = <ProposalCard>[];
-  int _unreadCount = 0;
-  String _unreadAvatarUrl = '';
   String _filter = _filterAll;
   bool _loaded = false;
   Timer? _pollTimer;
@@ -90,25 +83,16 @@ class HallPageState extends State<HallPage> {
       final (
         List<ActivityPost>,
         List<ProposalCard>,
-        List<AppNotification>,
       ) result = await (
         widget.communityRepository.fetchOpenRequests(),
         widget.hostsRepository.fetchProposals(),
-        widget.notificationsRepository.list(),
       ).wait;
       if (!mounted) {
         return;
       }
-      // Newest-first inbox: the first unread actor fronts the pill, like
-      // the WeChat Moments notice.
-      final List<AppNotification> unread = result.$3
-          .where((AppNotification n) => !n.isRead)
-          .toList(growable: false);
       setState(() {
         _requests = result.$1;
         _proposals = result.$2;
-        _unreadCount = unread.length;
-        _unreadAvatarUrl = unread.isEmpty ? '' : unread.first.actorAvatarUrl;
         _loaded = true;
       });
     } on Exception {
@@ -170,29 +154,6 @@ class HallPageState extends State<HallPage> {
       ),
     );
     unawaited(_load());
-  }
-
-  /// The unread pill goes to the shared inbox, which marks everything
-  /// read on open; the pill disappears when we come back.
-  Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NotificationsPage(
-          notificationsRepository: widget.notificationsRepository,
-          communityRepository: widget.communityRepository,
-          profileRepository: widget.profileRepository,
-          ordersRepository: widget.ordersRepository,
-          hostsRepository: widget.hostsRepository,
-        ),
-      ),
-    );
-    if (mounted) {
-      setState(() {
-        _unreadCount = 0;
-        _unreadAvatarUrl = '';
-      });
-      unawaited(_load());
-    }
   }
 
   /// Free-form publish from the hall: no template, so the composer asks
@@ -277,31 +238,13 @@ class HallPageState extends State<HallPage> {
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                        // index 0: guidelines banner + unread pill.
+                        // index 0: guidelines banner.
                         itemCount: items.isEmpty ? 2 : items.length + 1,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: 22),
                         itemBuilder: (BuildContext context, int index) {
                           if (index == 0) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                const GuidelinesBanner(),
-                                // The WeChat-Moments-style unread notice:
-                                // latest unread actor + count, centered
-                                // under the banner.
-                                if (_unreadCount > 0) ...<Widget>[
-                                  const SizedBox(height: 14),
-                                  Center(
-                                    child: _UnreadNoticePill(
-                                      count: _unreadCount,
-                                      avatarUrl: _unreadAvatarUrl,
-                                      onTap: _openNotifications,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            );
+                            return const GuidelinesBanner();
                           }
                           if (items.isEmpty) {
                             return const Padding(
@@ -486,55 +429,3 @@ class _ProposalTile extends StatelessWidget {
   }
 }
 
-/// The WeChat-Moments-style unread notice pill: dark capsule with the
-/// latest unread actor's avatar and the unread count, opening the shared
-/// notifications inbox.
-class _UnreadNoticePill extends StatelessWidget {
-  const _UnreadNoticePill({
-    required this.count,
-    required this.avatarUrl,
-    required this.onTap,
-  });
-
-  final int count;
-  final String avatarUrl;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      key: const ValueKey<String>('hallUnreadPill'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: AppColors.darkCard,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (avatarUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: AppNetworkImage(url: avatarUrl, width: 30, height: 30),
-              ),
-            const SizedBox(width: 10),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                AppStrings.unreadNoticePill(count),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onDarkPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

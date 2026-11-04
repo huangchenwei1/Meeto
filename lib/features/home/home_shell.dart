@@ -10,7 +10,6 @@ import '../community/pages/activity_community_page.dart';
 import '../hall/pages/hall_page.dart';
 import '../hosts/data/api_hosts_repository.dart';
 import '../hosts/data/hosts_repository.dart';
-import '../notifications/data/notifications_repository.dart';
 import '../orders/data/api_orders_repository.dart';
 import '../orders/data/orders_repository.dart';
 import '../orders/pages/orders_page.dart';
@@ -41,7 +40,6 @@ class _HomeShellState extends State<HomeShell> {
   late final ProfileRepository _profileRepository;
   late final HostsRepository _hostsRepository;
   late final OrdersRepository _ordersRepository;
-  late final NotificationsRepository _notificationsRepository;
 
   final GlobalKey<ProfilePageState> _profileKey =
       GlobalKey<ProfilePageState>();
@@ -60,14 +58,12 @@ class _HomeShellState extends State<HomeShell> {
       _profileRepository = ApiProfileRepository(apiClient);
       _hostsRepository = ApiHostsRepository(apiClient);
       _ordersRepository = ApiOrdersRepository(apiClient);
-      _notificationsRepository = ApiNotificationsRepository(apiClient);
     } else {
       final MockOrdersRepository mockOrders = MockOrdersRepository();
       _communityRepository = MockCommunityRepository(orders: mockOrders);
       _profileRepository = MockProfileRepository();
       _hostsRepository = MockHostsRepository();
       _ordersRepository = mockOrders;
-      _notificationsRepository = MockNotificationsRepository();
     }
   }
 
@@ -90,15 +86,10 @@ class _HomeShellState extends State<HomeShell> {
         profileRepository: _profileRepository,
         hostsRepository: _hostsRepository,
         ordersRepository: _ordersRepository,
-        notificationsRepository: _notificationsRepository,
       ),
       OrdersPage(
         key: _messagesKey,
         repository: _ordersRepository,
-        notificationsRepository: _notificationsRepository,
-        communityRepository: _communityRepository,
-        profileRepository: _profileRepository,
-        hostsRepository: _hostsRepository,
       ),
       ProfilePage(
         key: _profileKey,

@@ -3,7 +3,6 @@ import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HostsModule } from './hosts/hosts.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
-import { NotificationsModule } from './notifications/notifications.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
@@ -15,7 +14,6 @@ import { VerificationModule } from './verification/verification.module.js';
 @Module({
   imports: [
     PrismaModule,
-    NotificationsModule,
     AuthModule,
     PricingModule,
     UsersModule,

@@ -8,7 +8,6 @@ import type { Invitation, Proposal, User } from '@prisma/client';
 import {
   ApplicationStatus,
   InvitationStatus,
-  NotificationType,
   OrderStatus,
   PostOrigin,
   PostStatus,
@@ -16,7 +15,6 @@ import {
 } from '../common/enums.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
-import { NotificationsService } from '../notifications/notifications.module.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
@@ -76,7 +74,6 @@ export class HostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pricingService: PricingService,
-    private readonly notifications: NotificationsService,
   ) {}
 
   /// Host directory, best credentials first. [gender] is a viewer
@@ -252,13 +249,6 @@ export class HostsService {
       },
       include: { from: true },
     });
-    await this.notifications.notify(this.prisma, {
-      userId: proposal.hostId,
-      type: NotificationType.inviteReceived,
-      actorName: caller.name,
-      actorAvatarUrl: caller.avatarUrl,
-      proposalId,
-    });
     return HostsService.toInvitationDto(invitation);
   }
 
@@ -394,14 +384,6 @@ export class HostsService {
       await tx.proposal.update({
         where: { id: proposalId },
         data: { status: PostStatus.pendingPayment },
-      });
-      await this.notifications.notify(tx, {
-        userId: invitation.fromUserId,
-        type: NotificationType.inviteAccepted,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: post.id,
-        orderId: created.id,
       });
       return created;
     });

@@ -1,43 +1,30 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../notifications/data/notifications_repository.dart';
-import '../../notifications/pages/notifications_page.dart';
-import '../../community/data/community_repository.dart';
 import '../../community/models/post_author.dart';
-import '../../hosts/data/hosts_repository.dart';
-import '../../profile/data/profile_repository.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import 'order_room_page.dart';
 import '../widgets/order_status_pill.dart';
 import '../../../shared/widgets/app_avatar.dart';
 
-/// Messages tab: a pinned notifications inbox on top, then the caller's
-/// conversations — orders whose money is already in escrow. Unpaid deals
-/// never show here (no chat before escrow; they live on the My Orders
-/// page under the profile tab). Each row opens its order room.
+/// Messages tab: the caller's conversations — orders whose money is
+/// already in escrow. Unpaid deals never show here (no chat before
+/// escrow; they live on the My Orders page under the profile tab).
+/// Each row opens its order room. There is no notification inbox:
+/// every state lives on its own surface.
 class OrdersPage extends StatefulWidget {
   const OrdersPage({
     super.key,
     required this.repository,
-    required this.notificationsRepository,
-    required this.communityRepository,
-    required this.profileRepository,
-    required this.hostsRepository,
   });
 
   final OrdersRepository repository;
-  final NotificationsRepository notificationsRepository;
-  final CommunityRepository communityRepository;
-  final ProfileRepository profileRepository;
-  final HostsRepository hostsRepository;
 
   @override
   State<OrdersPage> createState() => OrdersPageState();
@@ -46,7 +33,6 @@ class OrdersPage extends StatefulWidget {
 class OrdersPageState extends State<OrdersPage> {
   List<LiveOrder> _orders = <LiveOrder>[];
   bool _loaded = false;
-  int _unreadCount = 0;
   Timer? _pollTimer;
 
   @override
@@ -73,38 +59,15 @@ class OrdersPageState extends State<OrdersPage> {
 
   Future<void> _poll() async {
     try {
-      final (List<LiveOrder>, int) result = await (
-        widget.repository.listMine(),
-        widget.notificationsRepository.unreadCount(),
-      ).wait;
+      final List<LiveOrder> orders = await widget.repository.listMine();
       if (mounted) {
         setState(() {
-          _orders = result.$1;
-          _unreadCount = result.$2;
+          _orders = orders;
           _loaded = true;
         });
       }
     } on Exception {
       // Keep the last known list; the next poll retries.
-    }
-  }
-
-  Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NotificationsPage(
-          notificationsRepository: widget.notificationsRepository,
-          communityRepository: widget.communityRepository,
-          profileRepository: widget.profileRepository,
-          ordersRepository: widget.repository,
-          hostsRepository: widget.hostsRepository,
-        ),
-      ),
-    );
-    if (mounted) {
-      // The inbox marks everything read on open.
-      setState(() => _unreadCount = 0);
-      unawaited(_poll());
     }
   }
 
@@ -114,112 +77,29 @@ class OrdersPageState extends State<OrdersPage> {
       appBar: AppBar(title: const Text(AppStrings.tabMessages)),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: <Widget>[
-                _NotificationsInboxTile(
-                  unreadCount: _unreadCount,
-                  onTap: _openNotifications,
+          : _orders.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text(
+                      AppStrings.ordersEmpty,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: _orders.length,
+                  separatorBuilder: (_, int i) => const Divider(indent: 76),
+                  itemBuilder: (BuildContext context, int index) =>
+                      _OrderTile(
+                    order: _orders[index],
+                    repository: widget.repository,
+                  ),
                 ),
-                const Divider(indent: 76, height: 1),
-                Expanded(
-                  child: _orders.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Text(
-                              AppStrings.ordersEmpty,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _orders.length,
-                          separatorBuilder: (_, int i) =>
-                              const Divider(indent: 76),
-                          itemBuilder: (BuildContext context, int index) =>
-                              _OrderTile(
-                            order: _orders[index],
-                            repository: widget.repository,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-    );
-  }
-}
-
-/// Pinned inbox entry collecting all system notifications (new applicants,
-/// selections, payments...), so the feed stays clean of bells.
-class _NotificationsInboxTile extends StatelessWidget {
-  const _NotificationsInboxTile({
-    required this.unreadCount,
-    required this.onTap,
-  });
-
-  final int unreadCount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      key: const ValueKey<String>('notificationsInbox'),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: Container(
-        width: 52,
-        height: 52,
-        decoration: const BoxDecoration(
-          color: AppColors.darkCard,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Iconsax.notification,
-          size: 24,
-          color: AppColors.onDarkPrimary,
-        ),
-      ),
-      title: const Text(
-        AppStrings.notificationsTitle,
-        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(
-          AppStrings.notificationsInboxSub,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
-        ),
-      ),
-      trailing: unreadCount > 0
-          ? Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                unreadCount > 99 ? '99+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            )
-          : const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AppColors.textHint,
-            ),
-      onTap: onTap,
     );
   }
 }

@@ -10,7 +10,6 @@ import {
   ApplicationStatus,
   LedgerAccount,
   LedgerEntryType,
-  NotificationType,
   OrderStatus,
   PaymentStatus,
   PostStatus,
@@ -24,7 +23,6 @@ import {
 import { LedgerService } from '../ledger/ledger.service.js';
 import { PAYMENT_PROVIDER } from '../payments/payment.provider.js';
 import type { PaymentProvider } from '../payments/payment.provider.js';
-import { NotificationsService } from '../notifications/notifications.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { assertVerified } from '../common/verification.util.js';
 import { toMessageDto, toOrderDto } from './order.mapper.js';
@@ -57,7 +55,6 @@ export class OrdersService {
     private readonly ledgerService: LedgerService,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
-    private readonly notifications: NotificationsService,
   ) {}
 
   /// How long a settled/cancelled conversation stays in the list before
@@ -158,14 +155,6 @@ export class OrdersService {
         data: { status: PostStatus.matched },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.matched);
-      await this.notifications.notify(tx, {
-        userId: order.earnerId,
-        type: NotificationType.orderPaid,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.active, paidAt: new Date() },
@@ -273,12 +262,6 @@ export class OrdersService {
         data: { status: PostStatus.completed },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.completed);
-      await this.notifications.notify(tx, {
-        userId: order.earnerId,
-        type: NotificationType.orderSettled,
-        postId: order.postId,
-        orderId: order.id,
-      });
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.completed, completedAt: new Date() },
@@ -381,14 +364,6 @@ export class OrdersService {
       // A proposal-born deal that falls through puts the pitch back on
       // the market, exactly like a reopened demand post.
       await OrdersService.syncProposal(tx, order, PostStatus.open);
-      await this.notifications.notify(tx, {
-        userId: order.payerId === caller.id ? order.earnerId : order.payerId,
-        type: NotificationType.orderCancelled,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.cancelled },
@@ -478,15 +453,6 @@ export class OrdersService {
         data: { status: PostStatus.open },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.open);
-      // Both sides learn the deal evaporated.
-      for (const userId of [order.payerId, order.earnerId]) {
-        await this.notifications.notify(tx, {
-          userId,
-          type: NotificationType.orderCancelled,
-          postId: order.postId,
-          orderId: order.id,
-        });
-      }
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.cancelled, completedAt: new Date() },

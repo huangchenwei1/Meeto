@@ -469,17 +469,17 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('notifications: in-app events along the match flow', () => {
+  describe('signup visibility and the select-pay-cancel flow', () => {
     let postId: string;
     let orderId: string;
 
-    it('applying notifies the poster', async () => {
+    it('signups are visible role-trimmed; there is no notification feed', async () => {
       const postRes = await api()
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
           sceneTag: 'Movie',
-          title: 'Notification flow',
+          title: 'Signup visibility flow',
         })
         .expect(201);
       postId = postRes.body.id;
@@ -490,11 +490,12 @@ describe('Meeto API (e2e)', () => {
         .send(PLAN_CARD)
         .expect(201);
 
-      const count = await api()
-        .get('/notifications/unread-count')
+      // Notifications are gone on purpose: every state lives on a surface
+      // (post detail, orders, chat), so the feed endpoints no longer exist.
+      await api()
+        .get('/notifications')
         .set('X-User-Id', ANDREA)
-        .expect(200);
-      expect(count.body.count).toBeGreaterThan(0);
+        .expect(404);
 
       // Other hosts see anonymous interest on the post: a count plus
       // avatar URLs only, never names, ids, or rival pitches.
@@ -530,19 +531,9 @@ describe('Meeto API (e2e)', () => {
         .expect(200);
       expect(asOwner.body.applicantAvatars).toEqual([]);
       expect(asOwner.body.applicantPreviews).toEqual([]);
-
-      const list = await api()
-        .get('/notifications')
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      const latest = list.body[0];
-      expect(latest.type).toBe('NEW_APPLICANT');
-      expect(latest.actorName).toBe('Noel');
-      expect(latest.postId).toBe(postId);
-      expect(latest.isRead).toBe(false);
     });
 
-    it('selection notifies the chosen candidate', async () => {
+    it('selection creates an awaiting-payment order for the candidate', async () => {
       const pool = await api()
         .get(`/posts/${postId}/applications`)
         .set('X-User-Id', ANDREA)
@@ -553,53 +544,24 @@ describe('Meeto API (e2e)', () => {
         .send({ applicationId: pool.body[0].id })
         .expect(201);
       orderId = orderRes.body.id;
-
-      const list = await api()
-        .get('/notifications')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      const latest = list.body[0];
-      expect(latest.type).toBe('SELECTED');
-      expect(latest.actorName).toBe('Andrea');
-      expect(latest.orderId).toBe(orderId);
+      expect(orderRes.body.status).toBe('AWAITING_PAYMENT');
     });
 
-    it('payment notifies the earning side', async () => {
+    it('payment activates the order', async () => {
       // New rule: the poster (Andrea) pays, the selected host (Noel) earns.
-      await api()
+      const paid = await api()
         .post(`/orders/${orderId}/payment`)
         .set('X-User-Id', ANDREA)
         .expect(201);
-
-      const list = await api()
-        .get('/notifications')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      expect(list.body[0].type).toBe('ORDER_PAID');
-      expect(list.body[0].orderId).toBe(orderId);
+      expect(paid.body.status).toBe('ACTIVE');
     });
 
-    it('cancelling notifies the counterparty, mark-all-read clears the badge', async () => {
-      await api()
+    it('cancelling closes the order', async () => {
+      const cancelled = await api()
         .post(`/orders/${orderId}/cancel`)
         .set('X-User-Id', ANDREA)
         .expect(201);
-
-      const list = await api()
-        .get('/notifications')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      expect(list.body[0].type).toBe('ORDER_CANCELLED');
-
-      await api()
-        .post('/notifications/read')
-        .set('X-User-Id', NOEL)
-        .expect(201);
-      const count = await api()
-        .get('/notifications/unread-count')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      expect(count.body.count).toBe(0);
+      expect(cancelled.body.status).toBe('CANCELLED');
     });
   });
 
@@ -1038,18 +1000,6 @@ describe('Meeto API (e2e)', () => {
         _sum: { amountMinor: true },
       });
       expect(revenue._sum.amountMinor).toBe(4000);
-
-      // The earner was notified that the money landed.
-      const inbox = await api()
-        .get('/notifications')
-        .set('X-User-Id', JAMES)
-        .expect(200);
-      expect(
-        inbox.body.some(
-          (n: { type: string; orderId: string }) =>
-            n.type === 'ORDER_SETTLED' && n.orderId === orderId,
-        ),
-      ).toBe(true);
     });
 
     it('the earner wallet reflects net income and supports withdrawal', async () => {
@@ -1484,14 +1434,6 @@ describe('Meeto API (e2e)', () => {
         .send({ note: 'no' })
         .expect(404);
 
-      // The host was notified with the proposal deep link.
-      const inbox = await api()
-        .get('/notifications')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      expect(inbox.body[0].type).toBe('INVITE_RECEIVED');
-      expect(inbox.body[0].proposalId).toBe(proposalId);
-
       // The detail view counts the queue; inviters see their own flag.
       const detail = await api()
         .get(`/proposals/${proposalId}`)
@@ -1537,14 +1479,6 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.place).toBe(SELECT_PLAN.place);
       expect(res.body.scheduledAt).toBe(SELECT_PLAN.scheduledAt);
       expect(res.body.planNote).toBe(SELECT_PLAN.note);
-
-      // The picked inviter was notified with the order reference.
-      const inbox = await api()
-        .get('/notifications')
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      expect(inbox.body[0].type).toBe('INVITE_ACCEPTED');
-      expect(inbox.body[0].orderId).toBe(orderId);
 
       // Selecting twice, or selecting another inviter while the deal is
       // pending, both conflict: the pitch is off the market.

@@ -49,7 +49,6 @@ model User {
   ordersAsEarner Order[]       @relation("earner")
   ledgerEntries  LedgerEntry[]
   withdrawals    Withdrawal[]
-  notifications  Notification[]
   messages       Message[]
   invitationsSent     Invitation[] @relation("inviter")
   invitationsReceived Invitation[] @relation("invitedHost")
@@ -290,21 +289,4 @@ model Withdrawal {
   amountMinor Int
   status      String   @default("PENDING") // PENDING | PAID
   createdAt   DateTime @default(now())
-}
-
-model Notification {
-  id             String    @id @default(cuid())
-  userId         String // recipient
-  user           User      @relation(fields: [userId], references: [id])
-  type           String // NEW_APPLICANT | SELECTED | ORDER_PAID | ORDER_CANCELLED
-  actorName      String    @default("")
-  actorAvatarUrl String    @default("")
-  postId         String    @default("")
-  orderId        String    @default("")
-  // Deep link for proposal-scoped events (e.g. a new invitation).
-  proposalId     String    @default("")
-  readAt         DateTime?
-  createdAt      DateTime  @default(now())
-
-  @@index([userId, createdAt])
 }

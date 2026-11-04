@@ -140,7 +140,6 @@ abstract final class AppStrings {
 
   // Publish
   static const String publishTitle = '发布活动';
-  static String unreadNoticePill(int count) => '$count 条新消息';
   static const String composerSceneLabel = '活动类型';
   static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
@@ -491,9 +490,6 @@ abstract final class AppStrings {
   static const String selectPlanSub = '选定 TA 之前先把地点和时间定好，对方支付后计划立即生效。';
   static const String selectPlanNoteLabel = '补充说明（可选）';
   static const String selectPlanCta = '选定并锁定计划';
-  static String notifyInviteReceived(String name) => '$name 邀请了你的提案';
-  static String notifyInviteAccepted(String name) =>
-      '$name 选中了你的邀请 — 支付服务费后开启计划';
 
   // Community moments (activity recaps)
   static const String momentBadge = '动态';
@@ -536,18 +532,9 @@ abstract final class AppStrings {
 
   /// '约 2 小时' for plan cards and candidate rows.
   static String durationAbout(int minutes) => '约 ${durationLabel(minutes)}';
-  static String notifyPlanProposed(String name) => '$name 发来了计划卡 — 查看并确认';
-  static String notifyPlanConfirmed(String name) => '$name 确认了计划，到时见！';
 
   // Notifications
-  static const String notificationsTitle = '通知';
-  static const String notificationsInboxSub = '报名、匹配和订单动态';
   static const String notificationsEmpty = '这里还没有内容';
-  static String notifyNewApplicant(String name) => '$name 报名了你的帖子';
-  static String notifySelected(String name) => '$name 选择了你来主持活动';
-  static String notifyOrderPaid(String name) => '$name 已支付服务费，计划生效！';
-  static String notifyOrderCancelled(String name) => '$name 取消了计划';
-  static const String notifyOrderSettled = '你的收入已结算到钱包';
   static const String timeJustNow = '刚刚';
   static String timeMinutesAgo(int m) => '$m 分钟前';
   static String timeHoursAgo(int h) => '$h 小时前';
