@@ -78,16 +78,24 @@ model Proposal {
   // publishing: whoever launches the activity prices it. Invitations from
   // this pitch lock to this tier.
   budgetMinor Int    @default(0)
+  // Mirrors Post.status: OPEN takes invitations; selecting one moves it to
+  // PENDING_PAYMENT, payment to MATCHED; a cancelled order reopens it.
+  status    String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
   createdAt DateTime @default(now())
 
   @@index([createdAt])
 }
 
-// A USER directly invites a HOST from the host directory. Accepting is the
-// moment of truth: it creates a direct post + selected application + order
-// awaiting payment, so everything downstream reuses the standard order flow.
+// A USER's invitation on a HOST's proposal: the exact mirror of a host
+// signing up on a user's demand post. Several users may invite the same
+// proposal; the host picks one, which creates a direct post + selected
+// application + order awaiting payment, so everything downstream reuses
+// the standard order flow.
 model Invitation {
   id          String    @id @default(cuid())
+  // The proposal this invitation answers; invitations only start from a
+  // concrete pitch (the product trades activities, not people).
+  proposalId  String    @default("")
   fromUserId  String
   from        User      @relation("inviter", fields: [fromUserId], references: [id])
   hostId      String
@@ -97,13 +105,13 @@ model Invitation {
   // never changes a pending invitation.
   budgetMinor Int       @default(0)
   note        String    @default("")
-  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
-  postId      String    @default("") // set when accepted
-  orderId     String    @default("") // set when accepted
+  status      String    @default("PENDING") // PENDING | ACCEPTED
+  postId      String    @default("") // set when selected
+  orderId     String    @default("") // set when selected
   respondedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  @@index([hostId, status])
+  @@index([proposalId, status])
   @@index([fromUserId, createdAt])
 }
 
@@ -145,6 +153,9 @@ model Post {
   // FEED: publicly listed in the community. DIRECT: backing post of a
   // private invitation deal; never shown in the community feed.
   origin      String   @default("FEED")
+  // Set on DIRECT posts born from selecting an invitation on a proposal:
+  // the order lifecycle mirrors its status back onto that proposal.
+  proposalId  String   @default("")
   feeMinor    Int // snapshot of the platform fee at publish time
   createdAt   DateTime @default(now())
 
@@ -290,6 +301,8 @@ model Notification {
   actorAvatarUrl String    @default("")
   postId         String    @default("")
   orderId        String    @default("")
+  // Deep link for proposal-scoped events (e.g. a new invitation).
+  proposalId     String    @default("")
   readAt         DateTime?
   createdAt      DateTime  @default(now())
 

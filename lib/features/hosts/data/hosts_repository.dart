@@ -1,16 +1,21 @@
+import '../../../core/network/api_client.dart';
+import '../../../core/session/auth_session.dart';
 import '../../orders/models/live_order.dart';
 import '../models/host_card.dart';
 import '../models/proposal_card.dart';
 
-/// Host directory + activity proposals + direct invitations.
+/// Host directory + activity proposals + the invitations queued on them.
 abstract interface class HostsRepository {
   /// Directory of hosts, best credentials first.
   Future<List<HostCard>> fetchHosts();
 
   Future<HostCard> fetchHost(String hostId);
 
-  /// User home feed: hosts' activity pitches, newest first.
+  /// Hall feed: hosts' open activity pitches, newest first.
   Future<List<ProposalCard>> fetchProposals();
+
+  /// Full detail of one pitch (any viewer).
+  Future<ProposalCard> fetchProposal(String proposalId);
 
   /// Publishes an activity pitch (host side). Whoever launches the
   /// activity prices it: [budget] is the platform tier the host picked
@@ -25,25 +30,21 @@ abstract interface class HostsRepository {
     required int budget,
   });
 
-  /// Sends a direct invitation (user side). The concrete plan still comes
-  /// from the host after payment via the standard plan flow.
-  Future<InvitationRecord> invite({
-    required String hostId,
-    required String sceneTag,
-
-    /// Activity budget tier pick (whole pesos).
-    required int budget,
-    required String note,
+  /// Queues an invitation on a pitch (user side) — the mirror of a host
+  /// signing up on a demand post. Scene and price are locked to the pitch
+  /// server-side; only the note travels.
+  Future<InvitationRecord> inviteToProposal(
+    String proposalId, {
+    String note = '',
   });
 
-  /// The caller's invitations: received ones for hosts, sent ones for users.
-  Future<List<InvitationRecord>> fetchInvitations();
+  /// The pending invite pool of one pitch; the pitch's host only.
+  Future<List<InvitationRecord>> fetchProposalInvites(String proposalId);
 
-  /// Host accepts: the server creates the order awaiting payment.
-  /// Returns null in mock mode (no live order flow there).
-  Future<LiveOrder?> acceptInvitation(String invitationId);
-
-  Future<InvitationRecord> declineInvitation(String invitationId);
+  /// The host picks one inviter: the server creates the order awaiting
+  /// that inviter's payment. Returns null in mock mode (no live order
+  /// flow there).
+  Future<LiveOrder?> selectInvite(String proposalId, String invitationId);
 }
 
 /// Self-contained demo directory so mock mode renders a believable page.
@@ -200,8 +201,25 @@ class MockHostsRepository implements HostsRepository {
     ),
   ];
 
-  final List<InvitationRecord> _sent = <InvitationRecord>[];
+  /// Pending invites per proposal id, mirroring the server's queue.
+  final Map<String, List<InvitationRecord>> _invites =
+      <String, List<InvitationRecord>>{};
+
+  /// Proposals taken off the market by a selection (id set).
+  final Set<String> _closed = <String>{};
   int _sequence = 0;
+
+  ProposalCard _decorate(ProposalCard p) {
+    final List<InvitationRecord> queue =
+        _invites[p.id] ?? const <InvitationRecord>[];
+    return p.copyWith(
+      status: _closed.contains(p.id) ? 'PENDING_PAYMENT' : 'OPEN',
+      inviteCount: queue.length,
+      hasInvited: queue.any(
+        (InvitationRecord i) => i.fromId == AuthSession.currentUserId,
+      ),
+    );
+  }
 
   @override
   Future<List<HostCard>> fetchHosts() async {
@@ -212,7 +230,18 @@ class MockHostsRepository implements HostsRepository {
   @override
   Future<List<ProposalCard>> fetchProposals() async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    return List<ProposalCard>.of(_proposals);
+    return _proposals
+        .where((ProposalCard p) => !_closed.contains(p.id))
+        .map(_decorate)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ProposalCard> fetchProposal(String proposalId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    return _decorate(
+      _proposals.firstWhere((ProposalCard p) => p.id == proposalId),
+    );
   }
 
   @override
@@ -255,44 +284,62 @@ class MockHostsRepository implements HostsRepository {
   }
 
   @override
-  Future<InvitationRecord> invite({
-    required String hostId,
-    required String sceneTag,
-    required int budget,
-    required String note,
+  Future<InvitationRecord> inviteToProposal(
+    String proposalId, {
+    String note = '',
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    final HostCard host = await fetchHost(hostId);
+    if (_closed.contains(proposalId)) {
+      throw const ApiException(409, 'PROPOSAL_NOT_OPEN');
+    }
+    final List<InvitationRecord> queue =
+        _invites.putIfAbsent(proposalId, () => <InvitationRecord>[]);
+    if (queue.any(
+      (InvitationRecord i) => i.fromId == AuthSession.currentUserId,
+    )) {
+      throw const ApiException(409, 'INVITE_ALREADY_PENDING');
+    }
     _sequence += 1;
     final InvitationRecord record = InvitationRecord(
       id: 'invitation-$_sequence',
-      sceneTag: sceneTag,
+      proposalId: proposalId,
       note: note,
       status: 'PENDING',
-      fromName: 'You',
-      fromAvatarUrl: '',
-      fromMeta: '',
-      hostName: host.name,
-      orderId: '',
+      fromId: AuthSession.currentUserId,
+      fromName: AuthSession.currentUserName,
+      fromAvatarUrl: AuthSession.currentUserAvatarUrl,
+      fromMeta: AuthSession.currentUserMeta,
+      fromVerified: true,
       createdAt: DateTime.now(),
     );
-    _sent.insert(0, record);
+    queue.add(record);
     return record;
   }
 
   @override
-  Future<List<InvitationRecord>> fetchInvitations() async {
+  Future<List<InvitationRecord>> fetchProposalInvites(
+    String proposalId,
+  ) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    return List<InvitationRecord>.of(_sent);
+    return List<InvitationRecord>.of(
+      _invites[proposalId] ?? const <InvitationRecord>[],
+    );
   }
 
   @override
-  Future<LiveOrder?> acceptInvitation(String invitationId) async {
+  Future<LiveOrder?> selectInvite(
+    String proposalId,
+    String invitationId,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (_closed.contains(proposalId)) {
+      throw const ApiException(409, 'Proposal is not open for selection');
+    }
+    _invites[proposalId]?.removeWhere(
+      (InvitationRecord i) => i.id == invitationId,
+    );
+    _closed.add(proposalId);
+    // Mock mode has no cross-repository order wiring.
     return null;
-  }
-
-  @override
-  Future<InvitationRecord> declineInvitation(String invitationId) async {
-    return _sent.firstWhere((InvitationRecord i) => i.id == invitationId);
   }
 }

@@ -384,7 +384,6 @@ abstract final class AppStrings {
   static const String gigsTitle = '需求大厅';
   static const String gigsSubtitle = '提交方案，赚取服务费';
   static const String gigsEmpty = '暂时没有新需求 — 稍后再来看看';
-  static const String gigsInvitesHeader = '收到的邀请';
   static const String gigsRequestsHeader = '开放需求';
   static const String gigAppliedBadge = '已报名';
   static const String gigPitchCta = '提交方案';
@@ -459,18 +458,17 @@ abstract final class AppStrings {
   static const String inviteNoteHint = '说说你的想法（选填）';
   static String inviteFeeNote(String fee) => '对方接受后，你需支付 $fee 服务费以开启计划';
   static const String inviteSendCta = '发送邀请';
-  static const String inviteSentSnack = '邀请已发送 — 对方回应后会通知你';
-  static const String inviteAlreadyPendingSnack = '你已有一条待回应的邀请发给了这位主持人';
-  static String inviteFromLine(String name, String scene) =>
-      '$name 邀请你主持：$scene';
-  static const String inviteAcceptCta = '接受';
-  static const String inviteDeclineCta = '婉拒';
-  static const String inviteAcceptedSnack = '已接受邀请 — 对方支付后计划生效';
-  static const String inviteDeclinedSnack = '已婉拒邀请';
-  static String notifyInviteReceived(String name) => '$name 邀请你主持一场活动';
+  static const String inviteSentSnack = '邀请已发送 — 对方选中你后会通知你';
+  static const String inviteAlreadyPendingSnack = '你已邀请过这个提案，等对方回应吧';
+  static const String proposalNotOpenSnack = '这个提案已被约走';
+  static const String invitedBadge = '已邀请';
+  static String proposalInviteCount(int count) => '$count 人想约';
+  static const String proposalInvitesTitle = '收到的邀请';
+  static const String proposalInvitesEmpty = '还没有人邀请，再等等';
+  static const String selectInviterDoneSnack = '已选定 — 对方支付后计划生效';
+  static String notifyInviteReceived(String name) => '$name 邀请了你的提案';
   static String notifyInviteAccepted(String name) =>
-      '$name 接受了你的邀请 — 支付服务费后开启计划';
-  static String notifyInviteDeclined(String name) => '$name 这次婉拒了你的邀请';
+      '$name 选中了你的邀请 — 支付服务费后开启计划';
 
   // Community moments (activity recaps)
   static const String momentBadge = '动态';

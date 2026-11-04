@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Invitation, User } from '@prisma/client';
+import type { Invitation, Proposal, User } from '@prisma/client';
 import {
   ApplicationStatus,
   InvitationStatus,
@@ -31,8 +31,9 @@ export interface HostCardDto {
 }
 
 /// Feed card for a host's activity pitch: the proposal is the product,
-/// the host is the signature line. Fee display is resolved client-side
-/// from the live pricing config (orders snapshot it at acceptance).
+/// the host is the signature line. The exact mirror of a demand post —
+/// users invite on it the way hosts sign up on a post, and the host picks
+/// one inviter to form the order.
 export interface ProposalDto {
   id: string;
   title: string;
@@ -42,28 +43,33 @@ export interface ProposalDto {
   area: string;
   timeSlot: string;
   /// The budget tier the host picked at publish time (minor units):
-  /// invitations from this pitch lock to it.
+  /// invitations on this pitch lock to it.
   budgetMinor: number;
+  /// OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED, mirroring
+  /// post statuses; only OPEN proposals take invitations.
+  status: string;
+  /// Pending invitations waiting for the host's pick.
+  inviteCount: number;
+  /// Whether the calling user has a pending invitation on this proposal.
+  hasInvited: boolean;
   createdAt: Date;
   host: PublicUser;
   hostCompletedActivities: number;
 }
 
+/// One user's invitation on a proposal, shown to the proposal's host in
+/// the candidate list (the mirror of ApplicationDto on the demand side).
 export interface InvitationDto {
   id: string;
-  sceneTag: string;
-  /// Activity budget tier snapshotted at invite time (minor units).
-  budgetMinor: number;
+  proposalId: string;
   note: string;
   status: string;
   from: PublicUser;
-  host: PublicUser;
-  postId: string;
-  orderId: string;
   createdAt: Date;
 }
 
-type InvitationWithParties = Invitation & { from: User; host: User };
+type ProposalWithHost = Proposal & { host: User };
+type InvitationWithFrom = Invitation & { from: User };
 
 @Injectable()
 export class HostsService {
@@ -123,56 +129,61 @@ export class HostsService {
       sceneTag,
       budgetMinor,
     );
-    const [proposal, completed] = await Promise.all([
-      this.prisma.proposal.create({
-        data: {
-          hostId: caller.id,
-          title: title.trim(),
-          description: description.trim(),
-          sceneTag,
-          imageUrl,
-          area,
-          timeSlot,
-          budgetMinor: budget,
-        },
-        include: { host: true },
-      }),
-      this.prisma.order.count({
-        where: { earnerId: caller.id, status: OrderStatus.completed },
-      }),
-    ]);
-    return {
-      id: proposal.id,
-      title: proposal.title,
-      description: proposal.description,
-      sceneTag: proposal.sceneTag,
-      imageUrl: proposal.imageUrl,
-      area: proposal.area,
-      timeSlot: proposal.timeSlot,
-      budgetMinor: proposal.budgetMinor,
-      createdAt: proposal.createdAt,
-      host: toPublicUser(proposal.host),
-      hostCompletedActivities: completed,
-    };
+    const proposal = await this.prisma.proposal.create({
+      data: {
+        hostId: caller.id,
+        title: title.trim(),
+        description: description.trim(),
+        sceneTag,
+        imageUrl,
+        area,
+        timeSlot,
+        budgetMinor: budget,
+      },
+      include: { host: true },
+    });
+    return this.toProposalDto(proposal, caller.id);
   }
 
-  /// The user home feed: newest pitches first. Completed-activity counts
-  /// are batched so the feed stays one query per table.
-  async proposalFeed(): Promise<ProposalDto[]> {
+  /// The hall feed: open pitches only (matched ones left the market),
+  /// newest first. Per-proposal counts are batched so the feed stays a
+  /// handful of queries, not one per card.
+  async proposalFeed(caller: User): Promise<ProposalDto[]> {
     const proposals = await this.prisma.proposal.findMany({
+      where: { status: PostStatus.open },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { host: true },
     });
+    const ids = proposals.map((p) => p.id);
     const hostIds = [...new Set(proposals.map((p) => p.hostId))];
-    const counts = await this.prisma.order.groupBy({
-      by: ['earnerId'],
-      where: { earnerId: { in: hostIds }, status: OrderStatus.completed },
-      _count: { _all: true },
-    });
+    const [completedCounts, inviteCounts, mine] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['earnerId'],
+        where: { earnerId: { in: hostIds }, status: OrderStatus.completed },
+        _count: { _all: true },
+      }),
+      this.prisma.invitation.groupBy({
+        by: ['proposalId'],
+        where: { proposalId: { in: ids }, status: InvitationStatus.pending },
+        _count: { _all: true },
+      }),
+      this.prisma.invitation.findMany({
+        where: {
+          proposalId: { in: ids },
+          fromUserId: caller.id,
+          status: InvitationStatus.pending,
+        },
+        select: { proposalId: true },
+      }),
+    ]);
     const completedByHost = new Map(
-      counts.map((c) => [c.earnerId, c._count._all]),
+      completedCounts.map((c) => [c.earnerId, c._count._all]),
     );
+    const invitesByProposal = new Map(
+      inviteCounts.map((c) => [c.proposalId, c._count._all]),
+    );
+    const invited = new Set(mine.map((i) => i.proposalId));
     return proposals.map((p) => ({
       id: p.id,
       title: p.title,
@@ -182,86 +193,122 @@ export class HostsService {
       area: p.area,
       timeSlot: p.timeSlot,
       budgetMinor: p.budgetMinor,
+      status: p.status,
+      inviteCount: invitesByProposal.get(p.id) ?? 0,
+      hasInvited: invited.has(p.id),
       createdAt: p.createdAt,
       host: toPublicUser(p.host),
       hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,
     }));
   }
 
-  /// A user invites a host directly. The invitation carries the rough
-  /// intent (scene + note); the concrete plan still comes from the host
-  /// after payment, via the standard plan flow.
+  /// Full proposal detail, any viewer. The invite pool itself stays
+  /// host-only (listInvites); everyone else just sees the count.
+  async getProposal(caller: User, proposalId: string): Promise<ProposalDto> {
+    const proposal = await this.findProposalOrThrow(proposalId);
+    return this.toProposalDto(proposal, caller.id);
+  }
+
+  /// A user invites the host on a pitch — the mirror of a host signing up
+  /// on a demand post. Free, non-binding, and several users can queue on
+  /// the same proposal; the scene and the price are locked to the pitch.
   async invite(
     caller: User,
-    hostId: string,
-    sceneTag: string,
+    proposalId: string,
     note: string,
-    budgetMinor?: number,
   ): Promise<InvitationDto> {
     assertVerified(caller);
     if (caller.role === Role.host) {
       throw new ForbiddenException('Hosts cannot invite other hosts');
     }
-    const host = await this.prisma.user.findUnique({ where: { id: hostId } });
-    if (!host || host.role !== Role.host) {
-      throw new NotFoundException('Host not found');
+    const proposal = await this.findProposalOrThrow(proposalId);
+    if (proposal.status !== PostStatus.open) {
+      throw new ConflictException('PROPOSAL_NOT_OPEN');
     }
-    // Any priced scene is invitable; the host simply declines what they
-    // do not want to run.
     const pending = await this.prisma.invitation.findFirst({
       where: {
+        proposalId,
         fromUserId: caller.id,
-        hostId,
         status: InvitationStatus.pending,
       },
     });
     if (pending) {
       throw new ConflictException('INVITE_ALREADY_PENDING');
     }
-    // Snapshot the tier pick now so platform repricing never changes a
-    // pending invitation under the host's feet.
+    // Snapshot the pitch's tier now so platform repricing never changes a
+    // pending invitation under anyone's feet.
+    const budgetMinor =
+      proposal.budgetMinor > 0
+        ? proposal.budgetMinor
+        : await this.pricingService.resolveBudget(proposal.sceneTag);
     const invitation = await this.prisma.invitation.create({
       data: {
+        proposalId,
         fromUserId: caller.id,
-        hostId,
-        sceneTag,
+        hostId: proposal.hostId,
+        sceneTag: proposal.sceneTag,
         note,
-        budgetMinor: await this.pricingService.resolveBudget(
-          sceneTag,
-          budgetMinor,
-        ),
+        budgetMinor,
       },
-      include: { from: true, host: true },
+      include: { from: true },
     });
     await this.notifications.notify(this.prisma, {
-      userId: hostId,
+      userId: proposal.hostId,
       type: NotificationType.inviteReceived,
       actorName: caller.name,
       actorAvatarUrl: caller.avatarUrl,
+      proposalId,
     });
     return HostsService.toInvitationDto(invitation);
   }
 
-  /// Hosts see invitations they received; users see the ones they sent.
-  async listMine(caller: User): Promise<InvitationDto[]> {
+  /// The proposal's pending invite pool, host-only — the mirror of the
+  /// poster-only candidate list on a demand post.
+  async listInvites(
+    caller: User,
+    proposalId: string,
+  ): Promise<InvitationDto[]> {
+    const proposal = await this.findProposalOrThrow(proposalId);
+    if (proposal.hostId !== caller.id) {
+      throw new ForbiddenException('Only the host sees the invite pool');
+    }
     const invitations = await this.prisma.invitation.findMany({
-      where:
-        caller.role === Role.host
-          ? { hostId: caller.id }
-          : { fromUserId: caller.id },
-      include: { from: true, host: true },
-      orderBy: { createdAt: 'desc' },
+      where: { proposalId, status: InvitationStatus.pending },
+      include: { from: true },
+      orderBy: { createdAt: 'asc' },
     });
     return invitations.map((i) => HostsService.toInvitationDto(i));
   }
 
-  /// Accepting creates the whole order context in one transaction: a direct
-  /// post (never shown in the open feed), a SELECTED application, and an
-  /// order awaiting payment. Downstream (payment, plan, meet, settlement)
-  /// is the standard order flow.
-  async accept(caller: User, invitationId: string): Promise<OrderDto> {
+  /// The host picks one inviter. Creates the whole order context in one
+  /// transaction: a direct post (never shown in the open feed) carrying
+  /// the proposal link, a SELECTED application, and an order awaiting the
+  /// inviter's payment. Downstream (payment, plan, meet code, settlement)
+  /// is the standard order flow; the order lifecycle mirrors its status
+  /// back onto the proposal through the post's proposalId.
+  async select(
+    caller: User,
+    proposalId: string,
+    invitationId: string,
+  ): Promise<OrderDto> {
     assertVerified(caller);
-    const invitation = await this.findPendingForHost(caller, invitationId);
+    const proposal = await this.findProposalOrThrow(proposalId);
+    if (proposal.hostId !== caller.id) {
+      throw new ForbiddenException('Only the host can select an inviter');
+    }
+    if (proposal.status !== PostStatus.open) {
+      throw new ConflictException('Proposal is not open for selection');
+    }
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      include: { from: true },
+    });
+    if (!invitation || invitation.proposalId !== proposalId) {
+      throw new NotFoundException('Invitation not found for this proposal');
+    }
+    if (invitation.status !== InvitationStatus.pending) {
+      throw new ConflictException('Inviter is no longer available');
+    }
     // The budget was snapshotted at invite time; legacy rows without one
     // fall back to the scene's default tier.
     const feeMinor =
@@ -273,11 +320,12 @@ export class HostsService {
       const post = await tx.post.create({
         data: {
           authorId: invitation.fromUserId,
-          sceneTag: invitation.sceneTag,
-          title: invitation.note.trim() || invitation.sceneTag,
+          sceneTag: proposal.sceneTag,
+          title: proposal.title,
           description: invitation.note,
           status: PostStatus.pendingPayment,
           origin: PostOrigin.direct,
+          proposalId,
           feeMinor,
         },
       });
@@ -310,6 +358,12 @@ export class HostsService {
           respondedAt: new Date(),
         },
       });
+      // Off the market while the payment is pending; paying moves it to
+      // MATCHED, a cancelled order reopens it.
+      await tx.proposal.update({
+        where: { id: proposalId },
+        data: { status: PostStatus.pendingPayment },
+      });
       await this.notifications.notify(tx, {
         userId: invitation.fromUserId,
         type: NotificationType.inviteAccepted,
@@ -324,45 +378,55 @@ export class HostsService {
     return toOrderDto(order, caller.id);
   }
 
-  async decline(caller: User, invitationId: string): Promise<InvitationDto> {
-    const invitation = await this.findPendingForHost(caller, invitationId);
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const row = await tx.invitation.update({
-        where: { id: invitation.id },
-        data: {
-          status: InvitationStatus.declined,
-          respondedAt: new Date(),
-        },
-        include: { from: true, host: true },
-      });
-      await this.notifications.notify(tx, {
-        userId: invitation.fromUserId,
-        type: NotificationType.inviteDeclined,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-      });
-      return row;
+  private async findProposalOrThrow(
+    proposalId: string,
+  ): Promise<ProposalWithHost> {
+    const proposal = await this.prisma.proposal.findUnique({
+      where: { id: proposalId },
+      include: { host: true },
     });
-    return HostsService.toInvitationDto(updated);
+    if (!proposal) {
+      throw new NotFoundException('Proposal not found');
+    }
+    return proposal;
   }
 
-  private async findPendingForHost(
-    caller: User,
-    invitationId: string,
-  ): Promise<Invitation> {
-    const invitation = await this.prisma.invitation.findUnique({
-      where: { id: invitationId },
-    });
-    if (!invitation) {
-      throw new NotFoundException('Invitation not found');
-    }
-    if (invitation.hostId !== caller.id) {
-      throw new ForbiddenException('Only the invited host can respond');
-    }
-    if (invitation.status !== InvitationStatus.pending) {
-      throw new ConflictException('Invitation already responded to');
-    }
-    return invitation;
+  private async toProposalDto(
+    proposal: ProposalWithHost,
+    callerId: string,
+  ): Promise<ProposalDto> {
+    const [completed, inviteCount, mine] = await Promise.all([
+      this.prisma.order.count({
+        where: { earnerId: proposal.hostId, status: OrderStatus.completed },
+      }),
+      this.prisma.invitation.count({
+        where: { proposalId: proposal.id, status: InvitationStatus.pending },
+      }),
+      this.prisma.invitation.findFirst({
+        where: {
+          proposalId: proposal.id,
+          fromUserId: callerId,
+          status: InvitationStatus.pending,
+        },
+        select: { id: true },
+      }),
+    ]);
+    return {
+      id: proposal.id,
+      title: proposal.title,
+      description: proposal.description,
+      sceneTag: proposal.sceneTag,
+      imageUrl: proposal.imageUrl,
+      area: proposal.area,
+      timeSlot: proposal.timeSlot,
+      budgetMinor: proposal.budgetMinor,
+      status: proposal.status,
+      inviteCount,
+      hasInvited: mine !== null,
+      createdAt: proposal.createdAt,
+      host: toPublicUser(proposal.host),
+      hostCompletedActivities: completed,
+    };
   }
 
   private async toHostCard(host: User): Promise<HostCardDto> {
@@ -385,18 +449,14 @@ export class HostsService {
   }
 
   private static toInvitationDto(
-    invitation: InvitationWithParties,
+    invitation: InvitationWithFrom,
   ): InvitationDto {
     return {
       id: invitation.id,
-      sceneTag: invitation.sceneTag,
-      budgetMinor: invitation.budgetMinor,
+      proposalId: invitation.proposalId,
       note: invitation.note,
       status: invitation.status,
       from: toPublicUser(invitation.from),
-      host: toPublicUser(invitation.host),
-      postId: invitation.postId,
-      orderId: invitation.orderId,
       createdAt: invitation.createdAt,
     };
   }

@@ -62,29 +62,32 @@ class ApiHostsRepository implements HostsRepository {
   }
 
   @override
-  Future<InvitationRecord> invite({
-    required String hostId,
-    required String sceneTag,
-    required int budget,
-    required String note,
+  Future<ProposalCard> fetchProposal(String proposalId) async {
+    return ProposalCard.fromJson(
+      await _client.get('/proposals/$proposalId') as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<InvitationRecord> inviteToProposal(
+    String proposalId, {
+    String note = '',
   }) async {
     return InvitationRecord.fromJson(
       await _client.post(
-        '/invitations',
-        body: <String, dynamic>{
-          'hostId': hostId,
-          'sceneTag': sceneTag,
-          'budgetMinor': pesosToMinor(budget),
-          'note': note,
-        },
+        '/proposals/$proposalId/invitations',
+        body: <String, dynamic>{if (note.isNotEmpty) 'note': note},
       ) as Map<String, dynamic>,
     );
   }
 
   @override
-  Future<List<InvitationRecord>> fetchInvitations() async {
+  Future<List<InvitationRecord>> fetchProposalInvites(
+    String proposalId,
+  ) async {
     final List<dynamic> json =
-        await _client.get('/invitations') as List<dynamic>;
+        await _client.get('/proposals/$proposalId/invitations')
+            as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()
         .map(InvitationRecord.fromJson)
@@ -92,18 +95,14 @@ class ApiHostsRepository implements HostsRepository {
   }
 
   @override
-  Future<LiveOrder?> acceptInvitation(String invitationId) async {
+  Future<LiveOrder?> selectInvite(
+    String proposalId,
+    String invitationId,
+  ) async {
     return LiveOrder.fromJson(
-      await _client.post('/invitations/$invitationId/accept')
-          as Map<String, dynamic>,
-    );
-  }
-
-  @override
-  Future<InvitationRecord> declineInvitation(String invitationId) async {
-    return InvitationRecord.fromJson(
-      await _client.post('/invitations/$invitationId/decline')
-          as Map<String, dynamic>,
+      await _client.post(
+        '/proposals/$proposalId/invitations/$invitationId/select',
+      ) as Map<String, dynamic>,
     );
   }
 }

@@ -9,6 +9,7 @@ class AppNotification {
     required this.actorAvatarUrl,
     required this.postId,
     required this.orderId,
+    this.proposalId = '',
     required this.isRead,
     required this.createdAt,
   });
@@ -22,6 +23,7 @@ class AppNotification {
           resolveMediaUrl(json['actorAvatarUrl'] as String? ?? ''),
       postId: json['postId'] as String? ?? '',
       orderId: json['orderId'] as String? ?? '',
+      proposalId: json['proposalId'] as String? ?? '',
       isRead: json['isRead'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -33,6 +35,9 @@ class AppNotification {
   final String actorAvatarUrl;
   final String postId;
   final String orderId;
+
+  /// Deep link for proposal-scoped events (e.g. a new invitation).
+  final String proposalId;
   final bool isRead;
   final DateTime createdAt;
 }

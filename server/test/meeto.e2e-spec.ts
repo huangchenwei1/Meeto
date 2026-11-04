@@ -1417,9 +1417,11 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('host directory + direct invitations', () => {
-    let invitationId: string;
-    let acceptedOrderId: string;
+  describe('proposal invitations: users queue on a pitch, the host picks one', () => {
+    let proposalId: string;
+    let andreaInviteId: string;
+    let miguelInviteId: string;
+    let orderId: string;
 
     it('lists hosts with activity credentials', async () => {
       const res = await api()
@@ -1450,156 +1452,193 @@ describe('Meeto API (e2e)', () => {
       await api().get(`/hosts/${MIGUEL}`).set('X-User-Id', ANDREA).expect(404);
     });
 
-    it('a user invites a host on any priced scene', async () => {
-      const res = await api()
-        .post('/invitations')
-        .set('X-User-Id', ANDREA)
+    it('several users queue invitations; the pitch locks the price', async () => {
+      // A fresh pitch so the seeded feed stays untouched for later tests.
+      const pitch = await api()
+        .post('/proposals')
+        .set('X-User-Id', NOEL)
         .send({
-          hostId: BIANCA,
-          sceneTag: 'Coffee',
-          note: 'Plan me a quiet cafe afternoon',
-          budgetMinor: 250000, // top Coffee tier, snapshotted on the invite
+          title: 'Friday rooftop crawl, my shortlist',
+          sceneTag: 'Bar',
+          budgetMinor: 350000,
         })
         .expect(201);
-      invitationId = res.body.id;
-      expect(res.body.status).toBe('PENDING');
-      expect(res.body.budgetMinor).toBe(250000);
-      expect(res.body.from.id).toBe(ANDREA);
-      expect(res.body.host.id).toBe(BIANCA);
+      proposalId = pitch.body.id;
+      expect(pitch.body.status).toBe('OPEN');
+      expect(pitch.body.inviteCount).toBe(0);
+      expect(pitch.body.hasInvited).toBe(false);
 
-      // Duplicate pending invitation to the same host conflicts, even on
-      // another scene.
-      await api()
-        .post('/invitations')
+      // Inviting carries only the note: scene and price come from the
+      // pitch (whoever launches the activity prices it).
+      const first = await api()
+        .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', ANDREA)
-        .send({ hostId: BIANCA, sceneTag: 'Tea', note: '' })
-        .expect(409);
+        .send({ note: 'Friday works for me, pick the quiet rooftops' })
+        .expect(201);
+      andreaInviteId = first.body.id;
+      expect(first.body.status).toBe('PENDING');
+      expect(first.body.from.id).toBe(ANDREA);
+      expect(first.body.proposalId).toBe(proposalId);
 
-      // Hosts cannot invite, and only hosts can be invited.
+      // Duplicate pending invitation on the same pitch conflicts...
+      const dup = await api()
+        .post(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', ANDREA)
+        .send({ note: 'Again' })
+        .expect(409);
+      expect(dup.body.message).toBe('INVITE_ALREADY_PENDING');
+      // ...but other users queue freely on the same pitch.
+      const second = await api()
+        .post(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', MIGUEL)
+        .send({ note: 'Any Friday after 9pm' })
+        .expect(201);
+      miguelInviteId = second.body.id;
+
+      // Hosts cannot invite; a dead proposal id is a 404.
       await api()
-        .post('/invitations')
+        .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', JAMES)
-        .send({ hostId: NOEL, sceneTag: 'Coffee', note: '' })
+        .send({ note: 'no' })
         .expect(403);
       await api()
-        .post('/invitations')
+        .post('/proposals/nope/invitations')
         .set('X-User-Id', ANDREA)
-        .send({ hostId: MIGUEL, sceneTag: 'Coffee', note: '' })
+        .send({ note: 'no' })
         .expect(404);
 
-      // The invited host was notified and sees it in their list.
+      // The host was notified with the proposal deep link.
       const inbox = await api()
         .get('/notifications')
-        .set('X-User-Id', BIANCA)
+        .set('X-User-Id', NOEL)
         .expect(200);
       expect(inbox.body[0].type).toBe('INVITE_RECEIVED');
-      const mine = await api()
-        .get('/invitations')
-        .set('X-User-Id', BIANCA)
+      expect(inbox.body[0].proposalId).toBe(proposalId);
+
+      // The detail view counts the queue; inviters see their own flag.
+      const detail = await api()
+        .get(`/proposals/${proposalId}`)
+        .set('X-User-Id', ANDREA)
         .expect(200);
-      expect(
-        mine.body.some((i: { id: string }) => i.id === invitationId),
-      ).toBe(true);
+      expect(detail.body.inviteCount).toBe(2);
+      expect(detail.body.hasInvited).toBe(true);
+
+      // The invite pool itself is host-only, like a post's candidate list.
+      await api()
+        .get(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', ANDREA)
+        .expect(403);
+      const pool = await api()
+        .get(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(pool.body.length).toBe(2);
+      expect(pool.body[0].from.id).toBe(ANDREA);
+      expect(pool.body[1].from.id).toBe(MIGUEL);
     });
 
-    it('only the invited host can respond; accepting creates the order', async () => {
+    it('only the host selects; selection creates the order and takes the pitch off the market', async () => {
       await api()
-        .post(`/invitations/${invitationId}/accept`)
-        .set('X-User-Id', NOEL)
-        .expect(403);
-      await api()
-        .post(`/invitations/${invitationId}/accept`)
+        .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', ANDREA)
         .expect(403);
 
       const res = await api()
-        .post(`/invitations/${invitationId}/accept`)
-        .set('X-User-Id', BIANCA)
+        .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
+        .set('X-User-Id', NOEL)
         .expect(201);
-      acceptedOrderId = res.body.id;
+      orderId = res.body.id;
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
-      expect(res.body.earner.id).toBe(BIANCA);
-      expect(res.body.feeMinor).toBe(250000); // the tier picked at invite time
+      expect(res.body.earner.id).toBe(NOEL);
+      expect(res.body.feeMinor).toBe(350000); // the pitch's locked tier
 
-      // The inviter was notified with the order reference.
+      // The picked inviter was notified with the order reference.
       const inbox = await api()
         .get('/notifications')
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(inbox.body[0].type).toBe('INVITE_ACCEPTED');
-      expect(inbox.body[0].orderId).toBe(acceptedOrderId);
+      expect(inbox.body[0].orderId).toBe(orderId);
 
-      // Responding twice conflicts.
+      // Selecting twice, or selecting another inviter while the deal is
+      // pending, both conflict: the pitch is off the market.
       await api()
-        .post(`/invitations/${invitationId}/accept`)
-        .set('X-User-Id', BIANCA)
+        .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
+        .set('X-User-Id', NOEL)
         .expect(409);
+      await api()
+        .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
+        .set('X-User-Id', NOEL)
+        .expect(409);
+      // New invitations bounce too, and the pitch left the hall feed.
+      const late = await api()
+        .post(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', ANDREA)
+        .send({ note: 'too late' })
+        .expect(409);
+      expect(late.body.message).toBe('PROPOSAL_NOT_OPEN');
+      const feed = await api()
+        .get('/proposals')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(
+        feed.body.find((p: { id: string }) => p.id === proposalId),
+      ).toBeUndefined();
 
       // The backing direct post never shows on any public surface.
+      const order = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
       const requests = await api()
         .get('/posts?view=requests')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      const order = await api()
-        .get(`/orders/${acceptedOrderId}`)
-        .set('X-User-Id', ANDREA)
+        .set('X-User-Id', JAMES)
         .expect(200);
       expect(
         requests.body.find((p: { id: string }) => p.id === order.body.postId),
       ).toBeUndefined();
 
-      // Downstream is the standard flow: the inviter pays into escrow.
+      // Downstream is the standard flow: the inviter pays into escrow and
+      // the proposal mirrors the order into MATCHED.
       const paid = await api()
-        .post(`/orders/${acceptedOrderId}/payment`)
+        .post(`/orders/${orderId}/payment`)
         .set('X-User-Id', ANDREA)
         .expect(201);
       expect(paid.body.status).toBe('ACTIVE');
-
-      // Even once in progress (MATCHED), the direct post stays private on
-      // both public surfaces: the moments wall and the requests view.
-      const wall = await api()
-        .get('/posts')
-        .set('X-User-Id', MIGUEL)
+      const matched = await api()
+        .get(`/proposals/${proposalId}`)
+        .set('X-User-Id', ANDREA)
         .expect(200);
-      expect(
-        wall.body.find((p: { id: string }) => p.id === order.body.postId),
-      ).toBeUndefined();
-      const requestsAfterPay = await api()
-        .get('/posts?view=requests')
-        .set('X-User-Id', NOEL)
-        .expect(200);
-      expect(
-        requestsAfterPay.body.find(
-          (p: { id: string }) => p.id === order.body.postId,
-        ),
-      ).toBeUndefined();
+      expect(matched.body.status).toBe('MATCHED');
     });
 
-    it('declining notifies the inviter and allows re-inviting', async () => {
-      const invite = await api()
-        .post('/invitations')
-        .set('X-User-Id', MIGUEL)
-        .send({ hostId: NOEL, sceneTag: 'Bar', note: 'Friday night plan' })
+    it('a cancelled deal puts the pitch back on the market with its queue intact', async () => {
+      // Within the cancel window the payer can still back out.
+      const cancelled = await api()
+        .post(`/orders/${orderId}/cancel`)
+        .set('X-User-Id', ANDREA)
         .expect(201);
-      const declined = await api()
-        .post(`/invitations/${invite.body.id}/decline`)
+      expect(cancelled.body.status).toBe('CANCELLED');
+
+      // The pitch reopens and the untouched queue is selectable again.
+      const reopened = await api()
+        .get(`/proposals/${proposalId}`)
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(reopened.body.status).toBe('OPEN');
+      const pool = await api()
+        .get(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(pool.body.map((i: { id: string }) => i.id)).toEqual([
+        miguelInviteId,
+      ]);
+      const res = await api()
+        .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
         .set('X-User-Id', NOEL)
         .expect(201);
-      expect(declined.body.status).toBe('DECLINED');
-
-      const inbox = await api()
-        .get('/notifications')
-        .set('X-User-Id', MIGUEL)
-        .expect(200);
-      expect(inbox.body[0].type).toBe('INVITE_DECLINED');
-
-      // Once declined, the pair can start a fresh invitation.
-      await api()
-        .post('/invitations')
-        .set('X-User-Id', MIGUEL)
-        .send({ hostId: NOEL, sceneTag: 'Bar', note: 'Another try' })
-        .expect(201);
+      expect(res.body.payer.id).toBe(MIGUEL);
     });
   });
 

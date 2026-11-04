@@ -11,6 +11,7 @@ import '../../notifications/data/notifications_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/post_author.dart';
+import '../../hosts/data/hosts_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
@@ -20,8 +21,8 @@ import '../../../shared/widgets/app_avatar.dart';
 
 /// Messages tab: a pinned notifications inbox on top, then the caller's
 /// orders, polled from the server. Each order opens its order room
-/// (status + chat with the matched peer). Direct invitations live on the
-/// host's gig hall tab, not here.
+/// (status + chat with the matched peer). Invitations live on the
+/// proposal detail pages, not here.
 class OrdersPage extends StatefulWidget {
   const OrdersPage({
     super.key,
@@ -29,12 +30,14 @@ class OrdersPage extends StatefulWidget {
     required this.notificationsRepository,
     required this.communityRepository,
     required this.profileRepository,
+    required this.hostsRepository,
   });
 
   final OrdersRepository repository;
   final NotificationsRepository notificationsRepository;
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
+  final HostsRepository hostsRepository;
 
   @override
   State<OrdersPage> createState() => OrdersPageState();
@@ -94,6 +97,7 @@ class OrdersPageState extends State<OrdersPage> {
           communityRepository: widget.communityRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.repository,
+          hostsRepository: widget.hostsRepository,
         ),
       ),
     );

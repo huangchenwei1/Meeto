@@ -5,11 +5,9 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
-import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/form_widgets.dart';
@@ -19,24 +17,20 @@ import '../../community/models/activity_post.dart';
 import '../../community/pages/activity_composer_page.dart';
 import '../../community/pages/post_detail_page.dart';
 import '../../hosts/data/hosts_repository.dart';
-import '../../hosts/models/host_card.dart';
 import '../../hosts/models/proposal_card.dart';
-import '../../hosts/pages/host_detail_page.dart';
-import '../../hosts/widgets/invite_flow.dart';
+import '../../hosts/pages/proposal_detail_page.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../orders/data/orders_repository.dart';
-import '../../orders/models/live_order.dart';
-import '../../orders/pages/order_room_page.dart';
 import '../../profile/data/profile_repository.dart';
 
 /// Tab 2, identical for both roles: the dating hall. Every published
 /// activity lives here in one feed — user requests (hosts pitch on them)
-/// and host proposals (users invite from them) — in the same card
-/// language. Whose cards you can act on depends on your role, so the feed
-/// sorts actionable content first; the chips filter by side. Hosts also
-/// get their pending direct invitations pinned on top: that queue is work,
-/// not feed.
+/// and host proposals (users invite on them) — in the same card
+/// language, and both sides open a full detail page where the owner
+/// screens the queue and the other side joins it. Whose cards you can act
+/// on depends on your role, so the feed sorts actionable content first;
+/// the chips filter by side.
 class HallPage extends StatefulWidget {
   const HallPage({
     super.key,
@@ -65,12 +59,10 @@ const String _filterProposals = 'PROPOSALS';
 class HallPageState extends State<HallPage> {
   List<ActivityPost> _requests = <ActivityPost>[];
   List<ProposalCard> _proposals = <ProposalCard>[];
-  List<InvitationRecord> _pendingInvitations = <InvitationRecord>[];
   int _unreadCount = 0;
   String _unreadAvatarUrl = '';
   String _filter = _filterAll;
   bool _loaded = false;
-  bool _respondingInvitation = false;
   Timer? _pollTimer;
 
   bool get _isHost => AuthSession.isHost;
@@ -98,16 +90,10 @@ class HallPageState extends State<HallPage> {
       final (
         List<ActivityPost>,
         List<ProposalCard>,
-        List<InvitationRecord>,
         List<AppNotification>,
       ) result = await (
         widget.communityRepository.fetchOpenRequests(),
         widget.hostsRepository.fetchProposals(),
-        _isHost
-            ? widget.hostsRepository.fetchInvitations()
-            : Future<List<InvitationRecord>>.value(
-                const <InvitationRecord>[],
-              ),
         widget.notificationsRepository.list(),
       ).wait;
       if (!mounted) {
@@ -115,15 +101,12 @@ class HallPageState extends State<HallPage> {
       }
       // Newest-first inbox: the first unread actor fronts the pill, like
       // the WeChat Moments notice.
-      final List<AppNotification> unread = result.$4
+      final List<AppNotification> unread = result.$3
           .where((AppNotification n) => !n.isRead)
           .toList(growable: false);
       setState(() {
         _requests = result.$1;
         _proposals = result.$2;
-        _pendingInvitations = result.$3
-            .where((InvitationRecord i) => i.isPending)
-            .toList(growable: false);
         _unreadCount = unread.length;
         _unreadAvatarUrl = unread.isEmpty ? '' : unread.first.actorAvatarUrl;
         _loaded = true;
@@ -174,12 +157,16 @@ class HallPageState extends State<HallPage> {
     unawaited(_load());
   }
 
-  Future<void> _openHost(String hostId) async {
+  /// Both roles land on the same detail page: the owner screens the
+  /// invite queue there, users join it (mirror of the request detail).
+  Future<void> _openProposal(ProposalCard proposal) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => HostDetailPage(
-          repository: widget.hostsRepository,
-          hostId: hostId,
+        builder: (_) => ProposalDetailPage(
+          proposal: proposal,
+          hostsRepository: widget.hostsRepository,
+          profileRepository: widget.profileRepository,
+          ordersRepository: widget.ordersRepository,
         ),
       ),
     );
@@ -196,6 +183,7 @@ class HallPageState extends State<HallPage> {
           communityRepository: widget.communityRepository,
           profileRepository: widget.profileRepository,
           ordersRepository: widget.ordersRepository,
+          hostsRepository: widget.hostsRepository,
         ),
       ),
     );
@@ -219,89 +207,6 @@ class HallPageState extends State<HallPage> {
     );
     if ((posted ?? false) && mounted) {
       unawaited(_load());
-    }
-  }
-
-  /// Inviting from a pitch: the scene and the price are both locked to
-  /// the proposal, and the pitch title travels as the default note.
-  Future<void> _invite(ProposalCard proposal) async {
-    await runInviteFlow(
-      context,
-      repository: widget.hostsRepository,
-      hostId: proposal.hostId,
-      hostName: proposal.hostName,
-      scene: proposal.sceneTag,
-      budget: proposal.budgetAmount,
-      defaultNote: proposal.title,
-    );
-  }
-
-  Future<void> _acceptInvitation(InvitationRecord invitation) async {
-    setState(() => _respondingInvitation = true);
-    try {
-      final LiveOrder? order = await widget.hostsRepository.acceptInvitation(
-        invitation.id,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _pendingInvitations = _pendingInvitations
-            .where((InvitationRecord i) => i.id != invitation.id)
-            .toList(growable: false);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.inviteAcceptedSnack)),
-      );
-      if (order != null) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => OrderRoomPage(
-              repository: widget.ordersRepository,
-              orderId: order.id,
-              initialOrder: order,
-            ),
-          ),
-        );
-      }
-      unawaited(_load());
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _respondingInvitation = false);
-      }
-    }
-  }
-
-  Future<void> _declineInvitation(InvitationRecord invitation) async {
-    setState(() => _respondingInvitation = true);
-    try {
-      await widget.hostsRepository.declineInvitation(invitation.id);
-      if (mounted) {
-        setState(() {
-          _pendingInvitations = _pendingInvitations
-              .where((InvitationRecord i) => i.id != invitation.id)
-              .toList(growable: false);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.inviteDeclinedSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _respondingInvitation = false);
-      }
     }
   }
 
@@ -373,8 +278,7 @@ class HallPageState extends State<HallPage> {
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                        // index 0: guidelines banner (+ the host's pending
-                        // invitation queue when present).
+                        // index 0: guidelines banner + unread pill.
                         itemCount: items.isEmpty ? 2 : items.length + 1,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: 22),
@@ -396,23 +300,6 @@ class HallPageState extends State<HallPage> {
                                       onTap: _openNotifications,
                                     ),
                                   ),
-                                ],
-                                if (_pendingInvitations
-                                    .isNotEmpty) ...<Widget>[
-                                  const SizedBox(height: 14),
-                                  const _SectionHeader(
-                                    label: AppStrings.gigsInvitesHeader,
-                                  ),
-                                  for (final InvitationRecord invitation
-                                      in _pendingInvitations)
-                                    _InvitationCard(
-                                      invitation: invitation,
-                                      busy: _respondingInvitation,
-                                      onAccept: () =>
-                                          _acceptInvitation(invitation),
-                                      onDecline: () =>
-                                          _declineInvitation(invitation),
-                                    ),
                                 ],
                               ],
                             );
@@ -439,36 +326,13 @@ class HallPageState extends State<HallPage> {
                               : _ProposalTile(
                                   proposal: item as ProposalCard,
                                   canInvite: !_isHost,
-                                  onTap: () => _openHost(item.hostId),
-                                  onInvite: () => _invite(item),
+                                  onTap: () => _openProposal(item),
                                 );
                         },
                       ),
                     ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
-          color: AppColors.textSecondary,
         ),
       ),
     );
@@ -546,21 +410,20 @@ class _RequestCard extends StatelessWidget {
 }
 
 /// One host pitch in the shared feed-post card, mirroring the request
-/// card: time window and rough location in the info line, the host's
-/// picked price on the footer (inviting pays exactly this), the invite
-/// pill for users; hosts browse the competition read-only.
+/// card: time window, rough location and the invite queue size in the
+/// info line, the host's picked price on the footer (inviting pays
+/// exactly this). The whole card — invite pill included — opens the
+/// proposal detail, where users queue and the host screens the queue.
 class _ProposalTile extends StatelessWidget {
   const _ProposalTile({
     required this.proposal,
     required this.canInvite,
     required this.onTap,
-    required this.onInvite,
   });
 
   final ProposalCard proposal;
   final bool canInvite;
   final VoidCallback onTap;
-  final VoidCallback onInvite;
 
   String get _hostMetaLine {
     final String record = proposal.hostCompletedActivities > 0
@@ -588,17 +451,38 @@ class _ProposalTile extends StatelessWidget {
       infoText: <String>[
         if (proposal.timeSlot.isNotEmpty)
           AppStrings.timeSlotLabel(proposal.timeSlot),
-        proposal.locationLine,
+        if (proposal.locationLine.isNotEmpty) proposal.locationLine,
+        if (proposal.inviteCount > 0)
+          AppStrings.proposalInviteCount(proposal.inviteCount),
       ].join(' \u00b7 '),
       footerIcon: Iconsax.empty_wallet,
       footerText: MoneyFormat.format(proposal.budgetAmount),
-      action: canInvite
-          ? FeedActionPill(
-              key: ValueKey<String>('inviteProposal${proposal.id}'),
-              label: AppStrings.hostInviteCta,
-              onTap: onInvite,
-            )
-          : const SizedBox.shrink(),
+      action: !canInvite
+          ? const SizedBox.shrink()
+          : proposal.hasInvited
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    AppStrings.invitedBadge,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                )
+              : FeedActionPill(
+                  key: ValueKey<String>('inviteProposal${proposal.id}'),
+                  label: AppStrings.hostInviteCta,
+                  onTap: onTap,
+                ),
     );
   }
 }
@@ -651,104 +535,6 @@ class _UnreadNoticePill extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// One pending direct invitation: who wants what, with accept/decline
-/// inline. Accepting opens the newly created order room.
-class _InvitationCard extends StatelessWidget {
-  const _InvitationCard({
-    required this.invitation,
-    required this.busy,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  final InvitationRecord invitation;
-  final bool busy;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              AppAvatar(size: 38, imageUrl: invitation.fromAvatarUrl),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  AppStrings.inviteFromLine(
-                    invitation.fromName,
-                    AppStrings.sceneLabel(invitation.sceneTag),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (invitation.note.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              '\u201c${invitation.note}\u201d',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                height: 1.4,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              const Spacer(),
-              TextButton(
-                key: ValueKey<String>('declineInvite${invitation.id}'),
-                onPressed: busy ? null : onDecline,
-                child: const Text(AppStrings.inviteDeclineCta),
-              ),
-              const SizedBox(width: 6),
-              FilledButton(
-                key: ValueKey<String>('acceptInvite${invitation.id}'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.textPrimary,
-                  foregroundColor: AppColors.onDarkPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: busy ? null : onAccept,
-                child: const Text(
-                  AppStrings.inviteAcceptCta,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

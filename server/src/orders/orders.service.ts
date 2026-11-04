@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { User } from '@prisma/client';
+import type { Prisma, User } from '@prisma/client';
 import {
   ApplicationStatus,
   LedgerAccount,
@@ -140,6 +140,7 @@ export class OrdersService {
         where: { id: order.postId },
         data: { status: PostStatus.matched },
       });
+      await OrdersService.syncProposal(tx, order, PostStatus.matched);
       await this.notifications.notify(tx, {
         userId: order.earnerId,
         type: NotificationType.orderPaid,
@@ -349,6 +350,7 @@ export class OrdersService {
         where: { id: order.postId },
         data: { status: PostStatus.completed },
       });
+      await OrdersService.syncProposal(tx, order, PostStatus.completed);
       await this.notifications.notify(tx, {
         userId: order.earnerId,
         type: NotificationType.orderSettled,
@@ -399,6 +401,7 @@ export class OrdersService {
         where: { id: order.postId },
         data: { status: PostStatus.cancelled },
       });
+      await OrdersService.syncProposal(tx, order, PostStatus.cancelled);
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.forfeited, completedAt: new Date() },
@@ -453,6 +456,9 @@ export class OrdersService {
         where: { id: order.postId },
         data: { status: PostStatus.open },
       });
+      // A proposal-born deal that falls through puts the pitch back on
+      // the market, exactly like a reopened demand post.
+      await OrdersService.syncProposal(tx, order, PostStatus.open);
       await this.notifications.notify(tx, {
         userId: order.payerId === caller.id ? order.earnerId : order.payerId,
         type: NotificationType.orderCancelled,
@@ -523,6 +529,22 @@ export class OrdersService {
       orderBy: { createdAt: 'asc' },
     });
     return messages.map(toMessageDto);
+  }
+
+  /// DIRECT posts born from selecting an invitation on a proposal carry
+  /// the proposal link: the order lifecycle mirrors its status back onto
+  /// that proposal so the pitch leaves or re-enters the hall correctly.
+  private static async syncProposal(
+    tx: Prisma.TransactionClient,
+    order: OrderWithParties,
+    status: string,
+  ): Promise<void> {
+    if (order.post.proposalId !== '') {
+      await tx.proposal.update({
+        where: { id: order.post.proposalId },
+        data: { status },
+      });
+    }
   }
 
   private async findParticipantOrderOrThrow(

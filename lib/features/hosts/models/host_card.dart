@@ -49,50 +49,49 @@ class HostCard {
   final List<String> recentProposals;
 }
 
-/// A direct invitation from a user to a host. PENDING until the host
-/// accepts (which creates the order) or declines.
+/// One user's invitation queued on a host's proposal — the mirror of a
+/// host's sign-up on a demand post. PENDING until the host picks it.
 class InvitationRecord {
   const InvitationRecord({
     required this.id,
-    required this.sceneTag,
+    required this.proposalId,
     required this.note,
     required this.status,
+    required this.fromId,
     required this.fromName,
     required this.fromAvatarUrl,
     required this.fromMeta,
-    required this.hostName,
-    required this.orderId,
+    this.fromVerified = false,
     required this.createdAt,
   });
 
   factory InvitationRecord.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic> from = json['from'] as Map<String, dynamic>;
-    final Map<String, dynamic> host = json['host'] as Map<String, dynamic>;
     return InvitationRecord(
       id: json['id'] as String,
-      sceneTag: json['sceneTag'] as String,
+      proposalId: json['proposalId'] as String? ?? '',
       note: json['note'] as String? ?? '',
       status: json['status'] as String,
+      fromId: from['id'] as String,
       fromName: from['name'] as String,
       fromAvatarUrl: resolveMediaUrl(from['avatarUrl'] as String? ?? ''),
       fromMeta: from['meta'] as String? ?? '',
-      hostName: host['name'] as String,
-      orderId: json['orderId'] as String? ?? '',
+      fromVerified: from['isVerified'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
 
   final String id;
-  final String sceneTag;
+  final String proposalId;
   final String note;
 
-  /// PENDING | ACCEPTED | DECLINED
+  /// PENDING | ACCEPTED
   final String status;
+  final String fromId;
   final String fromName;
   final String fromAvatarUrl;
   final String fromMeta;
-  final String hostName;
-  final String orderId;
+  final bool fromVerified;
   final DateTime createdAt;
 
   bool get isPending => status == 'PENDING';

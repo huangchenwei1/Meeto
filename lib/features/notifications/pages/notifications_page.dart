@@ -9,11 +9,15 @@ import '../../orders/pages/order_room_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
+import '../../hosts/data/hosts_repository.dart';
+import '../../hosts/models/proposal_card.dart';
+import '../../hosts/pages/proposal_detail_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/notifications_repository.dart';
 
 /// Notification inbox (API mode). Opening it marks everything read; each
-/// entry deep-links to the post (candidate pool) or the order room.
+/// entry deep-links to the order room, the proposal (invite queue) or the
+/// post (candidate pool).
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({
     super.key,
@@ -21,12 +25,14 @@ class NotificationsPage extends StatefulWidget {
     required this.communityRepository,
     required this.profileRepository,
     required this.ordersRepository,
+    required this.hostsRepository,
   });
 
   final NotificationsRepository notificationsRepository;
   final CommunityRepository communityRepository;
   final ProfileRepository profileRepository;
   final OrdersRepository ordersRepository;
+  final HostsRepository hostsRepository;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -73,6 +79,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
       );
       return;
     }
+    if (item.proposalId.isNotEmpty) {
+      final ProposalCard proposal =
+          await widget.hostsRepository.fetchProposal(item.proposalId);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ProposalDetailPage(
+            proposal: proposal,
+            hostsRepository: widget.hostsRepository,
+            profileRepository: widget.profileRepository,
+            ordersRepository: widget.ordersRepository,
+          ),
+        ),
+      );
+      return;
+    }
     if (item.postId.isNotEmpty) {
       final ActivityPost post =
           await widget.communityRepository.fetchPostById(item.postId);
@@ -112,8 +136,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return AppStrings.notifyInviteReceived(item.actorName);
       case 'INVITE_ACCEPTED':
         return AppStrings.notifyInviteAccepted(item.actorName);
-      case 'INVITE_DECLINED':
-        return AppStrings.notifyInviteDeclined(item.actorName);
       default:
         return item.type;
     }

@@ -18,6 +18,8 @@ export interface NotificationDto {
   actorAvatarUrl: string;
   postId: string;
   orderId: string;
+  /// Deep link for proposal-scoped events (e.g. a new invitation).
+  proposalId: string;
   isRead: boolean;
   createdAt: Date;
 }
@@ -29,6 +31,7 @@ export interface NotificationInput {
   actorAvatarUrl?: string;
   postId?: string;
   orderId?: string;
+  proposalId?: string;
 }
 
 /// Writes in-app notifications. Fired inside the same transaction as the
@@ -50,6 +53,7 @@ export class NotificationsService {
         actorAvatarUrl: input.actorAvatarUrl ?? '',
         postId: input.postId ?? '',
         orderId: input.orderId ?? '',
+        proposalId: input.proposalId ?? '',
       },
     });
   }
@@ -96,6 +100,7 @@ function toNotificationDto(row: Notification): NotificationDto {
     actorAvatarUrl: row.actorAvatarUrl,
     postId: row.postId,
     orderId: row.orderId,
+    proposalId: row.proposalId,
     isRead: row.readAt !== null,
     createdAt: row.createdAt,
   };

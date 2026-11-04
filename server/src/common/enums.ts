@@ -17,13 +17,13 @@ export const NotificationType = {
   planConfirmed: 'PLAN_CONFIRMED',
   inviteReceived: 'INVITE_RECEIVED',
   inviteAccepted: 'INVITE_ACCEPTED',
-  inviteDeclined: 'INVITE_DECLINED',
 } as const;
 
+// A user's invitation on a host's proposal: PENDING until the host picks
+// it (ACCEPTED). Mirrors ApplicationStatus on the demand side.
 export const InvitationStatus = {
   pending: 'PENDING',
   accepted: 'ACCEPTED',
-  declined: 'DECLINED',
 } as const;
 export type InvitationStatus =
   (typeof InvitationStatus)[keyof typeof InvitationStatus];

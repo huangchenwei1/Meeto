@@ -14,6 +14,9 @@ class ProposalCard {
     this.area = '',
     this.timeSlot = '',
     this.budgetAmount = 0,
+    this.status = 'OPEN',
+    this.inviteCount = 0,
+    this.hasInvited = false,
     required this.createdAt,
     required this.hostId,
     required this.hostName,
@@ -35,6 +38,9 @@ class ProposalCard {
       area: json['area'] as String? ?? '',
       timeSlot: json['timeSlot'] as String? ?? '',
       budgetAmount: minorToPesos(json['budgetMinor'] as int? ?? 0),
+      status: json['status'] as String? ?? 'OPEN',
+      inviteCount: json['inviteCount'] as int? ?? 0,
+      hasInvited: json['hasInvited'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       hostId: host['id'] as String,
       hostName: host['name'] as String,
@@ -73,6 +79,18 @@ class ProposalCard {
   /// inviting from this pitch pays exactly this.
   final int budgetAmount;
 
+  /// Mirrors post statuses (OPEN | PENDING_PAYMENT | MATCHED | ...);
+  /// only OPEN pitches take invitations.
+  final String status;
+
+  /// Pending invitations queued on this pitch.
+  final int inviteCount;
+
+  /// Whether the current viewer already has a pending invitation here.
+  final bool hasInvited;
+
+  bool get isOpen => status == 'OPEN';
+
   final DateTime createdAt;
   final String hostId;
   final String hostName;
@@ -87,4 +105,32 @@ class ProposalCard {
         if (hostCity.isNotEmpty) hostCity,
         if (area.isNotEmpty) area,
       ].join(' \u00b7 ');
+
+  ProposalCard copyWith({
+    String? status,
+    int? inviteCount,
+    bool? hasInvited,
+  }) {
+    return ProposalCard(
+      id: id,
+      title: title,
+      description: description,
+      sceneTag: sceneTag,
+      imageUrl: imageUrl,
+      area: area,
+      timeSlot: timeSlot,
+      budgetAmount: budgetAmount,
+      status: status ?? this.status,
+      inviteCount: inviteCount ?? this.inviteCount,
+      hasInvited: hasInvited ?? this.hasInvited,
+      createdAt: createdAt,
+      hostId: hostId,
+      hostName: hostName,
+      hostAvatarUrl: hostAvatarUrl,
+      hostMeta: hostMeta,
+      hostCity: hostCity,
+      hostIsVerified: hostIsVerified,
+      hostCompletedActivities: hostCompletedActivities,
+    );
+  }
 }

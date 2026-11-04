@@ -6,67 +6,59 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../auth/pages/verification_page.dart';
 import '../data/hosts_repository.dart';
+import '../models/proposal_card.dart';
 
-/// Opens the invitation confirm sheet and sends the invite, handling the
-/// verification prompt and duplicate-invite conflict. Invitations only
-/// start from a concrete activity pitch — the product trades activities,
-/// not people — so the scene and the price are both locked to the pitch:
-/// whoever launches the activity prices it.
+/// Opens the invitation confirm sheet and queues the invite on the pitch,
+/// handling the verification prompt and the duplicate/closed conflicts.
+/// Invitations only start from a concrete activity pitch — the product
+/// trades activities, not people — so the scene and the price are both
+/// locked to the pitch: whoever launches the activity prices it.
 ///
-/// [defaultNote] fills in when the user leaves the note empty — e.g. the
-/// pitch title the invitation came from, so the host sees the context.
-Future<void> runInviteFlow(
+/// Returns true when the invitation was sent.
+Future<bool> runInviteFlow(
   BuildContext context, {
   required HostsRepository repository,
-  required String hostId,
-  required String hostName,
-  required String scene,
-  required int budget,
-  String defaultNote = '',
+  required ProposalCard proposal,
 }) async {
   final String? note = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) =>
-        InviteSheet(hostName: hostName, scene: scene, budget: budget),
+    builder: (_) => InviteSheet(
+      hostName: proposal.hostName,
+      scene: proposal.sceneTag,
+      budget: proposal.budgetAmount,
+    ),
   );
   if (note == null || !context.mounted) {
-    return;
+    return false;
   }
-  await _send(
+  // An empty note still carries context server-side via the pitch itself.
+  return _send(
     context,
     repository: repository,
-    hostId: hostId,
-    sceneTag: scene,
-    budget: budget,
-    note: note.isEmpty ? defaultNote : note,
+    proposalId: proposal.id,
+    note: note.isEmpty ? proposal.title : note,
   );
 }
 
-Future<void> _send(
+Future<bool> _send(
   BuildContext context, {
   required HostsRepository repository,
-  required String hostId,
-  required String sceneTag,
-  required int budget,
+  required String proposalId,
   required String note,
 }) async {
   try {
-    await repository.invite(
-      hostId: hostId,
-      sceneTag: sceneTag,
-      budget: budget,
-      note: note,
-    );
+    await repository.inviteToProposal(proposalId, note: note);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.inviteSentSnack)),
       );
     }
+    return true;
   } on ApiException catch (e) {
     if (!context.mounted) {
-      return;
+      return false;
     }
     if (e.verificationRequired) {
       final bool verified = await promptVerification(context);
@@ -74,20 +66,21 @@ Future<void> _send(
         return _send(
           context,
           repository: repository,
-          hostId: hostId,
-          sceneTag: sceneTag,
-          budget: budget,
+          proposalId: proposalId,
           note: note,
         );
       }
-    } else {
-      final String message = e.statusCode == 409
-          ? AppStrings.inviteAlreadyPendingSnack
-          : e.message;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      return false;
     }
+    final String message = switch (e.message) {
+      'INVITE_ALREADY_PENDING' => AppStrings.inviteAlreadyPendingSnack,
+      'PROPOSAL_NOT_OPEN' => AppStrings.proposalNotOpenSnack,
+      _ => e.message,
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+    return false;
   }
 }
 
