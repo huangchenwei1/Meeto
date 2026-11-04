@@ -231,6 +231,12 @@ abstract final class AppStrings {
   static const List<(String, List<String>)> countryCities =
       <(String, List<String>)>[
     (
+      '中国',
+      <String>[
+        '武汉',
+      ],
+    ),
+    (
       '菲律宾',
       <String>[
         '马尼拉',
