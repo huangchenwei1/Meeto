@@ -497,7 +497,8 @@ abstract final class AppStrings {
   static const String planPlaceHint = '具体在哪？例如：Greenbelt 3 的 Single Origin';
   static const String planRequiredHint = '先填好地点、时间和流程安排';
   static const String planAwaitingBadge = '待确认';
-  static const String planOutdatedBadge = '已更新';
+  static const String planMissingBadge = '待发送';
+  static const String chatEndedBadge = '已结束';
   static const String chatReadOnlyNote = '活动已结束，会话仅可读';
   static const String planDurationLabel = '游玩时长';
   static const String proposalPitchLabel = '方案介绍';
