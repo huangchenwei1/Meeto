@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
@@ -13,15 +12,11 @@ import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import 'order_room_page.dart';
-import 'pay_page.dart';
 
-/// The full order history under the Me tab, as proper e-commerce order
-/// cards: every status, newest first. Each card is title + status, the
-/// peer and the locked plan, the total, and the status's own actions —
-/// pay/cancel while unpaid, chat while running, details when closed. The
-/// Messages tab only carries live conversations; this page is where
-/// unpaid deals get finished (or quietly expire) and old orders stay
-/// reviewable forever.
+/// Completed orders only, under the Me tab: the purchase history of
+/// finished activities, newest first. Running deals live on the Messages
+/// tab, unpaid deals finish (or expire) right where they were formed —
+/// neither belongs in an order archive.
 class MyOrdersPage extends StatefulWidget {
   const MyOrdersPage({super.key, required this.ordersRepository});
 
@@ -34,7 +29,6 @@ class MyOrdersPage extends StatefulWidget {
 class _MyOrdersPageState extends State<MyOrdersPage> {
   List<LiveOrder> _orders = <LiveOrder>[];
   bool _loaded = false;
-  bool _busy = false;
 
   @override
   void initState() {
@@ -48,7 +42,9 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
           await widget.ordersRepository.listMine(all: true);
       if (mounted) {
         setState(() {
-          _orders = orders;
+          _orders = orders
+              .where((LiveOrder o) => o.status == 'COMPLETED')
+              .toList(growable: false);
           _loaded = true;
         });
       }
@@ -59,51 +55,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     }
   }
 
-  Future<void> _pay(LiveOrder order) async {
-    final LiveOrder? paid = await openPayPage(
-      context,
-      repository: widget.ordersRepository,
-      order: order,
-    );
-    if (!mounted) {
-      return;
-    }
-    unawaited(_load());
-    if (paid == null) {
-      return;
-    }
-    await _enterRoom(paid);
-  }
-
-  /// Backing out of an unpaid deal is free: no money moved, the pitch or
-  /// post goes straight back on the market.
-  Future<void> _cancelUnpaid(LiveOrder order) async {
-    if (_busy) {
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await widget.ordersRepository.cancel(order.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.unpaidCancelledSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-        unawaited(_load());
-      }
-    }
-  }
-
-  Future<void> _enterRoom(LiveOrder order) async {
+  Future<void> _openRoom(LiveOrder order) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => OrderRoomPage(
@@ -114,23 +66,6 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       ),
     );
     unawaited(_load());
-  }
-
-  /// Tapping the card body follows the status's primary action: an unpaid
-  /// order is an unfinished payment (payer) or a wait (earner); anything
-  /// paid opens its room, read-only when closed.
-  Future<void> _open(LiveOrder order) async {
-    if (order.status == 'AWAITING_PAYMENT') {
-      if (order.isPayer(AuthSession.currentUserId)) {
-        await _pay(order);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.waitingForPayment)),
-        );
-      }
-      return;
-    }
-    await _enterRoom(order);
   }
 
   @override
@@ -162,11 +97,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                       final LiveOrder order = _orders[index];
                       return _OrderCard(
                         order: order,
-                        busy: _busy,
-                        onTap: () => _open(order),
-                        onPay: () => _pay(order),
-                        onCancel: () => _cancelUnpaid(order),
-                        onChat: () => _enterRoom(order),
+                        onTap: () => _openRoom(order),
                       );
                     },
                   ),
@@ -175,44 +106,18 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   }
 }
 
-/// One order as a service-purchase card, not a people card: the header
-/// is the provider line (the merchant position — host for the payer,
-/// initiator for the host), the body is the service item itself (the
-/// activity with its locked plan and price), and the footer carries the
-/// total plus the status's actions.
+/// One completed order as a service-purchase card: the header is the
+/// provider line (the merchant position — host for the payer, initiator
+/// for the host), the body is the service item itself (the activity with
+/// its locked plan and price), and the footer carries the total and the
+/// details action.
 class _OrderCard extends StatelessWidget {
-  const _OrderCard({
-    required this.order,
-    required this.busy,
-    required this.onTap,
-    required this.onPay,
-    required this.onCancel,
-    required this.onChat,
-  });
+  const _OrderCard({required this.order, required this.onTap});
 
   final LiveOrder order;
-  final bool busy;
   final VoidCallback onTap;
-  final VoidCallback onPay;
-  final VoidCallback onCancel;
-  final VoidCallback onChat;
 
   bool get _iAmPayer => order.isPayer(AuthSession.currentUserId);
-
-  (String, Color) get _statusText {
-    switch (order.status) {
-      case 'AWAITING_PAYMENT':
-        return (AppStrings.statusAwaitingPayment, const Color(0xFFD97706));
-      case 'ACTIVE':
-        return (AppStrings.statusActive, AppColors.accent);
-      case 'COMPLETED':
-        return (AppStrings.statusCompleted, AppColors.textSecondary);
-      case 'FORFEITED':
-        return (AppStrings.statusForfeited, AppColors.textHint);
-      default:
-        return (AppStrings.statusCancelled, AppColors.textHint);
-    }
-  }
 
   String _whenLine(BuildContext context) {
     if (order.planAt == null) {
@@ -239,7 +144,6 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
-    final (String statusLabel, Color statusColor) = _statusText;
     final String fee = MoneyFormat.format(order.feePesos);
     final String whenLine = _whenLine(context);
     // The merchant line: the one providing or ordering the service, never
@@ -281,12 +185,12 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    statusLabel,
+                  const Text(
+                    AppStrings.statusCompleted,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: statusColor,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -366,8 +270,8 @@ class _OrderCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              // Footer: order time, total, then the actions this status
-              // actually supports.
+              // Footer: order time + total; the card itself opens the
+              // read-only room.
               Row(
                 children: <Widget>[
                   Expanded(
@@ -400,86 +304,35 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ],
               ),
-              ..._actions(context),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  SizedBox(
+                    height: 32,
+                    child: OutlinedButton(
+                      key: ValueKey<String>('myOrderDetail-${order.id}'),
+                      onPressed: onTap,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                        side: const BorderSide(color: AppColors.border),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text(AppStrings.myOrderDetailCta),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  List<Widget> _actions(BuildContext context) {
-    final List<Widget> buttons = <Widget>[];
-    if (order.status == 'AWAITING_PAYMENT') {
-      if (_iAmPayer) {
-        buttons.addAll(<Widget>[
-          _pillButton(
-            key: 'myOrderCancel-${order.id}',
-            label: AppStrings.myOrderCancelCta,
-            onPressed: busy ? null : onCancel,
-          ),
-          const SizedBox(width: 8),
-          _pillButton(
-            key: 'myOrderPay-${order.id}',
-            label: AppStrings.myOrderPayCta,
-            onPressed: busy ? null : onPay,
-            primary: true,
-          ),
-        ]);
-      } else {
-        buttons.add(const Text(
-          AppStrings.myOrderWaitingPeerPay,
-          style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
-        ));
-      }
-    } else if (order.status == 'ACTIVE') {
-      buttons.add(_pillButton(
-        key: 'myOrderChat-${order.id}',
-        label: AppStrings.myOrderChatCta,
-        onPressed: onChat,
-        primary: true,
-      ));
-    } else {
-      buttons.add(_pillButton(
-        key: 'myOrderDetail-${order.id}',
-        label: AppStrings.myOrderDetailCta,
-        onPressed: onChat,
-      ));
-    }
-    return <Widget>[
-      const SizedBox(height: 10),
-      Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
-    ];
-  }
-
-  Widget _pillButton({
-    required String key,
-    required String label,
-    required VoidCallback? onPressed,
-    bool primary = false,
-  }) {
-    return SizedBox(
-      height: 32,
-      child: OutlinedButton(
-        key: ValueKey<String>(key),
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor:
-              primary ? AppColors.background : AppColors.textSecondary,
-          backgroundColor: primary ? AppColors.darkCard : null,
-          side: primary
-              ? BorderSide.none
-              : const BorderSide(color: AppColors.border),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        child: Text(label),
       ),
     );
   }
