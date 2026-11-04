@@ -145,6 +145,8 @@ abstract final class AppStrings {
   static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
   static String postAuthorLine(String name) => '$name 发起';
+  static const String postTakenCta = '已有主持人接单';
+  static const String postFinishedCta = '活动已结束';
   // The activity-budget rules shown on the demand post detail page.
   static const String budgetRuleQuality = '预算包含全部活动开销，优先用于保证活动安排质量';
   static const String budgetRuleAdvance = '活动开销由主持人先行垫付，Meeto 托管全款，取消全额退款';

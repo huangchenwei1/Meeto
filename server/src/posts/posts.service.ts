@@ -160,7 +160,11 @@ export class PostsService {
             ? {
                 origin: PostOrigin.feed,
                 type: PostType.demand,
-                status: PostStatus.open,
+                // Requests stay listed through their whole life —
+                // selection, payment, even completion — so the hall
+                // keeps showing activity. Only cancelled/deleted posts
+                // drop out. (A time-based hiding window can come later.)
+                status: { not: PostStatus.cancelled },
               }
             : { type: PostType.moment }),
         ...(scene ? { sceneTag: scene } : {}),

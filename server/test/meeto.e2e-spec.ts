@@ -298,7 +298,7 @@ describe('Meeto API (e2e)', () => {
       }
     });
 
-    it('the requests view lists only open demands, to every caller', async () => {
+    it('the requests view lists demands in every live status, to every caller', async () => {
       // Seed posts are male- and female-authored; neutrality must be
       // observable in both directions.
       const hostView = await api()
@@ -313,15 +313,18 @@ describe('Meeto API (e2e)', () => {
       expect(genders.has('FEMALE')).toBe(true);
       expect(genders.has('MALE')).toBe(true);
 
-      // Only OPEN demand posts qualify as gigs: the seeded MATCHED movie
-      // night is out, moments are out, open requests are in.
+      // Demand posts stay listed through selection, payment, and
+      // completion; only cancelled posts drop out. Moments stay out.
       for (const post of hostView.body) {
         expect(post.type).toBe('DEMAND');
-        expect(post.status).toBe('OPEN');
+        expect(post.status).not.toBe('CANCELLED');
       }
-      expect(
-        hostView.body.find((p: { id: string }) => p.id === 'post-003'),
-      ).toBeUndefined();
+      // The seeded MATCHED movie night stays visible with its host.
+      const matched = hostView.body.find(
+        (p: { id: string }) => p.id === 'post-003',
+      );
+      expect(matched).toBeDefined();
+      expect(matched.status).toBe('MATCHED');
       const open = hostView.body.find(
         (p: { id: string }) => p.id === 'post-001',
       );

@@ -348,7 +348,7 @@ class MockCommunityRepository implements CommunityRepository {
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return _posts
         .where(
-          (ActivityPost post) => !post.isMoment && post.status == 'OPEN',
+          (ActivityPost post) => !post.isMoment && post.status != 'CANCELLED',
         )
         .toList()
       ..sort(

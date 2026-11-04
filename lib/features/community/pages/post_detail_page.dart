@@ -347,17 +347,62 @@ class _PostDetailPageState extends State<PostDetailPage> {
       ),
       // Sign-up is a host action on posts still waiting for a host: users
       // viewing someone else's post get no transactional bar (they invite
-      // hosts from the directory instead), and in-progress activities are
-      // read-only for everyone but the poster.
-      bottomNavigationBar: _isMine
+      // hosts from the directory instead). Posts stay listed in the hall
+      // after selection/completion, so hosts get a disabled status bar
+      // instead of nothing.
+      bottomNavigationBar: _isMine || !AuthSession.isHost
           ? null
-          : AuthSession.isHost && _post.status == 'OPEN'
+          : _post.status == 'OPEN'
               ? _CandidateBottomBar(
                   post: _post,
                   signedUp: _signedUp,
                   onSignUp: _signUp,
                 )
-              : null,
+              : _ClosedBottomBar(status: _post.status),
+    );
+  }
+}
+
+/// Shown to hosts on a request that already left OPEN: the post stays
+/// browsable in the hall, this bar just says why sign-up is gone.
+class _ClosedBottomBar extends StatelessWidget {
+  const _ClosedBottomBar({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.paddingOf(context).bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        border: Border(top: BorderSide(color: AppColors.divider)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            disabledBackgroundColor: AppColors.surface,
+            disabledForegroundColor: AppColors.textHint,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: Text(
+            status == 'COMPLETED'
+                ? AppStrings.postFinishedCta
+                : AppStrings.postTakenCta,
+          ),
+        ),
+      ),
     );
   }
 }
