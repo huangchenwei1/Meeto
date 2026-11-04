@@ -178,18 +178,18 @@ const MOMENTS = [
     type: 'MOMENT',
     sceneTag: '',
     title:
-      'Bianca took me to a cafe hidden inside a bookshop. Best Sunday in ' +
-      'months — I did not make a single decision all afternoon.',
+      'Bianca 带我去了昙华林一家藏在书店里的咖啡馆，几个月来最舒服的周日' +
+      '——一下午没做一个决定。',
     description:
-      'Bianca took me to a cafe hidden inside a bookshop. Best Sunday in ' +
-      'months — I did not make a single decision all afternoon.',
+      'Bianca 带我去了昙华林一家藏在书店里的咖啡馆，几个月来最舒服的周日' +
+      '——一下午没做一个决定。',
     imageUrl:
       'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
     imagesJson: JSON.stringify([
       'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
     ]),
-    venue: 'Hidden cafe at Solidaridad Bookshop, Legazpi Village',
+    venue: '昙华林深处的书店咖啡馆',
     feeMinor: 0,
     createdAt: hoursAgo(6),
   },
@@ -199,17 +199,17 @@ const MOMENTS = [
     type: 'MOMENT',
     sceneTag: '',
     title:
-      'Kat planned a dinner at a 12-seat omakase counter I never knew ' +
-      'existed. Worth every peso of the service fee.',
+      'Kat 订到了江汉路一家我从不知道的 12 座板前日料，' +
+      '这顿服务费花得太值了。',
     description:
-      'Kat planned a dinner at a 12-seat omakase counter I never knew ' +
-      'existed. Worth every peso of the service fee.',
+      'Kat 订到了江汉路一家我从不知道的 12 座板前日料，' +
+      '这顿服务费花得太值了。',
     imageUrl:
       'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
     imagesJson: JSON.stringify([
       'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
     ]),
-    venue: 'Tsukiji omakase counter, Little Tokyo',
+    venue: '江汉路 12 座板前日料',
     feeMinor: 0,
     createdAt: hoursAgo(12),
   },
@@ -232,8 +232,12 @@ async function main() {
   for (const post of MOMENTS) {
     await prisma.post.upsert({
       where: { id: post.id },
-      // Existing rows get the venue backfill on reseed.
-      update: { venue: post.venue },
+      // Reseeding refreshes the ops-owned copy on existing rows too.
+      update: {
+        title: post.title,
+        description: post.description,
+        venue: post.venue,
+      },
       create: post,
     });
   }
