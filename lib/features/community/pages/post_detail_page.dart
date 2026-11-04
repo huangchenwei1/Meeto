@@ -128,8 +128,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
     setState(() => _approving = true);
     await widget.communityRepository.selectCandidate(_post.id, candidate.id);
 
-    final LiveOrder? order =
-        await widget.ordersRepository.findByPostId(_post.id);
+    final LiveOrder? order = await widget.ordersRepository.findByPostId(
+      _post.id,
+    );
     if (!mounted) {
       return;
     }
@@ -193,8 +194,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
           children: <Widget>[
             const SizedBox(height: 8),
             ListTile(
-              leading:
-                  const Icon(Iconsax.trash, color: Colors.redAccent, size: 20),
+              leading: const Icon(
+                Iconsax.trash,
+                color: Colors.redAccent,
+                size: 20,
+              ),
               title: const Text(
                 AppStrings.deletePostCta,
                 style: TextStyle(color: Colors.redAccent, fontSize: 15),
@@ -243,9 +247,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.deletePostDone)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text(AppStrings.deletePostDone)));
       Navigator.of(context).pop(true);
     }
   }
@@ -325,16 +329,30 @@ class _PostDetailPageState extends State<PostDetailPage> {
             ),
           ),
           const SizedBox(height: 18),
+          // The signup info is trimmed by viewer role (the server already
+          // serves role-appropriate data):
+          // - owner: full candidate pool with approve actions
+          // - host: budget rules first, then anonymous blurred interest
+          // - user: host previews first (the service showcase), then budget
+          if (!_isMine &&
+              !AuthSession.isHost &&
+              _post.applicantPreviews.isNotEmpty) ...<Widget>[
+            _HostPreviewsSection(post: _post),
+            const SizedBox(height: 14),
+          ],
           _BudgetCard(post: _post),
           const SizedBox(height: 14),
-          if (!_isMine && _post.signedCount > 0) ...<Widget>[
+          if (!_isMine &&
+              AuthSession.isHost &&
+              _post.signedCount > 0) ...<Widget>[
             _SignupsRow(post: _post),
             const SizedBox(height: 14),
           ],
           if (_isMine) ...<Widget>[
             _CandidatesSection(
-              candidatesStream:
-                  widget.communityRepository.watchCandidates(_post.id),
+              candidatesStream: widget.communityRepository.watchCandidates(
+                _post.id,
+              ),
               onApprove: _approveCandidate,
               onOpenProfile: (PostAuthor c) => _openProfile(c.id),
             ),
@@ -353,12 +371,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
       bottomNavigationBar: _isMine || !AuthSession.isHost
           ? null
           : _post.status == 'OPEN'
-              ? _CandidateBottomBar(
-                  post: _post,
-                  signedUp: _signedUp,
-                  onSignUp: _signUp,
-                )
-              : _ClosedBottomBar(status: _post.status),
+          ? _CandidateBottomBar(
+              post: _post,
+              signedUp: _signedUp,
+              onSignUp: _signUp,
+            )
+          : _ClosedBottomBar(status: _post.status),
     );
   }
 }
@@ -528,93 +546,93 @@ class _CandidateRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          AppAvatar(size: 42, imageUrl: candidate.avatarUrl),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            AppAvatar(size: 42, imageUrl: candidate.avatarUrl),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        candidate.name,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      if (candidate.isVerified) const VerifiedBadge(),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    candidate.meta,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                  if (candidate.planPlace.isNotEmpty &&
+                      candidate.planAt != null) ...<Widget>[
+                    const SizedBox(height: 4),
+                    // The plan card: approved as-is when this candidate is
+                    // selected.
                     Text(
-                      candidate.name,
+                      candidate.planDurationMinutes > 0
+                          ? '${candidate.planPlace} \u00b7 '
+                                '${_formatPlanDateTime(context, candidate.planAt!)} \u00b7 '
+                                '${AppStrings.durationAbout(candidate.planDurationMinutes)}'
+                          : '${candidate.planPlace} \u00b7 '
+                                '${_formatPlanDateTime(context, candidate.planAt!)}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    if (candidate.isVerified) const VerifiedBadge(),
                   ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  candidate.meta,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textHint,
-                  ),
-                ),
-                if (candidate.planPlace.isNotEmpty &&
-                    candidate.planAt != null) ...<Widget>[
-                  const SizedBox(height: 4),
-                  // The plan card: approved as-is when this candidate is
-                  // selected.
-                  Text(
-                    candidate.planDurationMinutes > 0
-                        ? '${candidate.planPlace} \u00b7 '
-                            '${_formatPlanDateTime(context, candidate.planAt!)} \u00b7 '
-                            '${AppStrings.durationAbout(candidate.planDurationMinutes)}'
-                        : '${candidate.planPlace} \u00b7 '
-                            '${_formatPlanDateTime(context, candidate.planAt!)}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  if (candidate.proposal.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      '\u201c${candidate.proposal}\u201d',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-                if (candidate.proposal.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 4),
-                  Text(
-                    '\u201c${candidate.proposal}\u201d',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      height: 1.4,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 32,
-            child: FilledButton(
-              onPressed: onApprove,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.textPrimary,
-                foregroundColor: AppColors.onDarkPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                textStyle: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
               ),
-              child: const Text(AppStrings.approveCta),
             ),
-          ),
-        ],
-      ),
+            SizedBox(
+              height: 32,
+              child: FilledButton(
+                onPressed: onApprove,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.textPrimary,
+                  foregroundColor: AppColors.onDarkPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  textStyle: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Text(AppStrings.approveCta),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -676,10 +694,7 @@ class _BudgetCard extends StatelessWidget {
             children: <Widget>[
               const Text(
                 AppStrings.activityBudgetLabel,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const Spacer(),
               Text(
@@ -718,11 +733,7 @@ class _BudgetRule extends StatelessWidget {
       children: <Widget>[
         const Padding(
           padding: EdgeInsets.only(top: 3),
-          child: Icon(
-            Iconsax.tick_circle,
-            size: 14,
-            color: AppColors.accent,
-          ),
+          child: Icon(Iconsax.tick_circle, size: 14, color: AppColors.accent),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -740,6 +751,85 @@ class _BudgetRule extends StatelessWidget {
   }
 }
 
+/// The service showcase for user viewers: which hosts signed up, shown
+/// as clear avatars with anonymous labels and a server-truncated pitch
+/// teaser. Names and full pitches stay with the owner.
+class _HostPreviewsSection extends StatelessWidget {
+  const _HostPreviewsSection({required this.post});
+
+  final ActivityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Text(
+                AppStrings.postHostSignupsTitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                AppStrings.appliedCount(post.signedCount),
+                style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+              ),
+            ],
+          ),
+          for (final ApplicantPreview preview
+              in post.applicantPreviews) ...<Widget>[
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                AppAvatar(size: 36, imageUrl: preview.avatarUrl),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        AppStrings.hostAnonymousLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (preview.proposalTeaser.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 2),
+                        Text(
+                          preview.proposalTeaser,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Social proof for non-owners: how many candidates signed up, with
 /// their avatars stacked and Gaussian-blurred. Interest is visible,
 /// the pool stays anonymous — only the owner sees who applied.
@@ -753,8 +843,9 @@ class _SignupsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> avatars =
-        post.applicantAvatars.take(5).toList(growable: false);
+    final List<String> avatars = post.applicantAvatars
+        .take(5)
+        .toList(growable: false);
     return Row(
       children: <Widget>[
         if (avatars.isNotEmpty) ...<Widget>[
@@ -912,9 +1003,7 @@ class _CandidateBottomBar extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          child: Text(
-            signedUp ? AppStrings.signedUpCta : AppStrings.signUpCta,
-          ),
+          child: Text(signedUp ? AppStrings.signedUpCta : AppStrings.signUpCta),
         ),
       ),
     );

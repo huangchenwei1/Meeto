@@ -241,6 +241,15 @@ class ApiCommunityRepository implements CommunityRepository {
               .cast<String>()
               .map(resolveMediaUrl)
               .toList(growable: false),
+      applicantPreviews:
+          (json['applicantPreviews'] as List<dynamic>? ?? <dynamic>[])
+              .map((dynamic e) {
+        final Map<String, dynamic> map = e as Map<String, dynamic>;
+        return ApplicantPreview(
+          avatarUrl: resolveMediaUrl(map['avatarUrl'] as String? ?? ''),
+          proposalTeaser: map['proposalTeaser'] as String? ?? '',
+        );
+      }).toList(growable: false),
       // Demand cards fall back to the scene image; moments keep whatever
       // photos the author attached (possibly none).
       imageUrl: imageUrl.isEmpty && type == 'DEMAND'

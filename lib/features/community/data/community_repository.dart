@@ -225,6 +225,16 @@ class MockCommunityRepository implements CommunityRepository {
           'https://i.pravatar.cc/150?img=11',
           'https://i.pravatar.cc/150?img=59',
         ],
+        applicantPreviews: const <ApplicantPreview>[
+          ApplicantPreview(
+            avatarUrl: 'https://i.pravatar.cc/150?img=11',
+            proposalTeaser: '从黎黄陂路的咖啡开场，再带你\u2026',
+          ),
+          ApplicantPreview(
+            avatarUrl: 'https://i.pravatar.cc/150?img=59',
+            proposalTeaser: '江滩夜景走起，我熟三家小店\u2026',
+          ),
+        ],
         imageUrl: SceneImages.forScene('Coffee'),
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),

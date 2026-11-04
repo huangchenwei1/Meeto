@@ -146,6 +146,8 @@ abstract final class AppStrings {
   static const String activityBudgetLabel = '活动预算';
   static String postAuthorLine(String name) => '$name 发起';
   static const String postTakenCta = '已有主持人接单';
+  static const String postHostSignupsTitle = '已报名的主持人';
+  static const String hostAnonymousLabel = '主持人';
   static const String postFinishedCta = '活动已结束';
   // The activity-budget rules shown on the demand post detail page.
   static const String budgetRuleQuality = '预算包含全部活动开销，优先用于保证活动安排质量';

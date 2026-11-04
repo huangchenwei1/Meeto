@@ -497,14 +497,39 @@ describe('Meeto API (e2e)', () => {
       expect(count.body.count).toBeGreaterThan(0);
 
       // Other hosts see anonymous interest on the post: a count plus
-      // avatar URLs only, never names or ids.
-      const asOther = await api()
+      // avatar URLs only, never names, ids, or rival pitches.
+      const asHost = await api()
         .get(`/posts/${postId}`)
         .set('X-User-Id', NOEL)
         .expect(200);
-      expect(asOther.body.applicantCount).toBe(1);
-      expect(asOther.body.applicantAvatars).toHaveLength(1);
-      expect(typeof asOther.body.applicantAvatars[0]).toBe('string');
+      expect(asHost.body.applicantCount).toBe(1);
+      expect(asHost.body.applicantAvatars).toHaveLength(1);
+      expect(typeof asHost.body.applicantAvatars[0]).toBe('string');
+      expect(asHost.body.applicantPreviews).toEqual([]);
+
+      // Other users instead get a service showcase: clear avatar plus a
+      // server-truncated pitch teaser, still no names or ids.
+      const asUser = await api()
+        .get(`/posts/${postId}`)
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect(asUser.body.applicantAvatars).toEqual([]);
+      expect(asUser.body.applicantPreviews).toHaveLength(1);
+      const preview = asUser.body.applicantPreviews[0];
+      expect(Object.keys(preview).sort()).toEqual([
+        'avatarUrl',
+        'proposalTeaser',
+      ]);
+      expect(preview.proposalTeaser.length).toBeLessThanOrEqual(13);
+
+      // The owner needs neither trimmed view: the full pool lives on the
+      // owner-only applications endpoint.
+      const asOwner = await api()
+        .get(`/posts/${postId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(asOwner.body.applicantAvatars).toEqual([]);
+      expect(asOwner.body.applicantPreviews).toEqual([]);
 
       const list = await api()
         .get('/notifications')

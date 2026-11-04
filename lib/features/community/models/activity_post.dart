@@ -1,5 +1,24 @@
 import 'post_author.dart';
 
+/// Anonymous candidate preview shown to user viewers on a demand post:
+/// a clear avatar plus a server-truncated pitch teaser, no name or id.
+class ApplicantPreview {
+  const ApplicantPreview({
+    required this.avatarUrl,
+    required this.proposalTeaser,
+  });
+
+  factory ApplicantPreview.fromJson(Map<String, dynamic> json) {
+    return ApplicantPreview(
+      avatarUrl: json['avatarUrl'] as String? ?? '',
+      proposalTeaser: json['proposalTeaser'] as String? ?? '',
+    );
+  }
+
+  final String avatarUrl;
+  final String proposalTeaser;
+}
+
 /// An activity post on the community wall.
 ///
 /// BUSINESS RULES:
@@ -22,6 +41,7 @@ class ActivityPost {
     this.venue = '',
     required this.signedCount,
     this.applicantAvatars = const <String>[],
+    this.applicantPreviews = const <ApplicantPreview>[],
     required this.imageUrl,
     this.images = const <String>[],
     required this.author,
@@ -47,6 +67,11 @@ class ActivityPost {
       applicantAvatars: (json['applicantAvatars'] as List<dynamic>? ??
               <dynamic>[])
           .cast<String>(),
+      applicantPreviews: (json['applicantPreviews'] as List<dynamic>? ??
+              <dynamic>[])
+          .map((dynamic e) =>
+              ApplicantPreview.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false),
       imageUrl: json['imageUrl'] as String,
       images:
           (json['images'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
@@ -97,9 +122,13 @@ class ActivityPost {
   final int signedCount;
 
   /// Avatar URLs of pending candidates (capped server-side, anonymous —
-  /// no names or ids). Rendered blurred on the detail page so non-owners
-  /// see interest without seeing the pool.
+  /// no names or ids). Served to host viewers only; rendered blurred so
+  /// hosts gauge competition without seeing the pool.
   final List<String> applicantAvatars;
+
+  /// Candidate previews served to user viewers (non-owner): clear avatar
+  /// plus a server-truncated pitch teaser. No names or ids.
+  final List<ApplicantPreview> applicantPreviews;
 
   /// Cover photo uploaded by the poster.
   final String imageUrl;
@@ -129,6 +158,7 @@ class ActivityPost {
   ActivityPost copyWith({
     int? signedCount,
     List<String>? applicantAvatars,
+    List<ApplicantPreview>? applicantPreviews,
     bool? hasApplied,
     String? status,
     PostAuthor? selectedHost,
@@ -145,6 +175,7 @@ class ActivityPost {
       venue: venue,
       signedCount: signedCount ?? this.signedCount,
       applicantAvatars: applicantAvatars ?? this.applicantAvatars,
+      applicantPreviews: applicantPreviews ?? this.applicantPreviews,
       imageUrl: imageUrl,
       images: images,
       author: author,

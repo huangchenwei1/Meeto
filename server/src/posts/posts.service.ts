@@ -27,8 +27,16 @@ type PostWithAuthor = Post & { author: User };
 type ApplicationSlice = {
   applicantId: string;
   status: string;
+  proposal: string;
   applicant: User;
 };
+
+export interface ApplicantPreview {
+  avatarUrl: string;
+  /// First characters of the host's pitch, truncated server-side so the
+  /// full text never leaves the owner-only candidate endpoint.
+  proposalTeaser: string;
+}
 
 export interface PostDto {
   id: string;
@@ -48,10 +56,14 @@ export interface PostDto {
   imageUrl: string;
   images: string[];
   applicantCount: number;
-  /// Avatar URLs of the pending candidates (capped). Deliberately
-  /// anonymous — no names or ids — so non-owners can see interest
-  /// without seeing the pool; the client renders them blurred.
+  /// Avatar URLs of the pending candidates (capped). Served to HOST
+  /// callers only: hosts may gauge competition but never see rival
+  /// pitches; the client renders these blurred.
   applicantAvatars: string[];
+  /// Candidate previews served to USER callers (non-owner): a clear
+  /// avatar plus the first few characters of the pitch. No names or
+  /// ids — teasing the service, not exposing the pool.
+  applicantPreviews: ApplicantPreview[];
   status: string;
   feeMinor: number;
   hasApplied: boolean;
@@ -175,9 +187,7 @@ export class PostsService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return posts.map((post) =>
-      this.toDto(post, post.applications, caller.id),
-    );
+    return posts.map((post) => this.toDto(post, post.applications, caller));
   }
 
   async getOne(caller: User, postId: string): Promise<PostDto> {
@@ -186,7 +196,7 @@ export class PostsService {
       where: { postId },
       include: { applicant: true },
     });
-    return this.toDto(post, applications, caller.id);
+    return this.toDto(post, applications, caller);
   }
 
   /// Author-only soft delete. Allowed only while the post is OPEN: once a
@@ -395,11 +405,21 @@ export class PostsService {
   private toDto(
     post: PostWithAuthor,
     applications: ApplicationSlice[],
-    callerId = '',
+    caller?: User,
   ): PostDto {
+    const callerId = caller?.id ?? '';
     const selected = applications.find(
       (a) => a.status === ApplicationStatus.selected,
     );
+    // Candidate visibility is trimmed by viewer role: the owner gets the
+    // full pool elsewhere, hosts get anonymous avatars (competition
+    // gauge), users get avatar + pitch teaser (service showcase).
+    const isOwner = callerId === post.authorId;
+    const pending = applications.filter(
+      (a) => a.status !== ApplicationStatus.released,
+    );
+    const forHost = !isOwner && caller?.role === Role.host;
+    const forUser = !isOwner && !!caller && caller.role !== Role.host;
     return {
       id: post.id,
       author: toPublicUser(post.author),
@@ -413,19 +433,27 @@ export class PostsService {
       venue: post.venue,
       imageUrl: post.imageUrl,
       images: PostsService.parseImages(post.imagesJson),
-      applicantCount: applications.filter(
-        (a) => a.status !== ApplicationStatus.released,
-      ).length,
-      applicantAvatars: applications
-        .filter((a) => a.status !== ApplicationStatus.released)
-        .slice(0, 5)
-        .map((a) => a.applicant.avatarUrl),
+      applicantCount: pending.length,
+      applicantAvatars: forHost
+        ? pending.slice(0, 5).map((a) => a.applicant.avatarUrl)
+        : [],
+      applicantPreviews: forUser
+        ? pending.slice(0, 5).map((a) => ({
+            avatarUrl: a.applicant.avatarUrl,
+            proposalTeaser: PostsService.teaser(a.proposal),
+          }))
+        : [],
       status: post.status,
       feeMinor: post.feeMinor,
       hasApplied: applications.some((a) => a.applicantId === callerId),
       selectedHost: selected ? toPublicUser(selected.applicant) : null,
       createdAt: post.createdAt,
     };
+  }
+
+  private static teaser(proposal: string): string {
+    const trimmed = proposal.trim();
+    return trimmed.length <= 12 ? trimmed : `${trimmed.slice(0, 12)}\u2026`;
   }
 
   private static parseImages(json: string): string[] {
