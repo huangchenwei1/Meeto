@@ -3,18 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
-import '../widgets/order_status_pill.dart';
-import 'pay_page.dart';
 import 'order_room_page.dart';
+import 'pay_page.dart';
 
-/// The full order history under the Me tab: every status, newest first.
-/// The Messages tab only carries live conversations; this page is where
+/// The full order history under the Me tab, as proper e-commerce order
+/// cards: every status, newest first. Each card is title + status, the
+/// peer and the locked plan, the total, and the status's own actions —
+/// pay/cancel while unpaid, chat while running, details when closed. The
+/// Messages tab only carries live conversations; this page is where
 /// unpaid deals get finished (or quietly expire) and old orders stay
 /// reviewable forever.
 class MyOrdersPage extends StatefulWidget {
@@ -29,6 +32,7 @@ class MyOrdersPage extends StatefulWidget {
 class _MyOrdersPageState extends State<MyOrdersPage> {
   List<LiveOrder> _orders = <LiveOrder>[];
   bool _loaded = false;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -53,41 +57,51 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     }
   }
 
-  /// An unpaid order is an unfinished action, not a conversation: the
-  /// payer gets the payment page (pay or cancel), the other side waits.
-  /// Everything else opens its room, read-only when closed.
-  Future<void> _open(LiveOrder order) async {
-    if (order.status == 'AWAITING_PAYMENT') {
-      if (!order.isPayer(AuthSession.currentUserId)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.waitingForPayment)),
-        );
-        return;
-      }
-      final LiveOrder? paid = await openPayPage(
-        context,
-        repository: widget.ordersRepository,
-        order: order,
-      );
-      if (!mounted) {
-        return;
-      }
-      unawaited(_load());
-      if (paid == null) {
-        return;
-      }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => OrderRoomPage(
-            repository: widget.ordersRepository,
-            orderId: paid.id,
-            initialOrder: paid,
-          ),
-        ),
-      );
-      unawaited(_load());
+  Future<void> _pay(LiveOrder order) async {
+    final LiveOrder? paid = await openPayPage(
+      context,
+      repository: widget.ordersRepository,
+      order: order,
+    );
+    if (!mounted) {
       return;
     }
+    unawaited(_load());
+    if (paid == null) {
+      return;
+    }
+    await _enterRoom(paid);
+  }
+
+  /// Backing out of an unpaid deal is free: no money moved, the pitch or
+  /// post goes straight back on the market.
+  Future<void> _cancelUnpaid(LiveOrder order) async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.ordersRepository.cancel(order.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.unpaidCancelledSnack)),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        unawaited(_load());
+      }
+    }
+  }
+
+  Future<void> _enterRoom(LiveOrder order) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => OrderRoomPage(
@@ -100,10 +114,32 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     unawaited(_load());
   }
 
+  /// Tapping the card body follows the status's primary action: an unpaid
+  /// order is an unfinished payment (payer) or a wait (earner); anything
+  /// paid opens its room, read-only when closed.
+  Future<void> _open(LiveOrder order) async {
+    if (order.status == 'AWAITING_PAYMENT') {
+      if (order.isPayer(AuthSession.currentUserId)) {
+        await _pay(order);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.waitingForPayment)),
+        );
+      }
+      return;
+    }
+    await _enterRoom(order);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.myOrdersTitle)),
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(AppStrings.myOrdersTitle),
+      ),
       body: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : _orders.isEmpty
@@ -117,15 +153,18 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
                   onRefresh: _load,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
                     itemCount: _orders.length,
-                    separatorBuilder: (_, _) =>
-                        const Divider(indent: 76, height: 1),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (BuildContext context, int index) {
                       final LiveOrder order = _orders[index];
-                      return _MyOrderTile(
+                      return _OrderCard(
                         order: order,
+                        busy: _busy,
                         onTap: () => _open(order),
+                        onPay: () => _pay(order),
+                        onCancel: () => _cancelUnpaid(order),
+                        onChat: () => _enterRoom(order),
                       );
                     },
                   ),
@@ -134,55 +173,281 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   }
 }
 
-class _MyOrderTile extends StatelessWidget {
-  const _MyOrderTile({required this.order, required this.onTap});
+/// One order as an e-commerce style card: header (title + status), body
+/// (peer + locked plan + price), footer (total + the status's actions).
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({
+    required this.order,
+    required this.busy,
+    required this.onTap,
+    required this.onPay,
+    required this.onCancel,
+    required this.onChat,
+  });
 
   final LiveOrder order;
+  final bool busy;
   final VoidCallback onTap;
+  final VoidCallback onPay;
+  final VoidCallback onCancel;
+  final VoidCallback onChat;
+
+  bool get _iAmPayer => order.isPayer(AuthSession.currentUserId);
+
+  (String, Color) get _statusText {
+    switch (order.status) {
+      case 'AWAITING_PAYMENT':
+        return (AppStrings.statusAwaitingPayment, const Color(0xFFD97706));
+      case 'ACTIVE':
+        return (AppStrings.statusActive, AppColors.accent);
+      case 'COMPLETED':
+        return (AppStrings.statusCompleted, AppColors.textSecondary);
+      case 'FORFEITED':
+        return (AppStrings.statusForfeited, AppColors.textHint);
+      default:
+        return (AppStrings.statusCancelled, AppColors.textHint);
+    }
+  }
+
+  String _planLine(BuildContext context) {
+    final List<String> parts = <String>[];
+    if (order.planPlace.isNotEmpty) {
+      parts.add(order.planPlace);
+    }
+    if (order.planAt != null) {
+      final MaterialLocalizations loc = MaterialLocalizations.of(context);
+      final DateTime local = order.planAt!.toLocal();
+      parts.add(
+        '${loc.formatShortDate(local)} '
+        '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+      );
+    }
+    return parts.join(' \u00b7 ');
+  }
+
+  String _createdLine(BuildContext context) {
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = order.createdAt.toLocal();
+    return AppStrings.myOrderCreatedAt(
+      '${loc.formatShortDate(local)} '
+      '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
-    final String line = <String>[
-      if (order.postTitle.isNotEmpty) order.postTitle,
-      '\u20b1${order.feePesos}',
-    ].join(' \u00b7 ');
-    return ListTile(
-      key: ValueKey<String>('myOrder-${order.id}'),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      onTap: onTap,
-      leading: AppAvatar(
-        size: 48,
-        imageUrl: peer.avatarUrl,
-        fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
-      ),
-      title: Row(
-        children: <Widget>[
-          Flexible(
-            child: Text(
-              peer.name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15.5,
+    final (String statusLabel, Color statusColor) = _statusText;
+    final String fee = '\u20b1${order.feePesos}';
+    final String planLine = _planLine(context);
+    return Material(
+      color: AppColors.background,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        key: ValueKey<String>('myOrder-${order.id}'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              // Header: what the order is, and where it stands.
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      order.postTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-          const Spacer(),
-          OrderStatusPill(status: order.status),
-        ],
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: Text(
-          line,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              // Body: the person and the locked plan, the price on the
+              // right like a line item.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  AppAvatar(
+                    size: 48,
+                    imageUrl: peer.avatarUrl,
+                    fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          peer.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (planLine.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 3),
+                          Text(
+                            planLine,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    fee,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Footer: order time, total, then the actions this status
+              // actually supports.
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      _createdLine(context),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                  ),
+                  Text.rich(
+                    TextSpan(
+                      text: AppStrings.myOrderTotal(''),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: fee,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              ..._actions(context),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  List<Widget> _actions(BuildContext context) {
+    final List<Widget> buttons = <Widget>[];
+    if (order.status == 'AWAITING_PAYMENT') {
+      if (_iAmPayer) {
+        buttons.addAll(<Widget>[
+          _pillButton(
+            key: 'myOrderCancel-${order.id}',
+            label: AppStrings.myOrderCancelCta,
+            onPressed: busy ? null : onCancel,
+          ),
+          const SizedBox(width: 8),
+          _pillButton(
+            key: 'myOrderPay-${order.id}',
+            label: AppStrings.myOrderPayCta,
+            onPressed: busy ? null : onPay,
+            primary: true,
+          ),
+        ]);
+      } else {
+        buttons.add(const Text(
+          AppStrings.myOrderWaitingPeerPay,
+          style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
+        ));
+      }
+    } else if (order.status == 'ACTIVE') {
+      buttons.add(_pillButton(
+        key: 'myOrderChat-${order.id}',
+        label: AppStrings.myOrderChatCta,
+        onPressed: onChat,
+        primary: true,
+      ));
+    } else {
+      buttons.add(_pillButton(
+        key: 'myOrderDetail-${order.id}',
+        label: AppStrings.myOrderDetailCta,
+        onPressed: onChat,
+      ));
+    }
+    return <Widget>[
+      const SizedBox(height: 10),
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+    ];
+  }
+
+  Widget _pillButton({
+    required String key,
+    required String label,
+    required VoidCallback? onPressed,
+    bool primary = false,
+  }) {
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        key: ValueKey<String>(key),
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor:
+              primary ? AppColors.background : AppColors.textSecondary,
+          backgroundColor: primary ? AppColors.darkCard : null,
+          side: primary
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.border),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        child: Text(label),
       ),
     );
   }

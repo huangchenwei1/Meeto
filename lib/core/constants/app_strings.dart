@@ -57,6 +57,13 @@ abstract final class AppStrings {
   static const String unpaidCancelledSnack = '已取消';
   static const String paymentLaterSnack = '订单保留在「我的订单」，超时未支付将自动取消';
   static const String myOrdersTitle = '我的订单';
+  static const String myOrderPayCta = '去支付';
+  static const String myOrderCancelCta = '取消订单';
+  static const String myOrderChatCta = '进入聊天';
+  static const String myOrderDetailCta = '查看详情';
+  static const String myOrderWaitingPeerPay = '等待对方支付';
+  static String myOrderTotal(String fee) => '合计 $fee';
+  static String myOrderCreatedAt(String time) => '下单时间 $time';
   static const String myOrdersEmpty = '还没有订单';
   static const String chatLockedNote = '服务费托管后解锁聊天';
   static const String deletePostCta = '删除帖子';
