@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
@@ -173,8 +174,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   }
 }
 
-/// One order as an e-commerce style card: header (title + status), body
-/// (peer + locked plan + price), footer (total + the status's actions).
+/// One order as a service-purchase card, not a people card: the header
+/// is the provider line (the merchant position — host for the payer,
+/// initiator for the host), the body is the service item itself (the
+/// activity with its locked plan and price), and the footer carries the
+/// total plus the status's actions.
 class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
@@ -209,20 +213,17 @@ class _OrderCard extends StatelessWidget {
     }
   }
 
-  String _planLine(BuildContext context) {
-    final List<String> parts = <String>[];
-    if (order.planPlace.isNotEmpty) {
-      parts.add(order.planPlace);
+  String _whenLine(BuildContext context) {
+    if (order.planAt == null) {
+      return '';
     }
-    if (order.planAt != null) {
-      final MaterialLocalizations loc = MaterialLocalizations.of(context);
-      final DateTime local = order.planAt!.toLocal();
-      parts.add(
-        '${loc.formatShortDate(local)} '
-        '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
-      );
-    }
-    return parts.join(' \u00b7 ');
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = order.planAt!.toLocal();
+    final String when = '${loc.formatShortDate(local)} '
+        '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+    return order.planDurationMinutes > 0
+        ? '$when \u00b7 ${AppStrings.durationAbout(order.planDurationMinutes)}'
+        : when;
   }
 
   String _createdLine(BuildContext context) {
@@ -239,7 +240,12 @@ class _OrderCard extends StatelessWidget {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
     final (String statusLabel, Color statusColor) = _statusText;
     final String fee = '\u20b1${order.feePesos}';
-    final String planLine = _planLine(context);
+    final String whenLine = _whenLine(context);
+    // The merchant line: the one providing or ordering the service, never
+    // the item being sold.
+    final String providerLine = _iAmPayer
+        ? AppStrings.myOrderHostLine(peer.name)
+        : AppStrings.myOrderGuestLine(peer.name);
     return Material(
       color: AppColors.background,
       borderRadius: BorderRadius.circular(14),
@@ -252,18 +258,24 @@ class _OrderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              // Header: what the order is, and where it stands.
+              // Header: the provider line (merchant position) + status.
               Row(
                 children: <Widget>[
+                  AppAvatar(
+                    size: 22,
+                    imageUrl: peer.avatarUrl,
+                    fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      order.postTitle,
+                      providerLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ),
@@ -280,16 +292,24 @@ class _OrderCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               const Divider(height: 1),
-              const SizedBox(height: 10),
-              // Body: the person and the locked plan, the price on the
-              // right like a line item.
+              const SizedBox(height: 12),
+              // Body: the service item — the activity with its locked
+              // plan, the price on the right like a line item.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  AppAvatar(
-                    size: 48,
-                    imageUrl: peer.avatarUrl,
-                    fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Iconsax.calendar_1,
+                      size: 22,
+                      color: AppColors.accent,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -297,24 +317,35 @@ class _OrderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          peer.name,
+                          order.postTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        if (planLine.isNotEmpty) ...<Widget>[
+                        if (order.planPlace.isNotEmpty) ...<Widget>[
                           const SizedBox(height: 3),
                           Text(
-                            planLine,
-                            maxLines: 2,
+                            order.planPlace,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 12.5,
-                              height: 1.4,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                        if (whenLine.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            whenLine,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
                               color: AppColors.textSecondary,
                             ),
                           ),

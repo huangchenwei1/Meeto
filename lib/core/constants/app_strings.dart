@@ -63,6 +63,8 @@ abstract final class AppStrings {
   static const String myOrderDetailCta = '查看详情';
   static const String myOrderWaitingPeerPay = '等待对方支付';
   static String myOrderTotal(String fee) => '合计 $fee';
+  static String myOrderHostLine(String name) => '$name · 主持人';
+  static String myOrderGuestLine(String name) => '$name · 发起人';
   static String myOrderCreatedAt(String time) => '下单时间 $time';
   static const String myOrdersEmpty = '还没有订单';
   static const String chatLockedNote = '服务费托管后解锁聊天';
