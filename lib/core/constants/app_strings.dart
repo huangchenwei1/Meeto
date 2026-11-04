@@ -135,8 +135,6 @@ abstract final class AppStrings {
   static const String candidatesTitle = '候选人';
   static const String candidatesEmpty = '还没有人报名 — 通常几分钟内就会有人来';
   static const String approveCta = '选 TA';
-  static const String tipPayNote = 'Meeto 托管 · 取消全额退款';
-
   // Escrow / settlement
   static const String escrowSub = 'Meeto 托管至活动完成 · 取消全额退款';
 
@@ -147,6 +145,10 @@ abstract final class AppStrings {
   static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
   static String postAuthorLine(String name) => '$name 发起';
+  // The activity-budget rules shown on the demand post detail page.
+  static const String budgetRuleQuality = '预算包含全部活动开销，优先用于保证活动安排质量';
+  static const String budgetRuleAdvance = '活动开销由主持人先行垫付，Meeto 托管全款，取消全额退款';
+  static const String budgetRuleRelease = '活动结束后自动发放给主持人，其中服务费不超过活动费的 50%';
   static const String budgetCoversNoteUser = '预算包含全部活动开销，由主持人安排这场活动';
   static const String budgetCoversNoteHost = '预算包含活动开销，安排得当，结余就是你的收入';
   static const String publishFieldTitle = '标题';

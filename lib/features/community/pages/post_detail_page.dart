@@ -8,7 +8,6 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
-import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
@@ -268,17 +267,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: <Widget>[
-          if (_post.imageUrl.isNotEmpty) ...<Widget>[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AppNetworkImage(
-                url: _post.imageUrl,
-                height: 190,
-                width: double.infinity,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           Row(
             children: <Widget>[
               Container(
@@ -313,6 +301,18 @@ class _PostDetailPageState extends State<PostDetailPage> {
           if (!_isMine) ...<Widget>[
             const SizedBox(height: 10),
             _AuthorRow(post: _post, onTap: _openAuthor),
+          ],
+          if (_post.timeSlot.isNotEmpty || _post.area.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            if (_post.timeSlot.isNotEmpty)
+              _MetaRow(
+                icon: Iconsax.clock,
+                text: AppStrings.timeSlotLabel(_post.timeSlot),
+              ),
+            if (_post.area.isNotEmpty) ...<Widget>[
+              if (_post.timeSlot.isNotEmpty) const SizedBox(height: 6),
+              _MetaRow(icon: Iconsax.location, text: _post.area),
+            ],
           ],
           const SizedBox(height: 10),
           Text(
@@ -645,25 +645,75 @@ class _BudgetCard extends StatelessWidget {
           const SizedBox(height: 10),
           const Divider(height: 1),
           const SizedBox(height: 10),
-          const Text(
-            AppStrings.budgetCoversNoteUser,
-            style: TextStyle(
+          const _BudgetRule(text: AppStrings.budgetRuleQuality),
+          const SizedBox(height: 6),
+          const _BudgetRule(text: AppStrings.budgetRuleAdvance),
+          const SizedBox(height: 6),
+          const _BudgetRule(text: AppStrings.budgetRuleRelease),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRule extends StatelessWidget {
+  const _BudgetRule({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Padding(
+          padding: EdgeInsets.only(top: 3),
+          child: Icon(
+            Iconsax.tick_circle,
+            size: 14,
+            color: AppColors.accent,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
               fontSize: 12.5,
               height: 1.6,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            AppStrings.tipPayNote,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.6,
-              color: AppColors.textHint,
+        ),
+      ],
+    );
+  }
+}
+
+/// A single icon + text info line (activity time window, rough area).
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 16, color: AppColors.textHint),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
