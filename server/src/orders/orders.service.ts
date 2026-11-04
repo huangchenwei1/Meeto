@@ -92,6 +92,12 @@ export class OrdersService {
       if (order.status === OrderStatus.active) {
         return true;
       }
+      // Dead deals carry no conversation worth revisiting: cancelled and
+      // forfeited orders live only on the My Orders page. Completed ones
+      // linger for the grace window so the recap stays reachable.
+      if (order.status !== OrderStatus.completed) {
+        return false;
+      }
       const closedAt = order.completedAt ?? order.createdAt;
       return closedAt.getTime() >= cutoff;
     });

@@ -281,9 +281,10 @@ class MockOrdersRepository implements OrdersRepository {
   Future<List<LiveOrder>> listMine({bool all = false}) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
     // Mirrors the server: the conversation lives and dies with the
-    // activity — unpaid orders never show (no chat before escrow) and
-    // closed ones linger for a grace week (read-only), then leave. The
-    // full-history view keeps everything.
+    // activity — unpaid orders never show (no chat before escrow),
+    // cancelled/forfeited deals carry no conversation worth revisiting,
+    // and completed ones linger for a grace week (read-only), then
+    // leave. The full-history view keeps everything.
     const Duration grace = Duration(days: 7);
     final DateTime cutoff = DateTime.now().subtract(grace);
     _orders.values.forEach(_settleIfDue);
@@ -293,11 +294,11 @@ class MockOrdersRepository implements OrdersRepository {
           if (all) {
             return true;
           }
-          if (order.status == 'AWAITING_PAYMENT') {
-            return false;
-          }
           if (order.status == 'ACTIVE') {
             return true;
+          }
+          if (order.status != 'COMPLETED') {
+            return false;
           }
           return (order.completedAt ?? order.createdAt).isAfter(cutoff);
         })

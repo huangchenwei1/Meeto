@@ -1821,6 +1821,26 @@ describe('Meeto API (e2e)', () => {
         .expect(200);
       expect(expired.body.status).toBe('CANCELLED');
 
+      // Dead deals leave the Messages view entirely (they never had, or
+      // no longer have, a conversation) but stay in the full history.
+      const conversations = await api()
+        .get('/orders')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect(
+        conversations.body.find(
+          (o: { status: string }) =>
+            o.status === 'CANCELLED' || o.status === 'FORFEITED',
+        ),
+      ).toBeUndefined();
+      const fullHistory = await api()
+        .get('/orders?view=all')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect(
+        fullHistory.body.find((o: { id: string }) => o.id === unpaid.id),
+      ).toBeDefined();
+
       // No money ever moved: nothing to refund, and the pitch is back on
       // the market with the host's queue logic intact.
       const post = await prisma.post.findUnique({
