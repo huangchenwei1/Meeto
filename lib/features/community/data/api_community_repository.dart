@@ -236,6 +236,11 @@ class ApiCommunityRepository implements CommunityRepository {
       area: json['area'] as String? ?? '',
       venue: json['venue'] as String? ?? '',
       signedCount: json['applicantCount'] as int? ?? 0,
+      applicantAvatars:
+          (json['applicantAvatars'] as List<dynamic>? ?? <dynamic>[])
+              .cast<String>()
+              .map(resolveMediaUrl)
+              .toList(growable: false),
       // Demand cards fall back to the scene image; moments keep whatever
       // photos the author attached (possibly none).
       imageUrl: imageUrl.isEmpty && type == 'DEMAND'

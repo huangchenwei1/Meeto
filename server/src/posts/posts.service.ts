@@ -48,6 +48,10 @@ export interface PostDto {
   imageUrl: string;
   images: string[];
   applicantCount: number;
+  /// Avatar URLs of the pending candidates (capped). Deliberately
+  /// anonymous — no names or ids — so non-owners can see interest
+  /// without seeing the pool; the client renders them blurred.
+  applicantAvatars: string[];
   status: string;
   feeMinor: number;
   hasApplied: boolean;
@@ -408,6 +412,10 @@ export class PostsService {
       applicantCount: applications.filter(
         (a) => a.status !== ApplicationStatus.released,
       ).length,
+      applicantAvatars: applications
+        .filter((a) => a.status !== ApplicationStatus.released)
+        .slice(0, 5)
+        .map((a) => a.applicant.avatarUrl),
       status: post.status,
       feeMinor: post.feeMinor,
       hasApplied: applications.some((a) => a.applicantId === callerId),

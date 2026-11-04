@@ -21,6 +21,7 @@ class ActivityPost {
     this.area = '',
     this.venue = '',
     required this.signedCount,
+    this.applicantAvatars = const <String>[],
     required this.imageUrl,
     this.images = const <String>[],
     required this.author,
@@ -43,6 +44,9 @@ class ActivityPost {
       area: json['area'] as String? ?? '',
       venue: json['venue'] as String? ?? '',
       signedCount: json['signedCount'] as int,
+      applicantAvatars: (json['applicantAvatars'] as List<dynamic>? ??
+              <dynamic>[])
+          .cast<String>(),
       imageUrl: json['imageUrl'] as String,
       images:
           (json['images'] as List<dynamic>? ?? <dynamic>[]).cast<String>(),
@@ -92,6 +96,11 @@ class ActivityPost {
   /// Number of candidates who signed up so far.
   final int signedCount;
 
+  /// Avatar URLs of pending candidates (capped server-side, anonymous —
+  /// no names or ids). Rendered blurred on the detail page so non-owners
+  /// see interest without seeing the pool.
+  final List<String> applicantAvatars;
+
   /// Cover photo uploaded by the poster.
   final String imageUrl;
 
@@ -119,6 +128,7 @@ class ActivityPost {
 
   ActivityPost copyWith({
     int? signedCount,
+    List<String>? applicantAvatars,
     bool? hasApplied,
     String? status,
     PostAuthor? selectedHost,
@@ -134,6 +144,7 @@ class ActivityPost {
       area: area,
       venue: venue,
       signedCount: signedCount ?? this.signedCount,
+      applicantAvatars: applicantAvatars ?? this.applicantAvatars,
       imageUrl: imageUrl,
       images: images,
       author: author,

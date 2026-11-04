@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -326,6 +327,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
           const SizedBox(height: 18),
           _BudgetCard(post: _post),
           const SizedBox(height: 14),
+          if (!_isMine && _post.signedCount > 0) ...<Widget>[
+            _SignupsRow(post: _post),
+            const SizedBox(height: 14),
+          ],
           if (_isMine) ...<Widget>[
             _CandidatesSection(
               candidatesStream:
@@ -686,6 +691,74 @@ class _BudgetRule extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Social proof for non-owners: how many candidates signed up, with
+/// their avatars stacked and Gaussian-blurred. Interest is visible,
+/// the pool stays anonymous — only the owner sees who applied.
+class _SignupsRow extends StatelessWidget {
+  const _SignupsRow({required this.post});
+
+  final ActivityPost post;
+
+  static const double _avatarSize = 30;
+  static const double _overlap = 21;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> avatars =
+        post.applicantAvatars.take(5).toList(growable: false);
+    return Row(
+      children: <Widget>[
+        if (avatars.isNotEmpty) ...<Widget>[
+          SizedBox(
+            width: _avatarSize + _overlap * (avatars.length - 1),
+            height: _avatarSize,
+            child: Stack(
+              children: <Widget>[
+                for (int i = 0; i < avatars.length; i++)
+                  Positioned(
+                    left: _overlap * i,
+                    child: _BlurredAvatar(url: avatars[i]),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Text(
+          AppStrings.appliedCount(post.signedCount),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BlurredAvatar extends StatelessWidget {
+  const _BlurredAvatar({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.background, width: 2),
+      ),
+      child: ClipOval(
+        child: ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: AppAvatar(size: _SignupsRow._avatarSize - 4, imageUrl: url),
+        ),
+      ),
     );
   }
 }

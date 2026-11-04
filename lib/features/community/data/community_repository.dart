@@ -221,6 +221,10 @@ class MockCommunityRepository implements CommunityRepository {
             'specialty coffee scene and can plan a relaxed afternoon: the '
             'place, the order, the conversation. Time is flexible this week.',
         signedCount: 2,
+        applicantAvatars: const <String>[
+          'https://i.pravatar.cc/150?img=11',
+          'https://i.pravatar.cc/150?img=59',
+        ],
         imageUrl: SceneImages.forScene('Coffee'),
         author: _miguel,
         createdAt: now.subtract(const Duration(hours: 1)),

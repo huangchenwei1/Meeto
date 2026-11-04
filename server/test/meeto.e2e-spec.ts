@@ -75,7 +75,7 @@ describe('Meeto API (e2e)', () => {
     const res = await api().get('/config/pricing').expect(200);
     expect(res.body.platformFeeRateBp).toBe(1000);
     expect(res.body.sceneBudgetTiers.Dinner).toEqual([
-      300000, 400000, 600000,
+      30000, 40000, 60000,
     ]);
   });
 
@@ -381,10 +381,10 @@ describe('Meeto API (e2e)', () => {
         .send({
           sceneTag: 'Dinner',
           title: 'Dinner on the starter tier',
-          budgetMinor: 300000,
+          budgetMinor: 30000,
         })
         .expect(201);
-      expect(low.body.feeMinor).toBe(300000);
+      expect(low.body.feeMinor).toBe(30000);
 
       // An amount outside the scene's tier list is rejected: the platform
       // prices, the poster only picks.
@@ -492,6 +492,16 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(count.body.count).toBeGreaterThan(0);
+
+      // Other hosts see anonymous interest on the post: a count plus
+      // avatar URLs only, never names or ids.
+      const asOther = await api()
+        .get(`/posts/${postId}`)
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(asOther.body.applicantCount).toBe(1);
+      expect(asOther.body.applicantAvatars).toHaveLength(1);
+      expect(typeof asOther.body.applicantAvatars[0]).toBe('string');
 
       const list = await api()
         .get('/notifications')
@@ -680,7 +690,7 @@ describe('Meeto API (e2e)', () => {
         .expect(201);
       postId = res.body.id;
       // No explicit tier pick -> the middle Dinner tier.
-      expect(res.body.feeMinor).toBe(400000);
+      expect(res.body.feeMinor).toBe(40000);
       expect(res.body.status).toBe('OPEN');
       // Posts carry no structured time or place: the host proposes the
       // concrete plan on the order after matching.
@@ -757,9 +767,9 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(JAMES);
       // 10% commission, exact remainder to the earner.
-      expect(res.body.feeMinor).toBe(400000);
-      expect(res.body.commissionMinor).toBe(40000);
-      expect(res.body.netMinor).toBe(360000);
+      expect(res.body.feeMinor).toBe(40000);
+      expect(res.body.commissionMinor).toBe(4000);
+      expect(res.body.netMinor).toBe(36000);
 
       const post = await api()
         .get(`/posts/${postId}`)
@@ -804,7 +814,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_ESCROW', orderId },
         _sum: { amountMinor: true },
       });
-      expect(escrow._sum.amountMinor).toBe(400000);
+      expect(escrow._sum.amountMinor).toBe(40000);
     });
 
     it('selection locked the sign-up plan card; no plan flow in chat', async () => {
@@ -999,7 +1009,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_REVENUE', orderId },
         _sum: { amountMinor: true },
       });
-      expect(revenue._sum.amountMinor).toBe(40000);
+      expect(revenue._sum.amountMinor).toBe(4000);
 
       // The earner was notified that the money landed.
       const inbox = await api()
@@ -1019,25 +1029,25 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(wallet.body.balanceMinor).toBe(360000);
-      expect(wallet.body.monthIncomeMinor).toBe(360000);
+      expect(wallet.body.balanceMinor).toBe(36000);
+      expect(wallet.body.monthIncomeMinor).toBe(36000);
 
       await api()
         .post('/wallet/withdrawals')
         .set('X-User-Id', JAMES)
-        .send({ amountMinor: 50000 })
+        .send({ amountMinor: 5000 })
         .expect(201);
       const after = await api()
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(after.body.balanceMinor).toBe(310000);
+      expect(after.body.balanceMinor).toBe(31000);
 
       // Overdraft rejected.
       await api()
         .post('/wallet/withdrawals')
         .set('X-User-Id', JAMES)
-        .send({ amountMinor: 400000 })
+        .send({ amountMinor: 40000 })
         .expect(409);
     });
 
@@ -1399,7 +1409,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           title: 'Friday rooftop crawl, my shortlist',
           sceneTag: 'Bar',
-          budgetMinor: 350000,
+          budgetMinor: 35000,
         })
         .expect(201);
       proposalId = pitch.body.id;
@@ -1492,7 +1502,7 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(NOEL);
-      expect(res.body.feeMinor).toBe(350000); // the pitch's locked tier
+      expect(res.body.feeMinor).toBe(35000); // the pitch's locked tier
       // The host's plan card was locked in the same tap: the order is
       // born with the plan confirmed, nothing left to negotiate in chat.
       expect(res.body.planConfirmedAt).not.toBeNull();
@@ -1631,7 +1641,7 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', BIANCA)
         .send({ title: 'Rooftop crawl', sceneTag: 'Bar' })
         .expect(201);
-      expect(barPitch.body.budgetMinor).toBe(350000);
+      expect(barPitch.body.budgetMinor).toBe(35000);
 
       // Whoever launches the activity prices it: the host picks a
       // platform tier; made-up prices are rejected.
@@ -1650,11 +1660,11 @@ describe('Meeto API (e2e)', () => {
         .send({
           title: 'Morning filter tasting in Salcedo',
           sceneTag: 'Coffee',
-          budgetMinor: 250000,
+          budgetMinor: 25000,
         })
         .expect(201);
       expect(created.body.host.id).toBe(BIANCA);
-      expect(created.body.budgetMinor).toBe(250000);
+      expect(created.body.budgetMinor).toBe(25000);
 
       // The fresh pitch leads the feed.
       const feed = await api()
