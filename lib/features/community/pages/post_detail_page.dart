@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/scene_pricing.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
@@ -253,91 +252,92 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    // The page's one job: explain the activity and the activity-budget
+    // concept. No earnings math anywhere — this is a request for a
+    // service, not a gig ad.
     return Scaffold(
-      body: CustomScrollView(
-        slivers: <Widget>[
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            backgroundColor: AppColors.background,
-            leading: _BackButton(onTap: () => Navigator.of(context).pop()),
-            actions: <Widget>[
-              if (_isMine)
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _MoreButton(onTap: _showOwnerActions),
-                ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: AppNetworkImage(url: _post.imageUrl),
+      appBar: AppBar(
+        actions: <Widget>[
+          if (_isMine)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _MoreButton(onTap: _showOwnerActions),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentSoft,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          AppStrings.sceneLabel(_post.sceneTag),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _post.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _post.detail,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.7,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  if (_isMine) ...<Widget>[
-                    _CandidatesSection(
-                      candidatesStream: widget.communityRepository
-                          .watchCandidates(_post.id),
-                      onApprove: _approveCandidate,
-                      onOpenProfile: (PostAuthor c) => _openProfile(c.id),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                  // No time/place card: the host proposes the concrete
-                  // plan in the order room after matching.
-                  if (!_isMine)
-                    _AuthorCard(post: _post, onTap: _openAuthor),
-                  const SizedBox(height: 14),
-                  const _SafetyNote(),
-                ],
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        children: <Widget>[
+          if (_post.imageUrl.isNotEmpty) ...<Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AppNetworkImage(
+                url: _post.imageUrl,
+                height: 190,
+                width: double.infinity,
               ),
             ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  AppStrings.sceneLabel(_post.sceneTag),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            _post.title,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          if (!_isMine) ...<Widget>[
+            const SizedBox(height: 10),
+            _AuthorRow(post: _post, onTap: _openAuthor),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            _post.detail,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.7,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _BudgetCard(post: _post),
+          const SizedBox(height: 14),
+          if (_isMine) ...<Widget>[
+            _CandidatesSection(
+              candidatesStream:
+                  widget.communityRepository.watchCandidates(_post.id),
+              onApprove: _approveCandidate,
+              onOpenProfile: (PostAuthor c) => _openProfile(c.id),
+            ),
+            const SizedBox(height: 14),
+          ],
+          // No time/place card: the host proposes the concrete plan at
+          // the deal moment.
+          const _SafetyNote(),
         ],
       ),
       // Sign-up is a host action on posts still waiting for a host: users
@@ -345,7 +345,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       // hosts from the directory instead), and in-progress activities are
       // read-only for everyone but the poster.
       bottomNavigationBar: _isMine
-          ? _PosterBottomBar(post: _post)
+          ? null
           : AuthSession.isHost && _post.status == 'OPEN'
               ? _CandidateBottomBar(
                   post: _post,
@@ -385,36 +385,6 @@ class _MoreButton extends StatelessWidget {
   }
 }
 
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.background.withValues(alpha: 0.92),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Iconsax.arrow_left_2,
-            size: 20,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Live candidate pool shown to the poster, with an approve action per
-/// candidate.
 class _CandidatesSection extends StatelessWidget {
   const _CandidatesSection({
     required this.candidatesStream,
@@ -600,8 +570,10 @@ class _CandidateRow extends StatelessWidget {
   }
 }
 
-class _AuthorCard extends StatelessWidget {
-  const _AuthorCard({required this.post, required this.onTap});
+/// The initiator as a light inline byline under the title — a person
+/// credit, not a boxed navigation card. Tapping still opens the profile.
+class _AuthorRow extends StatelessWidget {
+  const _AuthorRow({required this.post, required this.onTap});
 
   final ActivityPost post;
   final VoidCallback onTap;
@@ -610,45 +582,87 @@ class _AuthorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: <Widget>[
-            AppAvatar(size: 46, imageUrl: post.author.avatarUrl),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        post.author.name,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      if (post.author.isVerified) const VerifiedBadge(),
-                    ],
-                  ),
-                ],
-              ),
+      borderRadius: BorderRadius.circular(999),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          AppAvatar(size: 26, imageUrl: post.author.avatarUrl),
+          const SizedBox(width: 8),
+          Text(
+            AppStrings.postAuthorLine(post.author.name),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
             ),
-            const Icon(
-              Iconsax.arrow_right_3,
-              size: 18,
+          ),
+          const SizedBox(width: 5),
+          if (post.author.isVerified) const VerifiedBadge(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explains the activity-budget concept: one amount that covers the whole
+/// activity, held in escrow, arranged by the host. No earnings math.
+class _BudgetCard extends StatelessWidget {
+  const _BudgetCard({required this.post});
+
+  final ActivityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Text(
+                AppStrings.activityBudgetLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                MoneyFormat.format(post.budgetAmount),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          const Text(
+            AppStrings.budgetCoversNoteUser,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.6,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            AppStrings.tipPayNote,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.6,
               color: AppColors.textHint,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -686,8 +700,9 @@ class _SafetyNote extends StatelessWidget {
   }
 }
 
-/// Bottom bar for someone else's post: the viewer is a potential host, so
-/// they see the net service fee they would receive + the sign-up CTA.
+/// Bottom bar for someone else's post: just the sign-up action. The
+/// budget concept lives in the body's budget card — no earnings math
+/// anywhere, signing up is offering to host, not taking a gig.
 class _CandidateBottomBar extends StatelessWidget {
   const _CandidateBottomBar({
     required this.post,
@@ -701,7 +716,6 @@ class _CandidateBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int amount = ScenePricing.netEarnings(post.budgetAmount);
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -713,116 +727,27 @@ class _CandidateBottomBar extends StatelessWidget {
         color: AppColors.background,
         border: Border(top: BorderSide(color: AppColors.divider)),
       ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Text(
-                  AppStrings.tipReceiveLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textHint,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  MoneyFormat.format(amount),
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: signedUp ? null : onSignUp,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.textPrimary,
+            foregroundColor: AppColors.onDarkPrimary,
+            disabledBackgroundColor: AppColors.textPrimary.withValues(
+              alpha: 0.55,
+            ),
+            disabledForegroundColor: AppColors.onDarkPrimary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          FilledButton(
-            onPressed: signedUp ? null : onSignUp,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.textPrimary,
-              foregroundColor: AppColors.onDarkPrimary,
-              disabledBackgroundColor: AppColors.textPrimary.withValues(
-                alpha: 0.55,
-              ),
-              disabledForegroundColor: AppColors.onDarkPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              textStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            child: Text(
-              signedUp ? AppStrings.signedUpCta : AppStrings.signUpCta,
-            ),
+          child: Text(
+            signedUp ? AppStrings.signedUpCta : AppStrings.signUpCta,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Bottom bar for the current user's own post: the poster pays the full
-/// service fee into escrow when they approve a host.
-class _PosterBottomBar extends StatelessWidget {
-  const _PosterBottomBar({required this.post});
-
-  final ActivityPost post;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        14 + MediaQuery.paddingOf(context).bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        border: Border(top: BorderSide(color: AppColors.divider)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    const Text(
-                      AppStrings.tipPayLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      MoneyFormat.format(post.budgetAmount),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                const Text(
-                  AppStrings.tipPayNote,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.textHint,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

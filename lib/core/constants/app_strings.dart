@@ -127,7 +127,6 @@ abstract final class AppStrings {
       'Meeto 保护你：双方都经过实名认证，从匹配到见面的整个活动都在平台'
       '监督下进行。';
   static const String tipPayLabel = '你将支付的服务费';
-  static const String tipReceiveLabel = '你将获得的服务费';
   static const String signUpCta = '报名';
   static const String signedUpCta = '已报名 · 等待选择';
   static const String candidateSignedUpSnack = '报名成功 — 发帖人会从候选人中选一位';
@@ -147,6 +146,7 @@ abstract final class AppStrings {
   static const String composerSceneLabel = '活动类型';
   static const String composerCoverLabel = '活动封面';
   static const String activityBudgetLabel = '活动预算';
+  static String postAuthorLine(String name) => '$name 发起';
   static const String budgetCoversNoteUser = '预算包含全部活动开销，由主持人安排这场活动';
   static const String budgetCoversNoteHost = '预算包含活动开销，安排得当，结余就是你的收入';
   static const String publishFieldTitle = '标题';
