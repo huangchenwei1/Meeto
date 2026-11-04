@@ -951,28 +951,74 @@ describe('Meeto API (e2e)', () => {
       expect(order.body.earnerPhone).toMatch(/^\+63/);
     });
 
-    it('the poster single-sidedly completes; the escrow settles', async () => {
-      // Only the poster can complete, not the host.
-      await api()
-        .post(`/orders/${orderId}/complete`)
-        .set('X-User-Id', JAMES)
-        .expect(403);
-
-      const done = await api()
-        .post(`/orders/${orderId}/complete`)
+    it('the host submits the meet code; the run ends and the escrow settles', async () => {
+      // The 4-digit proof-of-meeting code is disclosed only to the payer.
+      const mine = await api()
+        .get(`/orders/${orderId}`)
         .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(mine.body.meetCode).toMatch(/^\d{4}$/);
+      const hostView = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      expect(hostView.body.meetCode).toBe('');
+
+      // Only the host submits the code; a wrong code bounces.
+      await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', ANDREA)
+        .send({ code: mine.body.meetCode })
+        .expect(403);
+      const wrongCode = mine.body.meetCode === '0000' ? '0001' : '0000';
+      const rejected = await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', JAMES)
+        .send({ code: wrongCode })
+        .expect(409);
+      expect(rejected.body.message).toBe('WRONG_MEET_CODE');
+
+      const started = await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', JAMES)
+        .send({ code: mine.body.meetCode })
         .expect(201);
+      expect(started.body.status).toBe('ACTIVE');
+      expect(started.body.startedAt).not.toBeNull();
+
+      // A started service can never be cancelled (even inside the cancel
+      // window) and never started twice.
+      const locked = await api()
+        .post(`/orders/${orderId}/cancel`)
+        .set('X-User-Id', ANDREA)
+        .expect(409);
+      expect(locked.body.message).toBe('ALREADY_STARTED');
+      await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', JAMES)
+        .send({ code: mine.body.meetCode })
+        .expect(409);
+
+      // The planned duration runs out -> the escrow settles lazily on the
+      // next read; nobody taps anything.
+      process.env.AUTO_SETTLE_DELAY_MS = '0';
+      const done = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      delete process.env.AUTO_SETTLE_DELAY_MS;
       expect(done.body.status).toBe('COMPLETED');
       expect(done.body.completedAt).not.toBeNull();
 
-      // A completed order can no longer be cancelled or re-completed.
+      // A completed order can no longer be cancelled or restarted.
       await api()
         .post(`/orders/${orderId}/cancel`)
         .set('X-User-Id', JAMES)
         .expect(409);
       await api()
-        .post(`/orders/${orderId}/complete`)
-        .set('X-User-Id', ANDREA)
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', JAMES)
+        .send({ code: mine.body.meetCode })
         .expect(409);
 
       // The conversation dies with the activity: the thread turns
@@ -1100,14 +1146,12 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('auto-settle fallback: the host always gets paid', () => {
-    let orderId: string;
-
-    it('a paid order with a confirmed plan in the past settles on read', async () => {
+  describe('meet code gating: no confirmed plan, no started service', () => {
+    it('the code only works on a confirmed plan; the run settles on read', async () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Dinner', title: 'Auto-settle flow' })
+        .send({ sceneTag: 'Dinner', title: 'Meet code flow' })
         .expect(201);
       await api()
         .post(`/posts/${post.body.id}/applications`)
@@ -1123,35 +1167,47 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', MIGUEL)
         .send({ applicationId: pool.body[0].id })
         .expect(201);
-      orderId = order.body.id;
+      const orderId = order.body.id;
+      // The selection response goes to the payer: the code rides along.
+      expect(order.body.meetCode).toMatch(/^\d{4}$/);
+      const code = order.body.meetCode as string;
+
       await api()
         .post(`/orders/${orderId}/payment`)
         .set('X-User-Id', MIGUEL)
         .expect(201);
+
+      // Re-proposing clears the confirmation; an unconfirmed plan blocks
+      // the code: no agreed plan, no service.
       await api()
         .post(`/orders/${orderId}/plan`)
         .set('X-User-Id', KAT)
         .send({
           place: 'Toyo Eatery, Makati',
-          scheduledAt: '2026-01-10T19:00:00.000Z',
+          scheduledAt: PLAN_CARD.scheduledAt,
           note: 'Tasting menu, then a nightcap nearby',
           durationMinutes: 120,
         })
         .expect(201);
-
-      // An unconfirmed plan never auto-settles, however old it is.
-      process.env.AUTO_SETTLE_DELAY_MS = '0';
-      const unconfirmed = await api()
-        .get(`/orders/${orderId}`)
+      const blocked = await api()
+        .post(`/orders/${orderId}/start`)
         .set('X-User-Id', KAT)
-        .expect(200);
-      expect(unconfirmed.body.status).toBe('ACTIVE');
+        .send({ code })
+        .expect(409);
+      expect(blocked.body.message).toBe('PLAN_NOT_CONFIRMED');
 
-      // Confirmed plan time + grace delay elapsed -> settles lazily.
       await api()
         .post(`/orders/${orderId}/plan/confirm`)
         .set('X-User-Id', MIGUEL)
         .expect(201);
+      await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', KAT)
+        .send({ code })
+        .expect(201);
+
+      // Duration elapsed (test clock: zero) -> settled on the next read.
+      process.env.AUTO_SETTLE_DELAY_MS = '0';
       const settled = await api()
         .get(`/orders/${orderId}`)
         .set('X-User-Id', KAT)
@@ -1246,6 +1302,95 @@ describe('Meeto API (e2e)', () => {
         .post(`/orders/${orderId}/cancel`)
         .set('X-User-Id', MIGUEL)
         .expect(409);
+    });
+
+    it('the cancel window closes 30 minutes after payment', async () => {
+      // Fresh post and order (re-applying to the old post is blocked by
+      // the duplicate-application guard).
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({ sceneTag: 'Coffee', title: 'Window test date' })
+        .expect(201);
+      const application = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', BIANCA)
+        .send(PLAN_CARD)
+        .expect(201);
+      const selection = await api()
+        .post(`/posts/${post.body.id}/selection`)
+        .set('X-User-Id', MIGUEL)
+        .send({ applicationId: application.body.id })
+        .expect(201);
+      orderId = selection.body.id;
+      await api()
+        .post(`/orders/${orderId}/payment`)
+        .set('X-User-Id', MIGUEL)
+        .expect(201);
+
+      // Within the window either side could cancel; pretend the payment
+      // happened 31 minutes ago and the door is shut for both.
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { paidAt: new Date(Date.now() - 31 * 60_000) },
+      });
+      const closedForPayer = await api()
+        .post(`/orders/${orderId}/cancel`)
+        .set('X-User-Id', MIGUEL)
+        .expect(409);
+      expect(closedForPayer.body.message).toBe('CANCEL_WINDOW_CLOSED');
+      const closedForHost = await api()
+        .post(`/orders/${orderId}/cancel`)
+        .set('X-User-Id', BIANCA)
+        .expect(409);
+      expect(closedForHost.body.message).toBe('CANCEL_WINDOW_CLOSED');
+    });
+
+    it('a never-started order forfeits: the money goes to neither side', async () => {
+      // Same stuck order: nobody ever submitted the meet code and the
+      // planned time is long past.
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { planAt: new Date(Date.now() - 1000) },
+      });
+      process.env.FORFEIT_AFTER_MS = '0';
+      const read = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      delete process.env.FORFEIT_AFTER_MS;
+      expect(read.body.status).toBe('FORFEITED');
+      expect(read.body.completedAt).not.toBeNull();
+
+      // No refund, no payout: the escrow moved to platform revenue.
+      const payment = await prisma.payment.findFirst({ where: { orderId } });
+      expect(payment?.status).toBe('SUCCEEDED');
+      const escrow = await prisma.ledgerEntry.aggregate({
+        where: { account: 'PLATFORM_ESCROW', orderId },
+        _sum: { amountMinor: true },
+      });
+      expect(escrow._sum.amountMinor).toBe(0);
+      const forfeited = await prisma.ledgerEntry.aggregate({
+        where: {
+          account: 'PLATFORM_REVENUE',
+          orderId,
+          entryType: 'ESCROW_FORFEIT',
+        },
+        _sum: { amountMinor: true },
+      });
+      expect(forfeited._sum.amountMinor).toBeGreaterThan(0);
+
+      // Forfeited orders are closed for good: no cancel, no code, no chat.
+      await api()
+        .post(`/orders/${orderId}/cancel`)
+        .set('X-User-Id', MIGUEL)
+        .expect(409);
+      const closed = await api()
+        .post(`/orders/${orderId}/messages`)
+        .set('X-User-Id', MIGUEL)
+        .send({ text: 'hello?' })
+        .expect(409);
+      expect(closed.body.message).toBe('CHAT_CLOSED');
     });
   });
 

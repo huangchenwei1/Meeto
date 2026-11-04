@@ -1,5 +1,6 @@
 import type { Message, Order, Post, User } from '@prisma/client';
 import { OrderStatus } from '../common/enums.js';
+import { cancelWindowMs } from '../common/settlement.util.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 
 export type OrderWithParties = Order & {
@@ -41,7 +42,17 @@ export interface OrderDto {
   planDurationMinutes: number;
   planProposedAt: Date | null;
   planConfirmedAt: Date | null;
-  /// Set when the escrow settled (poster completion or auto-settle).
+  /// Proof-of-meeting code, disclosed ONLY to the payer (the viewer must
+  /// be passed to the mapper): the host asks for it in person and submits
+  /// it to start the service. Empty for everyone else.
+  meetCode: string;
+  /// Set when the host submitted the correct meet code: the service is
+  /// running and auto-settles after its planned duration.
+  startedAt: Date | null;
+  /// Until when either side may still cancel with a full refund (payment
+  /// time + the cancel window); null before payment or once started.
+  cancellableUntil: Date | null;
+  /// Set when the order closed (settled or forfeited).
   completedAt: Date | null;
   createdAt: Date;
 }
@@ -51,9 +62,16 @@ const PHONE_DISCLOSED_STATUSES: ReadonlySet<string> = new Set([
   OrderStatus.completed,
 ]);
 
-export function toOrderDto(order: OrderWithParties): OrderDto {
+export function toOrderDto(
+  order: OrderWithParties,
+  viewerId?: string,
+): OrderDto {
   const disclosePhones = PHONE_DISCLOSED_STATUSES.has(order.status);
   const planConfirmed = order.planConfirmedAt !== null;
+  const cancellable =
+    order.status === OrderStatus.active &&
+    order.startedAt === null &&
+    order.paidAt !== null;
   return {
     id: order.id,
     postId: order.postId,
@@ -78,6 +96,11 @@ export function toOrderDto(order: OrderWithParties): OrderDto {
     planDurationMinutes: order.planDurationMinutes,
     planProposedAt: order.planProposedAt,
     planConfirmedAt: order.planConfirmedAt,
+    meetCode: viewerId === order.payerId ? order.meetCode : '',
+    startedAt: order.startedAt,
+    cancellableUntil: cancellable
+      ? new Date(order.paidAt!.getTime() + cancelWindowMs())
+      : null,
     completedAt: order.completedAt,
     createdAt: order.createdAt,
   };

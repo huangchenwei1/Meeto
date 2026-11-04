@@ -362,11 +362,22 @@ abstract final class AppStrings {
   static const String orderDetailsCta = '详情';
   static const String orderFeeLabel = '服务费';
   static const String orderPayoutLabel = '主持人所得';
-  static const String completeCta = '活动已完成';
-  static const String completeConfirmTitle = '确认活动已完成？';
-  static const String completeConfirmBody = '服务费将结算给主持人。请在活动结束后再确认。';
-  static const String completeConfirmYes = '确认完成';
-  static const String completeConfirmNo = '返回';
+  static const String meetCodeLabel = '见面密码';
+  static const String meetCodeHintPayer = '见面时把密码告诉主持人，对方输入后服务开始';
+  static const String meetCodeInputHint = '输入对方的 4 位见面密码';
+  static const String startMeetCta = '开始服务';
+  static const String wrongMeetCodeSnack = '密码不对，再和对方核对一下';
+  static const String startedBadge = '进行中';
+  static String settlesAtNote(String time) => '服务进行中 · $time 自动结算';
+  static const String cancelCtaPayer = '取消活动';
+  static const String cancelCtaHost = '放弃活动';
+  static const String cancelConfirmTitle = '确定要取消吗？';
+  static const String cancelConfirmBody = '费用将全额原路退回，对方会收到通知。成单 30 分钟后将无法取消。';
+  static const String cancelConfirmYes = '确定取消';
+  static const String cancelConfirmNo = '返回';
+  static const String cancelledSnack = '已取消，费用全额原路退回';
+  static const String forfeitedNote = '无人开始服务，订单已作废';
+  static const String statusForfeited = '已作废';
 
   // Gig hall (host-side work surface)
   static const String tabGigs = '需求';
@@ -498,6 +509,7 @@ abstract final class AppStrings {
   static const String planRequiredHint = '先填好地点、时间和流程安排';
   static const String planAwaitingBadge = '待确认';
   static const String planMissingBadge = '待发送';
+  static const String forfeitedBadge = '已作废';
   static const String chatEndedBadge = '已结束';
   static const String chatReadOnlyNote = '活动已结束，会话仅可读';
   static const String planDurationLabel = '游玩时长';

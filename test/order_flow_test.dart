@@ -17,7 +17,8 @@ void main() {
   });
 
   group('MockOrdersRepository state machine', () {
-    test('pay -> plan -> complete mirrors the server flow', () async {
+    test('plan -> meet code -> timed settle mirrors the server flow',
+        () async {
       final MockOrdersRepository repository = MockOrdersRepository();
 
       // Seeded demo orders: one in progress, one completed.
@@ -35,14 +36,18 @@ void main() {
       // Phone contact unlocks once escrowed.
       expect(active.earnerPhone, isNotEmpty);
 
-      // The host re-proposes; the poster confirms.
+      // The payer (demo user) sees the meet code; it is a 4-digit string.
+      expect(active.meetCode, matches(RegExp(r'^\d{4}$')));
+
+      // The host re-proposes; the poster confirms. A zero duration makes
+      // the started service settle on the very next read (test clock).
       final DateTime at = DateTime.now().add(const Duration(days: 1));
       LiveOrder updated = await repository.proposePlan(
         active.id,
         place: 'Greenbelt Cinema',
         scheduledAt: at,
         note: 'Dinner first, then the 8pm screening',
-        durationMinutes: 240,
+        durationMinutes: 0,
       );
       expect(updated.planProposed, isTrue);
       expect(updated.planConfirmed, isFalse);
@@ -61,8 +66,17 @@ void main() {
       expect(messages.last.text, 'See you there!');
       expect(messages.last.senderId, 'user-100');
 
-      // The poster completes single-sidedly; the escrow settles.
-      updated = await repository.complete(active.id);
+      // A wrong meet code bounces; the right one starts the service.
+      await expectLater(
+        repository.start(active.id, 'nope'),
+        throwsA(isA<ApiException>()),
+      );
+      updated = await repository.start(active.id, active.meetCode);
+      expect(updated.started, isTrue);
+
+      // The planned duration (zero here) runs out: the escrow settles on
+      // the next read with nobody tapping anything.
+      updated = await repository.getOrder(active.id);
       expect(updated.status, 'COMPLETED');
       expect(updated.completedAt, isNotNull);
 
@@ -76,14 +90,27 @@ void main() {
       expect(history, isNotEmpty);
     });
 
-    test('cancel is a terminal side exit; seeds carry completedAt', () async {
+    test('the cancel window and the started lock guard the escrow',
+        () async {
       final MockOrdersRepository repository = MockOrdersRepository();
       final List<LiveOrder> orders = await repository.listMine();
       final LiveOrder active =
           orders.firstWhere((LiveOrder o) => o.status == 'ACTIVE');
 
-      final LiveOrder cancelled = await repository.cancel(active.id);
-      expect(cancelled.status, 'CANCELLED');
+      // The demo order was paid 19 hours ago: the 30-minute cancel window
+      // is long shut for both sides.
+      expect(active.cancellableNow, isFalse);
+      await expectLater(
+        repository.cancel(active.id),
+        throwsA(isA<ApiException>()),
+      );
+
+      // Once the meet code is in, cancelling is impossible forever.
+      await repository.start(active.id, active.meetCode);
+      await expectLater(
+        repository.cancel(active.id),
+        throwsA(isA<ApiException>()),
+      );
 
       final LiveOrder completed =
           orders.firstWhere((LiveOrder o) => o.status == 'COMPLETED');

@@ -393,6 +393,11 @@ class _StatusPill extends StatelessWidget {
           AppColors.textSecondary,
           AppColors.surface,
         ),
+      'FORFEITED' => (
+          AppStrings.statusForfeited,
+          AppColors.textSecondary,
+          AppColors.surface,
+        ),
       _ => (
           AppStrings.statusCancelled,
           AppColors.textSecondary,

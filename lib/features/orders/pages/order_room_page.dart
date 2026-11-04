@@ -190,28 +190,42 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     }
   }
 
-  /// Poster-only: marks the activity done and releases the escrow.
-  Future<void> _confirmComplete() async {
+  /// Either side backs out within the cancel window: full refund, order
+  /// closed.
+  Future<void> _confirmCancel() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text(AppStrings.completeConfirmTitle),
-        content: const Text(AppStrings.completeConfirmBody),
+        title: const Text(AppStrings.cancelConfirmTitle),
+        content: const Text(AppStrings.cancelConfirmBody),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(AppStrings.completeConfirmNo),
+            child: const Text(AppStrings.cancelConfirmNo),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(AppStrings.completeConfirmYes),
+            child: const Text(AppStrings.cancelConfirmYes),
           ),
         ],
       ),
     );
     if (confirmed ?? false) {
-      await _runAction(widget.repository.complete);
+      await _runAction(widget.repository.cancel);
+      if (mounted && _order?.status == 'CANCELLED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.cancelledSnack)),
+        );
+      }
     }
+  }
+
+  /// Host-only: submits the payer's meet code; a correct code starts the
+  /// service clock (it settles itself after the planned duration).
+  Future<void> _startMeet(String code) async {
+    await _runAction(
+      (String orderId) => widget.repository.start(orderId, code),
+    );
   }
 
   Future<void> _runAction(
@@ -279,9 +293,12 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
 
   void _showError(String message) {
     if (mounted) {
+      final String friendly = message == 'WRONG_MEET_CODE'
+          ? AppStrings.wrongMeetCodeSnack
+          : message;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ).showSnackBar(SnackBar(content: Text(friendly)));
     }
   }
 
@@ -443,7 +460,8 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
           onPropose: _proposePlan,
           onConfirm: _confirmPlan,
           onCopyPhone: _copyPhone,
-          onComplete: _confirmComplete,
+          onCancel: _confirmCancel,
+          onStart: _startMeet,
         ),
         const Divider(height: 1),
         Expanded(
@@ -747,10 +765,13 @@ class _PlanSheetState extends State<_PlanSheet> {
 /// The one pinned plan card above the chat: born with the order, it
 /// always mirrors the current plan fields and walks the lifecycle —
 /// placeholder while the host owes the plan (invitation orders), then
-/// awaiting the poster's confirmation, then confirmed with the peer phone
-/// and the poster's complete action, finally the read-only settlement
-/// summary.
-class _PinnedPlanCard extends StatelessWidget {
+/// awaiting the poster's confirmation, then confirmed: the payer's card
+/// shows the 4-digit meet code (told to the host in person), the host's
+/// card takes the code to start the service. A started service settles
+/// itself after the planned duration; a never-started one forfeits.
+/// Within the 30-minute window after payment either side can still back
+/// out with a full refund, right from the card.
+class _PinnedPlanCard extends StatefulWidget {
   const _PinnedPlanCard({
     required this.order,
     required this.myId,
@@ -758,7 +779,8 @@ class _PinnedPlanCard extends StatelessWidget {
     required this.onPropose,
     required this.onConfirm,
     required this.onCopyPhone,
-    required this.onComplete,
+    required this.onCancel,
+    required this.onStart,
   });
 
   final LiveOrder order;
@@ -767,17 +789,46 @@ class _PinnedPlanCard extends StatelessWidget {
   final VoidCallback onPropose;
   final VoidCallback onConfirm;
   final ValueChanged<String> onCopyPhone;
-  final VoidCallback onComplete;
+  final VoidCallback onCancel;
+  final ValueChanged<String> onStart;
 
-  bool get _iAmPayer => order.isPayer(myId);
+  @override
+  State<_PinnedPlanCard> createState() => _PinnedPlanCardState();
+}
+
+class _PinnedPlanCardState extends State<_PinnedPlanCard> {
+  final TextEditingController _codeController = TextEditingController();
+
+  LiveOrder get order => widget.order;
+  bool get _iAmPayer => order.isPayer(widget.myId);
   bool get _active => order.status == 'ACTIVE';
 
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
   Widget _badge() {
+    if (order.status == 'FORFEITED') {
+      return const _PlanBadge(
+        label: AppStrings.forfeitedBadge,
+        background: AppColors.otherMessageBubble,
+        foreground: AppColors.textHint,
+      );
+    }
     if (order.status == 'COMPLETED' || order.status == 'CANCELLED') {
       return const _PlanBadge(
         label: AppStrings.chatEndedBadge,
         background: AppColors.otherMessageBubble,
         foreground: AppColors.textHint,
+      );
+    }
+    if (order.started) {
+      return const _PlanBadge(
+        label: AppStrings.startedBadge,
+        background: AppColors.accentSoft,
+        foreground: AppColors.accent,
       );
     }
     if (!order.planProposed) {
@@ -803,7 +854,7 @@ class _PinnedPlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String phone = order.peerPhoneOf(myId);
+    final String phone = order.peerPhoneOf(widget.myId);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -856,7 +907,7 @@ class _PinnedPlanCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     FilledButton(
                       key: const ValueKey<String>('planProposeButton'),
-                      onPressed: busy ? null : onPropose,
+                      onPressed: widget.busy ? null : widget.onPropose,
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.textPrimary,
                         foregroundColor: AppColors.onDarkPrimary,
@@ -918,7 +969,7 @@ class _PinnedPlanCard extends StatelessWidget {
             const SizedBox(height: 10),
             InkWell(
               key: const ValueKey<String>('peerPhoneRow'),
-              onTap: () => onCopyPhone(phone),
+              onTap: () => widget.onCopyPhone(phone),
               borderRadius: BorderRadius.circular(8),
               child: Row(
                 children: <Widget>[
@@ -946,90 +997,215 @@ class _PinnedPlanCard extends StatelessWidget {
               ),
             ),
           ],
-          // Lifecycle actions: confirming the plan hands the same spot to
-          // the poster's complete action.
-          if (_active && order.planProposed && !order.planConfirmed) ...<Widget>[
-            const SizedBox(height: 12),
-            if (_iAmPayer)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('planConfirmButton'),
-                  onPressed: busy ? null : onConfirm,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.textPrimary,
-                    foregroundColor: AppColors.onDarkPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text(AppStrings.planConfirmCta),
-                ),
-              )
-            else
-              Row(
-                children: <Widget>[
-                  const Expanded(
-                    child: Text(
-                      AppStrings.planAwaitingConfirm,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    key: const ValueKey<String>('planEditButton'),
-                    onPressed: busy ? null : onPropose,
-                    child: const Text(AppStrings.planEditCta),
-                  ),
-                ],
-              ),
-          ] else if (_active && order.planConfirmed) ...<Widget>[
-            const SizedBox(height: 12),
-            if (_iAmPayer)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey<String>('completeButton'),
-                  onPressed: busy ? null : onComplete,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.darkCard,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  child: const Text(AppStrings.completeCta),
-                ),
-              )
-            else
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  key: const ValueKey<String>('planEditButton'),
-                  onPressed: busy ? null : onPropose,
-                  child: const Text(AppStrings.planEditCta),
-                ),
-              ),
-          ] else if (order.status == 'COMPLETED') ...<Widget>[
-            const SizedBox(height: 10),
-            Text(
-              _iAmPayer
-                  ? AppStrings.settledPayerNote('\u20b1${order.feePesos}')
-                  : AppStrings.settledEarnerNote('\u20b1${order.netPesos}'),
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textHint,
-              ),
-            ),
-          ],
+          ..._lifecycleSection(context),
         ],
       ),
     );
+  }
+
+  /// The action area under the plan: exactly one stage is live at a time.
+  List<Widget> _lifecycleSection(BuildContext context) {
+    // Plan proposed, awaiting the poster's confirmation.
+    if (_active && order.planProposed && !order.planConfirmed) {
+      return <Widget>[
+        const SizedBox(height: 12),
+        if (_iAmPayer)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const ValueKey<String>('planConfirmButton'),
+              onPressed: widget.busy ? null : widget.onConfirm,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.textPrimary,
+                foregroundColor: AppColors.onDarkPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text(AppStrings.planConfirmCta),
+            ),
+          )
+        else
+          Row(
+            children: <Widget>[
+              const Expanded(
+                child: Text(
+                  AppStrings.planAwaitingConfirm,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textHint,
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const ValueKey<String>('planEditButton'),
+                onPressed: widget.busy ? null : widget.onPropose,
+                child: const Text(AppStrings.planEditCta),
+              ),
+            ],
+          ),
+        ..._cancelRow(),
+      ];
+    }
+    // Confirmed but not started: the meet-code exchange.
+    if (_active && order.planConfirmed && !order.started) {
+      return <Widget>[
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        if (_iAmPayer) ...<Widget>[
+          // The payer owns the code: tell it to the host in person.
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      AppStrings.meetCodeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      order.meetCode,
+                      key: const ValueKey<String>('meetCodeText'),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 8,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            AppStrings.meetCodeHintPayer,
+            style: TextStyle(fontSize: 11.5, color: AppColors.textHint),
+          ),
+        ] else ...<Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  key: const ValueKey<String>('meetCodeField'),
+                  controller: _codeController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  decoration: const InputDecoration(
+                    hintText: AppStrings.meetCodeInputHint,
+                    counterText: '',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                key: const ValueKey<String>('startMeetButton'),
+                onPressed: widget.busy
+                    ? null
+                    : () => widget.onStart(_codeController.text.trim()),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.darkCard,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 11,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Text(AppStrings.startMeetCta),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: const ValueKey<String>('planEditButton'),
+              onPressed: widget.busy ? null : widget.onPropose,
+              child: const Text(AppStrings.planEditCta),
+            ),
+          ),
+        ],
+        ..._cancelRow(),
+      ];
+    }
+    // Service running: hands off — it settles itself.
+    if (_active && order.started) {
+      final DateTime endsAt = order.startedAt!
+          .add(Duration(minutes: order.planDurationMinutes));
+      return <Widget>[
+        const SizedBox(height: 10),
+        Text(
+          AppStrings.settlesAtNote(
+            MaterialLocalizations.of(context)
+                .formatTimeOfDay(TimeOfDay.fromDateTime(endsAt)),
+          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+        ),
+      ];
+    }
+    if (order.status == 'COMPLETED') {
+      return <Widget>[
+        const SizedBox(height: 10),
+        Text(
+          _iAmPayer
+              ? AppStrings.settledPayerNote('\u20b1${order.feePesos}')
+              : AppStrings.settledEarnerNote('\u20b1${order.netPesos}'),
+          style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+        ),
+      ];
+    }
+    if (order.status == 'FORFEITED') {
+      return <Widget>[
+        const SizedBox(height: 10),
+        const Text(
+          AppStrings.forfeitedNote,
+          style: TextStyle(fontSize: 12, color: AppColors.textHint),
+        ),
+      ];
+    }
+    // Awaiting the plan (placeholder head already shows the prompt) or a
+    // closed cancelled order: just the cancel window if it is still open.
+    return _cancelRow();
+  }
+
+  /// The windowed escape hatch: both sides can back out with a full
+  /// refund within 30 minutes of payment, never after, never once the
+  /// service started.
+  List<Widget> _cancelRow() {
+    if (!order.cancellableNow) {
+      return const <Widget>[];
+    }
+    return <Widget>[
+      const SizedBox(height: 2),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          key: const ValueKey<String>('cancelOrderButton'),
+          onPressed: widget.busy ? null : widget.onCancel,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.textHint,
+            padding: EdgeInsets.zero,
+            textStyle: const TextStyle(fontSize: 12),
+          ),
+          child: Text(
+            _iAmPayer ? AppStrings.cancelCtaPayer : AppStrings.cancelCtaHost,
+          ),
+        ),
+      ),
+    ];
   }
 }
 

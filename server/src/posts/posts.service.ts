@@ -18,6 +18,7 @@ import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
 import { NotificationsService } from '../notifications/notifications.module.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
+import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ApplyDto, CreatePostDto } from './posts.dto.js';
@@ -326,6 +327,7 @@ export class PostsService {
           feeMinor: split.feeMinor,
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
+          meetCode: generateMeetCode(),
           ...(application.planPlace !== '' && application.planAt !== null
             ? {
                 planPlace: application.planPlace,
@@ -367,7 +369,8 @@ export class PostsService {
       });
       return created;
     });
-    return toOrderDto(order);
+    // The caller is the payer: the one party allowed to see the meet code.
+    return toOrderDto(order, caller.id);
   }
 
   private async findPostOrThrow(postId: string): Promise<PostWithAuthor> {

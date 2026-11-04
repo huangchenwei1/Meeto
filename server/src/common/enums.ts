@@ -80,6 +80,9 @@ export const OrderStatus = {
   active: 'ACTIVE',
   completed: 'COMPLETED',
   cancelled: 'CANCELLED',
+  // Nobody submitted the meet code in time: the escrow goes to neither
+  // side (platform keeps it; extreme cases are handled manually).
+  forfeited: 'FORFEITED',
 } as const;
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
@@ -102,6 +105,7 @@ export const LedgerEntryType = {
   escrowRefund: 'ESCROW_REFUND',
   settleNet: 'SETTLE_NET',
   settleCommission: 'SETTLE_COMMISSION',
+  escrowForfeit: 'ESCROW_FORFEIT',
   withdrawal: 'WITHDRAWAL',
 } as const;
 export type LedgerEntryType =

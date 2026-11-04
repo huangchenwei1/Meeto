@@ -28,6 +28,9 @@ class LiveOrder {
     this.planDurationMinutes = 0,
     required this.planProposedAt,
     required this.planConfirmedAt,
+    this.meetCode = '',
+    this.startedAt,
+    this.cancellableUntil,
     required this.completedAt,
     required this.createdAt,
   });
@@ -59,6 +62,9 @@ class LiveOrder {
       planDurationMinutes: (json['planDurationMinutes'] as num?)?.toInt() ?? 0,
       planProposedAt: parseDate(json['planProposedAt']),
       planConfirmedAt: parseDate(json['planConfirmedAt']),
+      meetCode: json['meetCode'] as String? ?? '',
+      startedAt: parseDate(json['startedAt']),
+      cancellableUntil: parseDate(json['cancellableUntil']),
       completedAt: parseDate(json['completedAt']),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -69,7 +75,7 @@ class LiveOrder {
   final PostAuthor payer;
   final PostAuthor earner;
 
-  /// AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED
+  /// AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED | FORFEITED
   final String status;
   final int feePesos;
   final int commissionPesos;
@@ -109,7 +115,27 @@ class LiveOrder {
   bool get planProposed => planProposedAt != null;
   bool get planConfirmed => planConfirmedAt != null;
 
-  /// Set when the escrow settled (poster completion or auto-settle).
+  /// Proof-of-meeting code, served ONLY to the payer (empty for the
+  /// host): shown on the plan card, told to the host in person.
+  final String meetCode;
+
+  /// Set when the host submitted the correct meet code: the service runs
+  /// and auto-settles after its planned duration.
+  final DateTime? startedAt;
+
+  bool get started => startedAt != null;
+
+  /// Until when either side may still cancel with a full refund; null
+  /// before payment or once the service started.
+  final DateTime? cancellableUntil;
+
+  bool get cancellableNow =>
+      status == 'ACTIVE' &&
+      !started &&
+      cancellableUntil != null &&
+      DateTime.now().isBefore(cancellableUntil!);
+
+  /// Set when the order closed (settled or forfeited).
   final DateTime? completedAt;
   final DateTime createdAt;
 

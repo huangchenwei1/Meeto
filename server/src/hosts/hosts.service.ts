@@ -18,6 +18,7 @@ import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
 import { NotificationsService } from '../notifications/notifications.module.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
+import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -296,6 +297,7 @@ export class HostsService {
           feeMinor: split.feeMinor,
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
+          meetCode: generateMeetCode(),
         },
         include: { payer: true, earner: true, post: true },
       });
@@ -318,7 +320,8 @@ export class HostsService {
       });
       return created;
     });
-    return toOrderDto(order);
+    // The caller is the host (earner): the meet code stays hidden here.
+    return toOrderDto(order, caller.id);
   }
 
   async decline(caller: User, invitationId: string): Promise<InvitationDto> {

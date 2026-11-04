@@ -15,6 +15,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Length,
   Max,
   MaxLength,
   Min,
@@ -28,6 +29,13 @@ class SendMessageDto {
   @IsNotEmpty()
   @MaxLength(2000)
   text!: string;
+}
+
+class StartDto {
+  /// The payer's 4-digit meet code, asked for in person.
+  @IsString()
+  @Length(4, 4)
+  code!: string;
 }
 
 class PlanDto {
@@ -104,12 +112,13 @@ export class OrdersController {
     return this.ordersService.confirmPlan(user, id);
   }
 
-  @Post(':id/complete')
-  complete(
+  @Post(':id/start')
+  start(
     @CurrentUser() user: User,
     @Param('id') id: string,
+    @Body() dto: StartDto,
   ): Promise<OrderDto> {
-    return this.ordersService.complete(user, id);
+    return this.ordersService.start(user, id, dto.code);
   }
 
   @Post(':id/cancel')

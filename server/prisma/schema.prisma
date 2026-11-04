@@ -181,7 +181,7 @@ model Order {
   payer           User     @relation("payer", fields: [payerId], references: [id])
   earnerId        String // always the selected host
   earner          User     @relation("earner", fields: [earnerId], references: [id])
-  status          String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED
+  status          String   @default("AWAITING_PAYMENT") // AWAITING_PAYMENT | ACTIVE | COMPLETED | CANCELLED | FORFEITED
   feeMinor        Int
   commissionMinor Int // round(feeMinor * rateBp / 10000), fixed at creation
   netMinor        Int // feeMinor - commissionMinor (exact sum guaranteed)
@@ -200,6 +200,15 @@ model Order {
   planDurationMinutes Int   @default(0)
   planProposedAt  DateTime?
   planConfirmedAt DateTime?
+
+  // Proof of meeting: a 4-digit code generated with the order and shown
+  // only to the payer. The host asks for it in person and submits it to
+  // start the service; the escrow settles automatically once the started
+  // service runs its planned duration. If nobody ever submits the code,
+  // the order forfeits: the money goes to neither side.
+  meetCode        String    @default("")
+  paidAt          DateTime?
+  startedAt       DateTime?
 
   // Settlement: the poster completes the activity single-sidedly, or the
   // escrow auto-settles once the confirmed plan time plus the grace delay

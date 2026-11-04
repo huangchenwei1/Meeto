@@ -40,11 +40,14 @@ abstract interface class OrdersRepository {
   /// The poster locks in the proposed plan.
   Future<LiveOrder> confirmPlan(String orderId);
 
+  /// Either side backs out with a full refund — only within the cancel
+  /// window after payment and never once the service started.
   Future<LiveOrder> cancel(String orderId);
 
-  /// The poster single-sidedly marks the activity as done; the escrow
-  /// settles to the host immediately.
-  Future<LiveOrder> complete(String orderId);
+  /// The host submits the payer's 4-digit meet code at the meeting: a
+  /// correct code starts the service, which then settles automatically
+  /// after its planned duration.
+  Future<LiveOrder> start(String orderId, String code);
 
   Future<OrderMessage> sendMessage(String orderId, String text);
 
@@ -52,9 +55,10 @@ abstract interface class OrdersRepository {
 }
 
 /// Local order state machine for the demo build. Mirrors the server rules:
-/// AWAITING_PAYMENT -> (pay) ACTIVE -> (poster completes) COMPLETED, with
+/// AWAITING_PAYMENT -> (pay) ACTIVE -> (host submits the meet code)
+/// started -> (planned duration elapses) COMPLETED, with the windowed
 /// cancel as the side exit. Chat opens at payment and turns read-only
-/// once the order settles or cancels.
+/// once the order closes.
 class MockOrdersRepository implements OrdersRepository {
   MockOrdersRepository() {
     _seed();
@@ -101,6 +105,7 @@ class MockOrdersRepository implements OrdersRepository {
       createdAt: now.subtract(const Duration(hours: 20)),
     )
       ..status = 'ACTIVE'
+      ..paidAt = now.subtract(const Duration(hours: 19))
       ..planPlace = 'Power Plant Cinema, Rockwell'
       ..planAt = now.add(const Duration(days: 2))
       ..planNote = 'Early dinner at the food hall, then the 8pm screening'
@@ -179,7 +184,9 @@ class MockOrdersRepository implements OrdersRepository {
       feePesos: feePesos,
       postTitle: postTitle,
       createdAt: createdAt,
-    );
+    )..meetCode = ((1823 + _orderSequence * 517) % 10000)
+        .toString()
+        .padLeft(4, '0');
     _orders[order.id] = order;
     _ids.insert(0, order.id);
     return order;
@@ -252,9 +259,35 @@ class MockOrdersRepository implements OrdersRepository {
       planDurationMinutes: o.planDurationMinutes,
       planProposedAt: o.planProposedAt,
       planConfirmedAt: o.planConfirmedAt,
+      // Only the payer ever sees the code, mirroring the server.
+      meetCode:
+          AuthSession.currentUserId == o.payer.id ? o.meetCode : '',
+      startedAt: o.startedAt,
+      cancellableUntil: o.status == 'ACTIVE' &&
+              o.startedAt == null &&
+              o.paidAt != null
+          ? o.paidAt!.add(_cancelWindow)
+          : null,
       completedAt: o.completedAt,
       createdAt: o.createdAt,
     );
+  }
+
+  static const Duration _cancelWindow = Duration(minutes: 30);
+
+  /// Lazy money clock, mirroring the server: a started service settles
+  /// once its planned duration has run out.
+  void _settleIfDue(_MockOrder o) {
+    if (o.status != 'ACTIVE' || o.startedAt == null) {
+      return;
+    }
+    final DateTime endsAt =
+        o.startedAt!.add(Duration(minutes: o.planDurationMinutes));
+    if (!endsAt.isAfter(DateTime.now())) {
+      o
+        ..status = 'COMPLETED'
+        ..completedAt = endsAt;
+    }
   }
 
   @override
@@ -265,10 +298,13 @@ class MockOrdersRepository implements OrdersRepository {
     // leave the list. The records themselves are kept.
     const Duration grace = Duration(days: 7);
     final DateTime cutoff = DateTime.now().subtract(grace);
+    _orders.values.forEach(_settleIfDue);
     return _ids
         .map((String id) => _toLive(_orders[id]!))
         .where((LiveOrder order) {
-          if (order.status != 'COMPLETED' && order.status != 'CANCELLED') {
+          if (order.status != 'COMPLETED' &&
+              order.status != 'CANCELLED' &&
+              order.status != 'FORFEITED') {
             return true;
           }
           return (order.completedAt ?? order.createdAt).isAfter(cutoff);
@@ -279,7 +315,9 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<LiveOrder> getOrder(String orderId) async {
     await Future<void>.delayed(const Duration(milliseconds: 80));
-    return _toLive(_of(orderId));
+    final _MockOrder order = _of(orderId);
+    _settleIfDue(order);
+    return _toLive(order);
   }
 
   @override
@@ -297,7 +335,9 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<LiveOrder> pay(String orderId) async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    final _MockOrder order = _of(orderId)..status = 'ACTIVE';
+    final _MockOrder order = _of(orderId)
+      ..status = 'ACTIVE'
+      ..paidAt = DateTime.now();
     return _toLive(order);
   }
 
@@ -336,16 +376,39 @@ class MockOrdersRepository implements OrdersRepository {
   @override
   Future<LiveOrder> cancel(String orderId) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    final _MockOrder order = _of(orderId)..status = 'CANCELLED';
+    final _MockOrder order = _of(orderId);
+    if (order.status == 'ACTIVE') {
+      if (order.startedAt != null) {
+        throw const ApiException(409, 'ALREADY_STARTED');
+      }
+      final DateTime paidAt = order.paidAt ?? order.createdAt;
+      if (!DateTime.now().isBefore(paidAt.add(_cancelWindow))) {
+        throw const ApiException(409, 'CANCEL_WINDOW_CLOSED');
+      }
+    } else if (order.status != 'AWAITING_PAYMENT') {
+      throw const ApiException(409, 'Order can no longer be cancelled');
+    }
+    order.status = 'CANCELLED';
     return _toLive(order);
   }
 
   @override
-  Future<LiveOrder> complete(String orderId) async {
+  Future<LiveOrder> start(String orderId, String code) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    final _MockOrder order = _of(orderId)
-      ..status = 'COMPLETED'
-      ..completedAt = DateTime.now();
+    final _MockOrder order = _of(orderId);
+    if (order.status != 'ACTIVE') {
+      throw const ApiException(409, 'Order is not active');
+    }
+    if (order.planConfirmedAt == null) {
+      throw const ApiException(409, 'PLAN_NOT_CONFIRMED');
+    }
+    if (order.startedAt != null) {
+      throw const ApiException(409, 'ALREADY_STARTED');
+    }
+    if (code != order.meetCode) {
+      throw const ApiException(409, 'WRONG_MEET_CODE');
+    }
+    order.startedAt = DateTime.now();
     return _toLive(order);
   }
 
@@ -398,6 +461,9 @@ class _MockOrder {
   final DateTime createdAt;
 
   String status = 'AWAITING_PAYMENT';
+  String meetCode = '0000';
+  DateTime? paidAt;
+  DateTime? startedAt;
   String planPlace = '';
   double planLat = 0;
   double planLng = 0;

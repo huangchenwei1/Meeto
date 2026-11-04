@@ -73,7 +73,14 @@ class ApiOrdersRepository implements OrdersRepository {
   Future<LiveOrder> cancel(String orderId) => _action(orderId, 'cancel');
 
   @override
-  Future<LiveOrder> complete(String orderId) => _action(orderId, 'complete');
+  Future<LiveOrder> start(String orderId, String code) async {
+    return LiveOrder.fromJson(
+      await _client.post(
+        '/orders/$orderId/start',
+        body: <String, dynamic>{'code': code},
+      ) as Map<String, dynamic>,
+    );
+  }
 
   @override
   Future<OrderMessage> sendMessage(String orderId, String text) async {
