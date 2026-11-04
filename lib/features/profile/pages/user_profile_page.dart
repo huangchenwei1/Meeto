@@ -10,12 +10,12 @@ import '../data/profile_repository.dart';
 import '../models/profile_parts.dart';
 import '../models/user_detail.dart';
 
-/// Public profile of another user, Bumble-style: a vertical rhythm of
-/// full-width photo cards with content blocks (about, basics, interests)
-/// woven between them. Photos set the pace; whatever content is left when
-/// the photos run out just stacks below. Activity stats and reviews — the
-/// trust assets a hosting marketplace has that a dating app does not —
-/// close the page.
+/// Public profile of another user, Bumble-style blocks under a regular
+/// identity header: content cards (about, basics, interests) alternate
+/// with full-width photo cards. Photos set the pace; whatever is left
+/// when one side runs out just stacks below. Activity stats and reviews —
+/// the trust assets a hosting marketplace has that a dating app does
+/// not — close the page.
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({
     super.key,
@@ -52,13 +52,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
     });
   }
 
-  /// Weaves the page: hero photo, then content blocks alternating with
-  /// the remaining photos, then stats and reviews.
+  /// Weaves the page: a regular identity header first, then content
+  /// blocks alternating with the photos, then stats and reviews.
   List<Widget> _blocks(UserDetail user) {
-    final List<String> photos = <String>[
-      if (user.avatarUrl.isNotEmpty) user.avatarUrl,
-      ...user.photos.where((String p) => p != user.avatarUrl),
-    ];
+    final List<String> photos =
+        user.photos.where((String p) => p != user.avatarUrl).toList();
 
     final List<Widget> content = <Widget>[
       if (user.bio.isNotEmpty) _AboutCard(user: user),
@@ -66,26 +64,18 @@ class _UserProfilePageState extends State<UserProfilePage> {
       if (user.tags.isNotEmpty) _InterestsCard(tags: user.tags),
     ];
 
-    final List<Widget> blocks = <Widget>[];
-    if (photos.isEmpty) {
-      // No photos at all: fall back to a plain header so the name and
-      // badge still lead the page.
-      blocks.add(_PlainHeader(user: user));
-      blocks.addAll(content);
-    } else {
-      blocks.add(_HeroPhotoCard(user: user, imageUrl: photos.first));
-      int photoIndex = 1;
-      for (final Widget card in content) {
-        blocks.add(card);
-        if (photoIndex < photos.length) {
-          blocks.add(_PhotoCard(imageUrl: photos[photoIndex]));
-          photoIndex++;
-        }
-      }
-      // Leftover photos keep stacking once the content runs out.
-      for (; photoIndex < photos.length; photoIndex++) {
+    final List<Widget> blocks = <Widget>[_Header(user: user)];
+    int photoIndex = 0;
+    for (final Widget card in content) {
+      blocks.add(card);
+      if (photoIndex < photos.length) {
         blocks.add(_PhotoCard(imageUrl: photos[photoIndex]));
+        photoIndex++;
       }
+    }
+    // Leftover photos keep stacking once the content runs out.
+    for (; photoIndex < photos.length; photoIndex++) {
+      blocks.add(_PhotoCard(imageUrl: photos[photoIndex]));
     }
 
     blocks.add(_StatsCard(stats: user.stats));
@@ -118,84 +108,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 }
 
-/// The first photo doubles as the hero: name, badge and the one-line meta
-/// sit on a bottom gradient, Bumble-style.
-class _HeroPhotoCard extends StatelessWidget {
-  const _HeroPhotoCard({required this.user, required this.imageUrl});
-
-  final UserDetail user;
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final String metaLine = <String>[user.meta, user.city, user.joinedText]
-        .where((String part) => part.isNotEmpty)
-        .join(' \u00b7 ');
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: AspectRatio(
-        aspectRatio: 4 / 5,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            AppNetworkImage(url: imageUrl),
-            // Bottom gradient so the identity line always reads.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.center,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[Colors.transparent, Color(0xC0000000)],
-                ),
-              ),
-            ),
-            Positioned(
-              left: 18,
-              right: 18,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Flexible(
-                        child: Text(
-                          user.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (user.isVerified) const VerifiedBadge(),
-                    ],
-                  ),
-                  if (metaLine.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Text(
-                      metaLine,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Header fallback when the profile has no photos.
-class _PlainHeader extends StatelessWidget {
-  const _PlainHeader({required this.user});
+/// The regular identity header: avatar, name, badge and the meta line.
+class _Header extends StatelessWidget {
+  const _Header({required this.user});
 
   final UserDetail user;
 
