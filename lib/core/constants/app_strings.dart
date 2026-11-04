@@ -163,6 +163,9 @@ abstract final class AppStrings {
   static const String profileReviews = '评价';
   static const String profileActivityPosts = '发布的活动';
   static const String profileDatesCompleted = '完成的活动';
+  static const String profileAboutTitle = '关于我';
+  static const String profileBasicsTitle = '基本资料';
+  static const String profileInterestsTitle = '兴趣';
   static const String profileJobLabel = '职业';
   static const String profileEducationLabel = '学历';
   static const String profileHeightLabel = '身高';

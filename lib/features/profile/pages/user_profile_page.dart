@@ -10,8 +10,12 @@ import '../data/profile_repository.dart';
 import '../models/profile_parts.dart';
 import '../models/user_detail.dart';
 
-/// Public profile of another user: bio, tags, photos, info, stats and
-/// reviews.
+/// Public profile of another user, Bumble-style: a vertical rhythm of
+/// full-width photo cards with content blocks (about, basics, interests)
+/// woven between them. Photos set the pace; whatever content is left when
+/// the photos run out just stacks below. Activity stats and reviews — the
+/// trust assets a hosting marketplace has that a dating app does not —
+/// close the page.
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({
     super.key,
@@ -48,46 +52,160 @@ class _UserProfilePageState extends State<UserProfilePage> {
     });
   }
 
+  /// Weaves the page: hero photo, then content blocks alternating with
+  /// the remaining photos, then stats and reviews.
+  List<Widget> _blocks(UserDetail user) {
+    final List<String> photos = <String>[
+      if (user.avatarUrl.isNotEmpty) user.avatarUrl,
+      ...user.photos.where((String p) => p != user.avatarUrl),
+    ];
+
+    final List<Widget> content = <Widget>[
+      if (user.bio.isNotEmpty) _AboutCard(user: user),
+      if (user.info.isNotEmpty) _BasicsCard(info: user.info),
+      if (user.tags.isNotEmpty) _InterestsCard(tags: user.tags),
+    ];
+
+    final List<Widget> blocks = <Widget>[];
+    if (photos.isEmpty) {
+      // No photos at all: fall back to a plain header so the name and
+      // badge still lead the page.
+      blocks.add(_PlainHeader(user: user));
+      blocks.addAll(content);
+    } else {
+      blocks.add(_HeroPhotoCard(user: user, imageUrl: photos.first));
+      int photoIndex = 1;
+      for (final Widget card in content) {
+        blocks.add(card);
+        if (photoIndex < photos.length) {
+          blocks.add(_PhotoCard(imageUrl: photos[photoIndex]));
+          photoIndex++;
+        }
+      }
+      // Leftover photos keep stacking once the content runs out.
+      for (; photoIndex < photos.length; photoIndex++) {
+        blocks.add(_PhotoCard(imageUrl: photos[photoIndex]));
+      }
+    }
+
+    blocks.add(_StatsCard(stats: user.stats));
+    if (user.reviews.isNotEmpty) {
+      blocks.add(const _SectionTitle(AppStrings.profileReviews));
+      blocks.addAll(user.reviews.map((UserReview r) => _ReviewTile(review: r)));
+    }
+    return blocks;
+  }
+
   @override
   Widget build(BuildContext context) {
     final UserDetail? user = _user;
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.profileTitle)),
+      backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(AppStrings.profileTitle),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : user == null
               ? const SizedBox.shrink()
               : ListView(
-                  padding: const EdgeInsets.only(bottom: 30),
-                  children: <Widget>[
-                    _Hero(user: user),
-                    if (user.photos.isNotEmpty) _PhotoStrip(user: user),
-                    if (user.info.isNotEmpty) _InfoCard(info: user.info),
-                    _StatsCard(stats: user.stats),
-                    if (user.reviews.isNotEmpty) ...<Widget>[
-                      const _SectionTitle(AppStrings.profileReviews),
-                      ...user.reviews
-                          .map((UserReview r) => _ReviewTile(review: r)),
-                    ],
-                  ],
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 30),
+                  children: _blocks(user),
                 ),
     );
   }
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero({required this.user});
+/// The first photo doubles as the hero: name, badge and the one-line meta
+/// sit on a bottom gradient, Bumble-style.
+class _HeroPhotoCard extends StatelessWidget {
+  const _HeroPhotoCard({required this.user, required this.imageUrl});
+
+  final UserDetail user;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final String metaLine = <String>[user.meta, user.city, user.joinedText]
+        .where((String part) => part.isNotEmpty)
+        .join(' \u00b7 ');
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: AspectRatio(
+        aspectRatio: 4 / 5,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            AppNetworkImage(url: imageUrl),
+            // Bottom gradient so the identity line always reads.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.center,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[Colors.transparent, Color(0xC0000000)],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          user.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (user.isVerified) const VerifiedBadge(),
+                    ],
+                  ),
+                  if (metaLine.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      metaLine,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Header fallback when the profile has no photos.
+class _PlainHeader extends StatelessWidget {
+  const _PlainHeader({required this.user});
 
   final UserDetail user;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 0),
+    return _ContentCard(
       child: Column(
         children: <Widget>[
-          AppAvatar(size: 86, imageUrl: user.avatarUrl),
-          const SizedBox(height: 12),
+          AppAvatar(size: 76, imageUrl: user.avatarUrl),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
@@ -110,126 +228,196 @@ class _Hero extends StatelessWidget {
                 .join(' \u00b7 '),
             style: const TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
-          if (user.bio.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 12),
-            Text(
-              user.bio,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13.5,
-                height: 1.7,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: user.tags
-                .map(
-                  (String tag) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      tag,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
         ],
       ),
     );
   }
 }
 
-class _PhotoStrip extends StatelessWidget {
-  const _PhotoStrip({required this.user});
+/// Shared shell: white rounded block on the gray canvas.
+class _ContentCard extends StatelessWidget {
+  const _ContentCard({required this.child, this.title});
+
+  final Widget child;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (title != null) ...<Widget>[
+            Text(
+              title!,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoCard extends StatelessWidget {
+  const _PhotoCard({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: AspectRatio(
+          aspectRatio: 4 / 5,
+          child: AppNetworkImage(url: imageUrl),
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.user});
 
   final UserDetail user;
 
   @override
   Widget build(BuildContext context) {
-    final List<String> photos = <String>[
-      if (user.avatarUrl.isNotEmpty) user.avatarUrl,
-      ...user.photos,
-    ];
-    return SizedBox(
-      height: 152,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-        itemCount: photos.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (BuildContext context, int index) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: AppNetworkImage(url: photos[index], width: 104, height: 134),
-          );
-        },
+    return _ContentCard(
+      title: AppStrings.profileAboutTitle,
+      child: Text(
+        user.bio,
+        style: const TextStyle(
+          fontSize: 14.5,
+          height: 1.7,
+          color: AppColors.textPrimary,
+        ),
       ),
     );
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.info});
+/// The basics as icon chips (job, education, height, weight, city) —
+/// Bumble's badge row instead of a label/value table.
+class _BasicsCard extends StatelessWidget {
+  const _BasicsCard({required this.info});
 
   final List<ProfileInfoItem> info;
 
+  IconData _iconFor(String label) {
+    if (label == AppStrings.profileJobLabel) {
+      return Iconsax.briefcase;
+    }
+    if (label == AppStrings.profileEducationLabel) {
+      return Iconsax.teacher;
+    }
+    if (label == AppStrings.profileHeightLabel) {
+      return Iconsax.ruler;
+    }
+    if (label == AppStrings.profileWeightLabel) {
+      return Iconsax.weight;
+    }
+    if (label == AppStrings.profileLivesInLabel) {
+      return Iconsax.location;
+    }
+    return Iconsax.info_circle;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: <Widget>[
-          for (int i = 0; i < info.length; i++) ...<Widget>[
-            if (i > 0) const Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              child: Row(
-                children: <Widget>[
-                  SizedBox(
-                    width: 92,
-                    child: Text(
-                      info[i].label,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textHint,
-                      ),
+    return _ContentCard(
+      title: AppStrings.profileBasicsTitle,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: info
+            .map(
+              (ProfileInfoItem item) => Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      _iconFor(item.label),
+                      size: 15,
+                      color: AppColors.textSecondary,
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      info[i].value,
+                    const SizedBox(width: 6),
+                    Text(
+                      item.value,
                       style: const TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ],
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _InterestsCard extends StatelessWidget {
+  const _InterestsCard({required this.tags});
+
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ContentCard(
+      title: AppStrings.profileInterestsTitle,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: tags
+            .map(
+              (String tag) => Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  tag,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -242,13 +430,7 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(18, 14, 18, 0),
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return _ContentCard(
       child: Row(
         children: stats
             .map(
@@ -289,7 +471,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+      padding: const EdgeInsets.fromLTRB(6, 20, 6, 0),
       child: Text(
         title,
         style: const TextStyle(
@@ -310,10 +492,10 @@ class _ReviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -349,4 +531,3 @@ class _ReviewTile extends StatelessWidget {
     );
   }
 }
-
