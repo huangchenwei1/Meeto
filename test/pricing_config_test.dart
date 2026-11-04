@@ -9,8 +9,8 @@ void main() {
       const PricingConfig config = PricingConfig.defaults;
       expect(config.platformFeeRate, 0.10);
       expect(config.platformFeeLabel, '10%');
-      expect(config.tiersForScene('Dinner'), <int>[3000, 4000, 6000]);
-      expect(config.defaultBudgetForScene('Dinner'), 4000);
+      expect(config.tiersForScene('Dinner'), <int>[300, 400, 600]);
+      expect(config.defaultBudgetForScene('Dinner'), 400);
       expect(
         config.tiersForScene('UnknownScene'),
         <int>[config.defaultFee],

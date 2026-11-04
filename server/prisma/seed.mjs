@@ -11,13 +11,13 @@ const prisma = new PrismaClient();
 // keeps the remainder as hosting income, minus the platform commission.
 const PRICING = {
   platformFeeRateBp: 1000, // 10%
-  defaultFeeMinor: 200000, // PHP 2,000.00 — scenes without a tier list
+  defaultFeeMinor: 20000, // RMB 200.00 — scenes without a tier list
   sceneBudgetTiersJson: JSON.stringify({
-    Coffee: [100000, 150000, 250000],
-    Tea: [120000, 180000, 280000],
-    Movie: [180000, 250000, 350000],
-    Bar: [250000, 350000, 500000],
-    Dinner: [300000, 400000, 600000],
+    Coffee: [10000, 15000, 25000],
+    Tea: [12000, 18000, 28000],
+    Movie: [18000, 25000, 35000],
+    Bar: [25000, 35000, 50000],
+    Dinner: [30000, 40000, 60000],
   }),
 };
 

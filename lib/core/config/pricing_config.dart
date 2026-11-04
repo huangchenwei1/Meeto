@@ -38,13 +38,13 @@ class PricingConfig {
   static const PricingConfig defaults = PricingConfig(
     platformFeeRate: 0.10,
     sceneBudgetTiers: <String, List<int>>{
-      'Coffee': <int>[1000, 1500, 2500],
-      'Tea': <int>[1200, 1800, 2800],
-      'Movie': <int>[1800, 2500, 3500],
-      'Bar': <int>[2500, 3500, 5000],
-      'Dinner': <int>[3000, 4000, 6000],
+      'Coffee': <int>[100, 150, 250],
+      'Tea': <int>[120, 180, 280],
+      'Movie': <int>[180, 250, 350],
+      'Bar': <int>[250, 350, 500],
+      'Dinner': <int>[300, 400, 600],
     },
-    defaultFee: 2000,
+    defaultFee: 200,
   );
 
   /// Platform commission taken from the service fee on settlement (0..1).
