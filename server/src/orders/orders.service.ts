@@ -35,9 +35,10 @@ import type { OrderDto, OrderWithParties } from './order.mapper.js';
 ///   AWAITING_PAYMENT --pay(escrow)--> ACTIVE (chat opens). Unpaid past
 ///     the pay window --> CANCELLED (lazy, on reads); the post/proposal
 ///     goes back on the market.
-///   ACTIVE: the host proposes the plan; the poster confirms it. At the
-///     meeting the host asks the payer for the 4-digit meet code and
-///     submits it --> the service starts (startedAt).
+///   ACTIVE: the plan was locked at the deal moment (sign-up plan card /
+///     host's selection plan card), so chat carries no plan negotiation.
+///     At the meeting the host asks the payer for the 4-digit meet code
+///     and submits it --> the service starts (startedAt).
 ///   started + planned duration elapsed (lazy check on reads) -->
 ///     COMPLETED (escrow released to the earner, commission booked).
 ///   AWAITING_PAYMENT --cancel--> CANCELLED (nothing escrowed yet).
@@ -180,9 +181,6 @@ export class OrdersService {
     if (order.status !== OrderStatus.active) {
       throw new ConflictException('Order is not active');
     }
-    if (order.planConfirmedAt === null) {
-      throw new ConflictException('PLAN_NOT_CONFIRMED');
-    }
     if (order.startedAt !== null) {
       throw new ConflictException('ALREADY_STARTED');
     }
@@ -193,105 +191,6 @@ export class OrdersService {
       where: { id: order.id },
       data: { startedAt: new Date() },
       include: { payer: true, earner: true, post: true },
-    });
-    return toOrderDto(updated, caller.id);
-  }
-
-  /// The host proposes (or re-proposes) the concrete plan: place + time.
-  /// Allowed while the order is ACTIVE (paid). Re-proposing clears a
-  /// previous confirmation. Mainly the invitation path: selection orders
-  /// already carry the sign-up plan card, approved at selection.
-  async proposePlan(
-    caller: User,
-    orderId: string,
-    input: {
-      place: string;
-      placeLat?: number;
-      placeLng?: number;
-      scheduledAt: string;
-      note: string;
-      durationMinutes: number;
-    },
-  ): Promise<OrderDto> {
-    const order = await this.findParticipantOrderOrThrow(caller, orderId);
-    if (order.earnerId !== caller.id) {
-      throw new ForbiddenException('Only the host proposes the plan');
-    }
-    if (order.status !== OrderStatus.active) {
-      throw new ConflictException('Plan can be proposed while the order is active');
-    }
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await this.notifications.notify(tx, {
-        userId: order.payerId,
-        type: NotificationType.planProposed,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
-      // The plan card lands in the conversation as a message, frozen as a
-      // snapshot: a later re-proposal adds a new card instead of rewriting
-      // this one.
-      await tx.message.create({
-        data: {
-          orderId: order.id,
-          senderId: caller.id,
-          kind: 'PLAN',
-          text: JSON.stringify({
-            place: input.place,
-            scheduledAt: input.scheduledAt,
-            note: input.note,
-            durationMinutes: input.durationMinutes,
-          }),
-        },
-      });
-      return tx.order.update({
-        where: { id: order.id },
-        data: {
-          planPlace: input.place,
-          planLat: input.placeLat ?? 0,
-          planLng: input.placeLng ?? 0,
-          planAt: new Date(input.scheduledAt),
-          planNote: input.note,
-          planDurationMinutes: input.durationMinutes,
-          planProposedAt: new Date(),
-          planConfirmedAt: null,
-        },
-        include: { payer: true, earner: true, post: true },
-      });
-    });
-    return toOrderDto(updated, caller.id);
-  }
-
-  /// The poster locks in the host's proposed plan.
-  async confirmPlan(caller: User, orderId: string): Promise<OrderDto> {
-    const order = await this.findParticipantOrderOrThrow(caller, orderId);
-    if (order.payerId !== caller.id) {
-      throw new ForbiddenException('Only the poster confirms the plan');
-    }
-    if (order.status !== OrderStatus.active) {
-      throw new ConflictException('Plan can be confirmed while the order is active');
-    }
-    if (order.planProposedAt === null) {
-      throw new ConflictException('No plan has been proposed yet');
-    }
-    if (order.planConfirmedAt !== null) {
-      throw new ConflictException('Plan is already confirmed');
-    }
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await this.notifications.notify(tx, {
-        userId: order.earnerId,
-        type: NotificationType.planConfirmed,
-        actorName: caller.name,
-        actorAvatarUrl: caller.avatarUrl,
-        postId: order.postId,
-        orderId: order.id,
-      });
-      return tx.order.update({
-        where: { id: order.id },
-        data: { planConfirmedAt: new Date() },
-        include: { payer: true, earner: true, post: true },
-      });
     });
     return toOrderDto(updated, caller.id);
   }

@@ -32,6 +32,15 @@ const PLAN_CARD = {
   durationMinutes: 180,
 };
 
+// The plan card the host fills when selecting an inviter on a pitch:
+// the mirror of the sign-up plan card, locked at the same tap.
+const SELECT_PLAN = {
+  place: 'NOEL Bar, Poblacion',
+  scheduledAt: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
+  durationMinutes: 150,
+  note: 'Signature cocktails first, rooftop after',
+};
+
 describe('Meeto API (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -798,7 +807,7 @@ describe('Meeto API (e2e)', () => {
       expect(escrow._sum.amountMinor).toBe(400000);
     });
 
-    it('selection approved the sign-up plan card; the host can re-propose', async () => {
+    it('selection locked the sign-up plan card; no plan flow in chat', async () => {
       // The plan card delivered at sign-up was approved by the selection:
       // place and time are already effective, nothing left to confirm.
       const current = await api()
@@ -825,77 +834,22 @@ describe('Meeto API (e2e)', () => {
         durationMinutes: PLAN_CARD.durationMinutes,
       });
 
-      // Only the host (earner) can re-propose.
+      // The in-chat plan machinery is gone: the plan was settled at the
+      // deal moment, so these routes no longer exist.
       await api()
         .post(`/orders/${orderId}/plan`)
-        .set('X-User-Id', ANDREA)
+        .set('X-User-Id', JAMES)
         .send({
           place: 'Single Origin, Makati',
           scheduledAt: '2026-12-24T19:00:00.000Z',
           note: 'Hand brew flight, then a walk in the park',
           durationMinutes: 150,
         })
-        .expect(403);
-
-      // Re-proposing (e.g. the venue fell through) resets confirmation;
-      // the effective place/time empty out until the poster re-confirms.
-      const reproposed = await api()
-        .post(`/orders/${orderId}/plan`)
-        .set('X-User-Id', JAMES)
-        .send({
-          place: 'Single Origin, Makati',
-          placeLat: 14.5531,
-          placeLng: 121.0215,
-          scheduledAt: '2026-12-24T19:00:00.000Z',
-          note: 'Hand brew flight, then a walk in the park',
-          durationMinutes: 150,
-        })
-        .expect(201);
-      expect(reproposed.body.planProposedAt).not.toBeNull();
-      expect(reproposed.body.planConfirmedAt).toBeNull();
-      expect(reproposed.body.place).toBe('');
-      expect(reproposed.body.scheduledAt).toBeNull();
-
-      // The re-proposal lands as a NEW plan card message; the original
-      // card stays in the history untouched.
-      const stream = await api()
-        .get(`/orders/${orderId}/messages`)
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      const planCards = stream.body.filter(
-        (m: { kind: string }) => m.kind === 'PLAN',
-      );
-      expect(planCards.length).toBe(2);
-      expect(JSON.parse(planCards[1].text).place).toBe(
-        'Single Origin, Makati',
-      );
-
-      // The poster was notified of the new proposal.
-      const inbox = await api()
-        .get('/notifications')
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      expect(inbox.body[0].type).toBe('PLAN_PROPOSED');
-
-      // Only the poster confirms.
-      await api()
-        .post(`/orders/${orderId}/plan/confirm`)
-        .set('X-User-Id', JAMES)
-        .expect(403);
-      const confirmed = await api()
-        .post(`/orders/${orderId}/plan/confirm`)
-        .set('X-User-Id', ANDREA)
-        .expect(201);
-      expect(confirmed.body.planConfirmedAt).not.toBeNull();
-      expect(confirmed.body.place).toBe('Single Origin, Makati');
-      expect(confirmed.body.scheduledAt).toBe('2026-12-24T19:00:00.000Z');
-      expect(confirmed.body.placeLat).toBeCloseTo(14.5531);
-
-      // Double confirmation conflicts.
+        .expect(404);
       await api()
         .post(`/orders/${orderId}/plan/confirm`)
         .set('X-User-Id', ANDREA)
-        .expect(409);
+        .expect(404);
     });
 
     it('matched parties exchange order messages; outsiders cannot', async () => {
@@ -924,13 +878,12 @@ describe('Meeto API (e2e)', () => {
         .get(`/orders/${orderId}/messages`)
         .set('X-User-Id', ANDREA)
         .expect(200);
-      // The stream: sign-up plan card, the post-payment hello, the
-      // re-proposed plan card, then this exchange.
-      expect(allRes.body.length).toBe(5);
+      // The stream: sign-up plan card, the post-payment hello, then this
+      // exchange — exactly one plan card, locked at selection.
+      expect(allRes.body.length).toBe(4);
       expect(allRes.body[0].kind).toBe('PLAN');
       expect(allRes.body[1].text).toBe('hi right after paying');
-      expect(allRes.body[2].kind).toBe('PLAN');
-      expect(allRes.body[3].text).toBe('See you at 7!');
+      expect(allRes.body[2].text).toBe('See you at 7!');
 
       // incremental poll: only messages after the anchor id
       const afterRes = await api()
@@ -1146,8 +1099,8 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('meet code gating: no confirmed plan, no started service', () => {
-    it('the code only works on a confirmed plan; the run settles on read', async () => {
+  describe('meet code gating: wrong code, no started service', () => {
+    it('the right code starts the service; the run settles on read', async () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
@@ -1177,29 +1130,15 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', MIGUEL)
         .expect(201);
 
-      // Re-proposing clears the confirmation; an unconfirmed plan blocks
-      // the code: no agreed plan, no service.
-      await api()
-        .post(`/orders/${orderId}/plan`)
-        .set('X-User-Id', KAT)
-        .send({
-          place: 'Toyo Eatery, Makati',
-          scheduledAt: PLAN_CARD.scheduledAt,
-          note: 'Tasting menu, then a nightcap nearby',
-          durationMinutes: 120,
-        })
-        .expect(201);
+      // The plan was locked at selection; the only gate left is the code
+      // itself.
       const blocked = await api()
         .post(`/orders/${orderId}/start`)
         .set('X-User-Id', KAT)
-        .send({ code })
+        .send({ code: code === '0000' ? '1111' : '0000' })
         .expect(409);
-      expect(blocked.body.message).toBe('PLAN_NOT_CONFIRMED');
+      expect(blocked.body.message).toBe('WRONG_MEET_CODE');
 
-      await api()
-        .post(`/orders/${orderId}/plan/confirm`)
-        .set('X-User-Id', MIGUEL)
-        .expect(201);
       await api()
         .post(`/orders/${orderId}/start`)
         .set('X-User-Id', KAT)
@@ -1541,17 +1480,25 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', ANDREA)
+        .send(SELECT_PLAN)
         .expect(403);
 
       const res = await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', NOEL)
+        .send(SELECT_PLAN)
         .expect(201);
       orderId = res.body.id;
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(NOEL);
       expect(res.body.feeMinor).toBe(350000); // the pitch's locked tier
+      // The host's plan card was locked in the same tap: the order is
+      // born with the plan confirmed, nothing left to negotiate in chat.
+      expect(res.body.planConfirmedAt).not.toBeNull();
+      expect(res.body.place).toBe(SELECT_PLAN.place);
+      expect(res.body.scheduledAt).toBe(SELECT_PLAN.scheduledAt);
+      expect(res.body.planNote).toBe(SELECT_PLAN.note);
 
       // The picked inviter was notified with the order reference.
       const inbox = await api()
@@ -1566,10 +1513,12 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', NOEL)
+        .send(SELECT_PLAN)
         .expect(409);
       await api()
         .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
         .set('X-User-Id', NOEL)
+        .send(SELECT_PLAN)
         .expect(409);
       // New invitations bounce too, and the pitch left the hall feed.
       const late = await api()
@@ -1637,6 +1586,7 @@ describe('Meeto API (e2e)', () => {
       const res = await api()
         .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
         .set('X-User-Id', NOEL)
+        .send(SELECT_PLAN)
         .expect(201);
       expect(res.body.payer.id).toBe(MIGUEL);
     });

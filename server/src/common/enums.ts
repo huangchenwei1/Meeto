@@ -13,8 +13,6 @@ export const NotificationType = {
   orderPaid: 'ORDER_PAID',
   orderCancelled: 'ORDER_CANCELLED',
   orderSettled: 'ORDER_SETTLED',
-  planProposed: 'PLAN_PROPOSED',
-  planConfirmed: 'PLAN_CONFIRMED',
   inviteReceived: 'INVITE_RECEIVED',
   inviteAccepted: 'INVITE_ACCEPTED',
 } as const;

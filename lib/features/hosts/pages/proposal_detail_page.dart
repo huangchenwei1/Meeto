@@ -12,6 +12,7 @@ import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
+import '../../community/pages/signup_plan_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/hosts_repository.dart';
@@ -99,17 +100,40 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
     }
   }
 
-  /// The host picks one inviter: the server creates the order awaiting
-  /// that inviter's payment, and the pitch leaves the market. No room to
-  /// enter yet — the conversation only exists once the inviter pays (it
-  /// then shows up in the Messages tab).
+  /// The host picks one inviter and locks the plan card in the same
+  /// gesture: the plan form comes first, then the server creates the
+  /// order awaiting that inviter's payment with the plan confirmed. No
+  /// room to enter yet — the conversation only exists once the inviter
+  /// pays (it then shows up in the Messages tab).
   Future<void> _select(InvitationRecord invitation) async {
     if (_selecting) {
       return;
     }
+    final (String, String, DateTime, int)? plan =
+        await Navigator.of(context).push<(String, String, DateTime, int)>(
+      MaterialPageRoute<(String, String, DateTime, int)>(
+        builder: (_) => const SignUpPlanPage(
+          title: AppStrings.selectPlanTitle,
+          subtitle: AppStrings.selectPlanSub,
+          pitchLabel: AppStrings.selectPlanNoteLabel,
+          submitLabel: AppStrings.selectPlanCta,
+          pitchRequired: false,
+        ),
+      ),
+    );
+    if (plan == null || !mounted) {
+      return;
+    }
     setState(() => _selecting = true);
     try {
-      await widget.hostsRepository.selectInvite(_proposal.id, invitation.id);
+      await widget.hostsRepository.selectInvite(
+        _proposal.id,
+        invitation.id,
+        note: plan.$1,
+        place: plan.$2,
+        scheduledAt: plan.$3,
+        durationMinutes: plan.$4,
+      );
       if (!mounted) {
         return;
       }

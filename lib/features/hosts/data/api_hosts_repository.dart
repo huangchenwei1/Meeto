@@ -97,11 +97,21 @@ class ApiHostsRepository implements HostsRepository {
   @override
   Future<LiveOrder?> selectInvite(
     String proposalId,
-    String invitationId,
-  ) async {
+    String invitationId, {
+    required String place,
+    required DateTime scheduledAt,
+    required int durationMinutes,
+    String note = '',
+  }) async {
     return LiveOrder.fromJson(
       await _client.post(
         '/proposals/$proposalId/invitations/$invitationId/select',
+        body: <String, dynamic>{
+          'place': place,
+          'scheduledAt': scheduledAt.toUtc().toIso8601String(),
+          'durationMinutes': durationMinutes,
+          if (note.isNotEmpty) 'note': note,
+        },
       ) as Map<String, dynamic>,
     );
   }

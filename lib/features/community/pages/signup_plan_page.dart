@@ -4,14 +4,31 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
 
-/// Full-screen plan composer for signing up as a candidate: the pitch plus
-/// the plan card (place, time, duration). Selecting the candidate later
-/// approves this plan as-is, so the form is deliberately formal — a proper
-/// page, not a casual bottom sheet.
+/// Full-screen plan composer: the pitch plus the plan card (place, time,
+/// duration). Used in two mirrored places — a host signing up on a demand
+/// post, and a host locking the plan while selecting an inviter on their
+/// own pitch. Either way the plan ships as-is with the deal, so the form
+/// is deliberately formal — a proper page, not a casual bottom sheet.
 ///
 /// Pops `(proposal, place, scheduledAt, durationMinutes)`.
 class SignUpPlanPage extends StatefulWidget {
-  const SignUpPlanPage({super.key});
+  const SignUpPlanPage({
+    super.key,
+    this.title = AppStrings.proposalSheetTitle,
+    this.subtitle = AppStrings.proposalSheetSub,
+    this.pitchLabel = AppStrings.proposalPitchLabel,
+    this.submitLabel = AppStrings.signUpCta,
+    this.pitchRequired = true,
+  });
+
+  final String title;
+  final String subtitle;
+  final String pitchLabel;
+  final String submitLabel;
+
+  /// The sign-up pitch is the host's sales argument and is required; the
+  /// selection plan's note is optional color.
+  final bool pitchRequired;
 
   @override
   State<SignUpPlanPage> createState() => _SignUpPlanPageState();
@@ -58,7 +75,7 @@ class _SignUpPlanPageState extends State<SignUpPlanPage> {
 
   void _submit() {
     final String pitch = _pitchController.text.trim();
-    if (pitch.isEmpty) {
+    if (widget.pitchRequired && pitch.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.proposalRequiredHint)),
       );
@@ -103,9 +120,9 @@ class _SignUpPlanPageState extends State<SignUpPlanPage> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          AppStrings.proposalSheetTitle,
-          style: TextStyle(
+        title: Text(
+          widget.title,
+          style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -121,16 +138,16 @@ class _SignUpPlanPageState extends State<SignUpPlanPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      AppStrings.proposalSheetSub,
-                      style: TextStyle(
+                    Text(
+                      widget.subtitle,
+                      style: const TextStyle(
                         fontSize: 13,
                         height: 1.5,
                         color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 22),
-                    _sectionLabel(AppStrings.proposalPitchLabel),
+                    _sectionLabel(widget.pitchLabel),
                     TextField(
                       key: const ValueKey<String>('proposalField'),
                       controller: _pitchController,
@@ -201,7 +218,7 @@ class _SignUpPlanPageState extends State<SignUpPlanPage> {
                     ),
                   ),
                   onPressed: _submit,
-                  child: const Text(AppStrings.signUpCta),
+                  child: Text(widget.submitLabel),
                 ),
               ),
             ),

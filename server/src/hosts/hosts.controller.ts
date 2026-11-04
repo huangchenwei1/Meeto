@@ -10,9 +10,11 @@ import {
 import type { User } from '@prisma/client';
 import {
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -61,6 +63,30 @@ class CreateProposalDto {
 /// Inviting on a proposal carries only the note: the scene and the price
 /// are locked to the pitch server-side.
 class InviteDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
+}
+
+/// Selecting an inviter requires the concrete plan card up front (mirror
+/// of a sign-up's plan card): the order is born with the plan confirmed,
+/// so the chat never carries plan negotiation.
+class SelectDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  place!: string;
+
+  @IsISO8601()
+  scheduledAt!: string;
+
+  /// How long the activity runs, in minutes.
+  @IsInt()
+  @Min(30)
+  @Max(720)
+  durationMinutes!: number;
+
   @IsOptional()
   @IsString()
   @MaxLength(300)
@@ -129,13 +155,20 @@ export class ProposalsController {
     return this.hosts.listInvites(user, id);
   }
 
-  /// The host picks one inviter: creates the order awaiting payment.
+  /// The host picks one inviter and locks the plan in the same gesture:
+  /// creates the order awaiting payment with the plan already confirmed.
   @Post(':id/invitations/:invitationId/select')
   select(
     @CurrentUser() user: User,
     @Param('id') id: string,
     @Param('invitationId') invitationId: string,
+    @Body() dto: SelectDto,
   ) {
-    return this.hosts.select(user, id, invitationId);
+    return this.hosts.select(user, id, invitationId, {
+      place: dto.place,
+      scheduledAt: dto.scheduledAt,
+      durationMinutes: dto.durationMinutes,
+      note: dto.note ?? '',
+    });
   }
 }

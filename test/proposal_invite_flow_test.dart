@@ -50,7 +50,14 @@ void main() {
       final InvitationRecord sent =
           await repository.inviteToProposal(pitch.id, note: 'Pick me');
 
-      await repository.selectInvite(pitch.id, sent.id);
+      // Selection carries the host's locked plan card.
+      await repository.selectInvite(
+        pitch.id,
+        sent.id,
+        place: 'NOEL Bar, Poblacion',
+        scheduledAt: DateTime.now().add(const Duration(days: 3)),
+        durationMinutes: 150,
+      );
 
       // The pitch left the hall feed and refuses late invitations.
       final List<ProposalCard> feed = await repository.fetchProposals();

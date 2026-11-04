@@ -463,6 +463,10 @@ abstract final class AppStrings {
   static const String proposalInvitesTitle = '收到的邀请';
   static const String proposalInvitesEmpty = '还没有人邀请，再等等';
   static const String selectInviterDoneSnack = '已选定 — 对方支付后计划生效';
+  static const String selectPlanTitle = '敲定活动计划';
+  static const String selectPlanSub = '选定 TA 之前先把地点和时间定好，对方支付后计划立即生效。';
+  static const String selectPlanNoteLabel = '补充说明（可选）';
+  static const String selectPlanCta = '选定并锁定计划';
   static String notifyInviteReceived(String name) => '$name 邀请了你的提案';
   static String notifyInviteAccepted(String name) =>
       '$name 选中了你的邀请 — 支付服务费后开启计划';
@@ -486,24 +490,9 @@ abstract final class AppStrings {
 
   // Plan (host proposes, poster confirms)
   static const String planCardTitle = '活动计划';
-  static const String planHostPrompt = '你是主持人 — 提出见面的地点和时间';
-  static const String planProposeCta = '发送计划卡';
-  static const String planEditCta = '修改';
-  static const String planWaitingHost = '等待主持人制定计划';
-  static const String planAwaitingConfirm = '等待发起人确认';
-  static const String planConfirmCta = '确认计划';
   static const String planConfirmedBadge = '已确认';
-  static const String planSheetTitle = '制定计划';
-  static const String planSheetSub = '写清楚地点、时间和流程，发给对方确认';
-  static const String planPlaceLabel = '地点';
-  static const String planTimeLabel = '时间';
-  static const String planNoteLabel = '流程安排';
-  static const String planNoteHint = '这场活动怎么安排？例如：先在咖啡馆做手冲品鉴，'
-      '然后沿 Salcedo 街区散步，最后看黄昏市集';
   static const String planPlaceHint = '具体在哪？例如：Greenbelt 3 的 Single Origin';
   static const String planRequiredHint = '先填好地点、时间和流程安排';
-  static const String planAwaitingBadge = '待确认';
-  static const String planMissingBadge = '待发送';
   static const String forfeitedBadge = '已作废';
   static const String chatEndedBadge = '已结束';
   static const String chatReadOnlyNote = '活动已结束，会话仅可读';
@@ -523,8 +512,6 @@ abstract final class AppStrings {
 
   /// '约 2 小时' for plan cards and candidate rows.
   static String durationAbout(int minutes) => '约 ${durationLabel(minutes)}';
-  static const String planProposedSnack = '计划卡已发送，等待确认';
-  static const String planConfirmedSnack = '计划已确认';
   static String notifyPlanProposed(String name) => '$name 发来了计划卡 — 查看并确认';
   static String notifyPlanConfirmed(String name) => '$name 确认了计划，到时见！';
 

@@ -27,22 +27,6 @@ abstract interface class OrdersRepository {
   /// The payer moves the service fee into escrow; the order goes ACTIVE.
   Future<LiveOrder> pay(String orderId);
 
-  /// The host proposes (or re-proposes) the concrete plan: place, time
-  /// and the itinerary. Each proposal lands in the chat as a plan card
-  /// message; confirming makes it the order's effective place and time.
-  Future<LiveOrder> proposePlan(
-    String orderId, {
-    required String place,
-    double? placeLat,
-    double? placeLng,
-    required DateTime scheduledAt,
-    required String note,
-    required int durationMinutes,
-  });
-
-  /// The poster locks in the proposed plan.
-  Future<LiveOrder> confirmPlan(String orderId);
-
   /// Either side backs out with a full refund — only within the cancel
   /// window after payment and never once the service started.
   Future<LiveOrder> cancel(String orderId);
@@ -350,38 +334,6 @@ class MockOrdersRepository implements OrdersRepository {
   }
 
   @override
-  Future<LiveOrder> proposePlan(
-    String orderId, {
-    required String place,
-    double? placeLat,
-    double? placeLng,
-    required DateTime scheduledAt,
-    required String note,
-    required int durationMinutes,
-  }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    final _MockOrder order = _of(orderId)
-      ..planPlace = place
-      ..planLat = placeLat ?? 0
-      ..planLng = placeLng ?? 0
-      ..planAt = scheduledAt
-      ..planNote = note
-      ..planDurationMinutes = durationMinutes
-      ..planProposedAt = DateTime.now()
-      ..planConfirmedAt = null;
-    _sayPlanCard(order, order.earner.id, place, scheduledAt, note,
-        durationMinutes);
-    return _toLive(order);
-  }
-
-  @override
-  Future<LiveOrder> confirmPlan(String orderId) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    final _MockOrder order = _of(orderId)..planConfirmedAt = DateTime.now();
-    return _toLive(order);
-  }
-
-  @override
   Future<LiveOrder> cancel(String orderId) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
     final _MockOrder order = _of(orderId);
@@ -406,9 +358,6 @@ class MockOrdersRepository implements OrdersRepository {
     final _MockOrder order = _of(orderId);
     if (order.status != 'ACTIVE') {
       throw const ApiException(409, 'Order is not active');
-    }
-    if (order.planConfirmedAt == null) {
-      throw const ApiException(409, 'PLAN_NOT_CONFIRMED');
     }
     if (order.startedAt != null) {
       throw const ApiException(409, 'ALREADY_STARTED');

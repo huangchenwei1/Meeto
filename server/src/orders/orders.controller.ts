@@ -38,40 +38,6 @@ class StartDto {
   code!: string;
 }
 
-class PlanDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(160)
-  place!: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  placeLat?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  placeLng?: number;
-
-  @IsISO8601()
-  scheduledAt!: string;
-
-  // The itinerary: place and time alone are not a plan.
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(500)
-  note!: string;
-
-  // How long the activity runs, in minutes.
-  @IsInt()
-  @Min(30)
-  @Max(720)
-  durationMinutes!: number;
-}
-
 @Controller('orders')
 @UseGuards(AuthGuard)
 export class OrdersController {
@@ -98,23 +64,6 @@ export class OrdersController {
   @Post(':id/payment')
   pay(@CurrentUser() user: User, @Param('id') id: string): Promise<OrderDto> {
     return this.ordersService.pay(user, id);
-  }
-
-  @Post(':id/plan')
-  proposePlan(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-    @Body() dto: PlanDto,
-  ): Promise<OrderDto> {
-    return this.ordersService.proposePlan(user, id, dto);
-  }
-
-  @Post(':id/plan/confirm')
-  confirmPlan(
-    @CurrentUser() user: User,
-    @Param('id') id: string,
-  ): Promise<OrderDto> {
-    return this.ordersService.confirmPlan(user, id);
   }
 
   @Post(':id/start')

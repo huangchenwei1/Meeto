@@ -290,6 +290,12 @@ export class HostsService {
     caller: User,
     proposalId: string,
     invitationId: string,
+    plan: {
+      place: string;
+      scheduledAt: string;
+      durationMinutes: number;
+      note: string;
+    },
   ): Promise<OrderDto> {
     assertVerified(caller);
     const proposal = await this.findProposalOrThrow(proposalId);
@@ -336,6 +342,10 @@ export class HostsService {
           status: ApplicationStatus.selected,
         },
       });
+      // The host fills the plan card at selection (mirror of a sign-up's
+      // plan card): the order is born with the plan confirmed, and the
+      // inviter accepts it by paying.
+      const planApproved = new Date();
       const created = await tx.order.create({
         data: {
           postId: post.id,
@@ -346,8 +356,29 @@ export class HostsService {
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
           meetCode: generateMeetCode(),
+          planPlace: plan.place,
+          planAt: new Date(plan.scheduledAt),
+          planDurationMinutes: plan.durationMinutes,
+          planNote: plan.note,
+          planProposedAt: planApproved,
+          planConfirmedAt: planApproved,
         },
         include: { payer: true, earner: true, post: true },
+      });
+      // The locked plan card opens the conversation as its first message,
+      // visible as soon as the payment unlocks the chat.
+      await tx.message.create({
+        data: {
+          orderId: created.id,
+          senderId: caller.id,
+          kind: 'PLAN',
+          text: JSON.stringify({
+            place: plan.place,
+            scheduledAt: plan.scheduledAt,
+            durationMinutes: plan.durationMinutes,
+            note: plan.note,
+          }),
+        },
       });
       await tx.invitation.update({
         where: { id: invitation.id },

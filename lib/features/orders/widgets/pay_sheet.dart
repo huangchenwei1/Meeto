@@ -41,6 +41,16 @@ class PaySheet extends StatefulWidget {
 class _PaySheetState extends State<PaySheet> {
   bool _busy = false;
 
+  String _planLine(BuildContext context, LiveOrder order) {
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = order.planAt!.toLocal();
+    final String when = '${loc.formatShortDate(local)} \u00b7 '
+        '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+    return order.planDurationMinutes > 0
+        ? '$when \u00b7 ${AppStrings.durationAbout(order.planDurationMinutes)}'
+        : when;
+  }
+
   Future<void> _pay() async {
     setState(() => _busy = true);
     try {
@@ -125,6 +135,44 @@ class _PaySheetState extends State<PaySheet> {
               color: AppColors.textPrimary,
             ),
           ),
+          // The locked plan: the payer commits to a concrete place and
+          // time, not an abstract match.
+          if (widget.order.planPlace.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    widget.order.planPlace,
+                    key: const ValueKey<String>('paySheetPlanPlace'),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (widget.order.planAt != null) ...<Widget>[
+                    const SizedBox(height: 3),
+                    Text(
+                      _planLine(context, widget.order),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: <Widget>[

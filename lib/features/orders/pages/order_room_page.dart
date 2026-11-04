@@ -7,7 +7,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/form_widgets.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
@@ -16,17 +15,15 @@ import '../../auth/pages/verification_page.dart';
 
 /// Order room. The flow mirrors the server state machine:
 ///
-/// 1. AWAITING_PAYMENT — the poster escrows the fee; no contact channel.
-/// 2. ACTIVE — the chat is open; ONE plan card is pinned above it and
-///    always mirrors the order's current plan: placeholder while the host
-///    still owes the plan (invitation orders), then awaiting the poster's
-///    confirmation, then confirmed — which reveals the peer phone and the
-///    poster's "Activity completed" action right on the card.
-/// 3. Completing releases the escrow (a confirmed plan also auto-settles
-///    server-side after a grace delay); the card goes read-only with the
-///    settlement summary.
+/// 1. AWAITING_PAYMENT — no conversation exists (bare fallback only).
+/// 2. ACTIVE — the chat is open under ONE read-only pinned plan card.
+///    The plan was locked at the deal moment (sign-up plan card or the
+///    host's selection plan card), so the room carries no plan
+///    negotiation: just the meet-code exchange and the cancel window.
+/// 3. The started service settles itself after the planned duration; the
+///    card goes read-only with the settlement summary.
 ///
-/// Plan proposals are still recorded as PLAN messages server-side (the
+/// The locked plan is also recorded as a PLAN message server-side (the
 /// audit trail for disputes), but the room renders only the pinned card
 /// and filters those records out of the stream.
 ///
@@ -100,74 +97,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
       }
     } on Exception {
       // Transient network/poll failure; the next tick retries.
-    }
-  }
-
-  /// The host proposes (or edits) the concrete plan via a bottom sheet.
-  Future<void> _proposePlan() async {
-    final LiveOrder? order = _order;
-    if (order == null) {
-      return;
-    }
-    // The sheet owns its text controller (its own State disposes it after
-    // the route fully unmounts); disposing here right after the await
-    // crashes the exit animation ('_dependents.isEmpty').
-    final (String, DateTime, String, int)? plan =
-        await showModalBottomSheet<(String, DateTime, String, int)>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _PlanSheet(
-        initialPlace: order.planPlace,
-        initialAt: order.planAt,
-        initialNote: order.planNote,
-        initialDurationMinutes: order.planDurationMinutes,
-      ),
-    );
-    if (plan == null || !mounted) {
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final LiveOrder updated = await widget.repository.proposePlan(
-        widget.orderId,
-        place: plan.$1,
-        scheduledAt: plan.$2,
-        note: plan.$3,
-        durationMinutes: plan.$4,
-      );
-      if (mounted) {
-        setState(() => _order = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.planProposedSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  Future<void> _confirmPlan() async {
-    setState(() => _busy = true);
-    try {
-      final LiveOrder updated =
-          await widget.repository.confirmPlan(widget.orderId);
-      if (mounted) {
-        setState(() => _order = updated);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.planConfirmedSnack)),
-        );
-      }
-    } on ApiException catch (e) {
-      _showError(e.message);
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
     }
   }
 
@@ -370,8 +299,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
           order: order,
           myId: _myId,
           busy: _busy,
-          onPropose: _proposePlan,
-          onConfirm: _confirmPlan,
           onCopyPhone: _copyPhone,
           onCancel: _confirmCancel,
           onStart: _startMeet,
@@ -453,232 +380,8 @@ String _formatPlanDateTime(BuildContext context, DateTime at) {
       '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
 }
 
-/// Plan composer sheet: place, time and the itinerary, in a tall neutral
-/// modal. A proper StatefulWidget (not a closure over the caller's
-/// controllers) so the controllers are disposed by the sheet's own State
-/// after the route fully unmounts. Pops `(place, scheduledAt, note)`.
-class _PlanSheet extends StatefulWidget {
-  const _PlanSheet({
-    required this.initialPlace,
-    required this.initialAt,
-    required this.initialNote,
-    required this.initialDurationMinutes,
-  });
-
-  final String initialPlace;
-  final DateTime? initialAt;
-  final String initialNote;
-  final int initialDurationMinutes;
-
-  @override
-  State<_PlanSheet> createState() => _PlanSheetState();
-}
-
-class _PlanSheetState extends State<_PlanSheet> {
-  late final TextEditingController _placeController;
-  late final TextEditingController _noteController;
-  DateTime? _scheduledAt;
-  late int _durationMinutes;
-
-  @override
-  void initState() {
-    super.initState();
-    _placeController = TextEditingController(text: widget.initialPlace);
-    _noteController = TextEditingController(text: widget.initialNote);
-    _scheduledAt = widget.initialAt;
-    _durationMinutes = widget.initialDurationMinutes > 0
-        ? widget.initialDurationMinutes
-        : planDurationOptions[1];
-  }
-
-  @override
-  void dispose() {
-    _placeController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickTime() async {
-    final DateTime now = DateTime.now();
-    final DateTime? date = await showDatePicker(
-      context: context,
-      initialDate: _scheduledAt ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 60)),
-    );
-    if (date == null || !mounted) {
-      return;
-    }
-    final TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: _scheduledAt != null
-          ? TimeOfDay.fromDateTime(_scheduledAt!)
-          : const TimeOfDay(hour: 19, minute: 0),
-    );
-    if (time == null) {
-      return;
-    }
-    setState(() {
-      _scheduledAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
-  }
-
-  void _submit() {
-    final String place = _placeController.text.trim();
-    final DateTime? at = _scheduledAt;
-    final String note = _noteController.text.trim();
-    if (place.isEmpty || at == null || note.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.planRequiredHint)),
-      );
-      return;
-    }
-    Navigator.of(context).pop((place, at, note, _durationMinutes));
-  }
-
-  Widget _sectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final double height = MediaQuery.of(context).size.height * 0.72;
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SizedBox(
-        height: height,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      AppStrings.planSheetTitle,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      AppStrings.planSheetSub,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    _sectionLabel(AppStrings.planPlaceLabel),
-                    TextField(
-                      key: const ValueKey<String>('planPlaceField'),
-                      controller: _placeController,
-                      maxLength: 160,
-                      decoration: const InputDecoration(
-                        hintText: AppStrings.planPlaceHint,
-                        prefixIcon: Icon(Icons.place_outlined, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _sectionLabel(AppStrings.planTimeLabel),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        key: const ValueKey<String>('planTimeButton'),
-                        onPressed: _pickTime,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: const BorderSide(color: AppColors.border),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        icon: const Icon(Icons.schedule, size: 18),
-                        label: Text(
-                          _scheduledAt == null
-                              ? AppStrings.publishPickTime
-                              : _formatPlanDateTime(context, _scheduledAt!),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _sectionLabel(AppStrings.planDurationLabel),
-                    DurationChips(
-                      selected: _durationMinutes,
-                      onSelect: (int minutes) =>
-                          setState(() => _durationMinutes = minutes),
-                      keyPrefix: 'planDuration',
-                    ),
-                    const SizedBox(height: 18),
-                    _sectionLabel(AppStrings.planNoteLabel),
-                    TextField(
-                      key: const ValueKey<String>('planNoteField'),
-                      controller: _noteController,
-                      maxLength: 500,
-                      minLines: 4,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        hintText: AppStrings.planNoteHint,
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const ValueKey<String>('planSubmitButton'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.textPrimary,
-                      foregroundColor: AppColors.onDarkPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    onPressed: _submit,
-                    child: const Text(AppStrings.planProposeCta),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The one pinned plan card above the chat: born with the order, it
-/// always mirrors the current plan fields and walks the lifecycle —
-/// placeholder while the host owes the plan (invitation orders), then
-/// awaiting the poster's confirmation, then confirmed: the payer's card
+/// The one pinned plan card above the chat: born with the order and
+/// read-only — the plan was locked at the deal moment. The payer's card
 /// shows the 4-digit meet code (told to the host in person), the host's
 /// card takes the code to start the service. A started service settles
 /// itself after the planned duration; a never-started one forfeits.
@@ -689,8 +392,6 @@ class _PinnedPlanCard extends StatefulWidget {
     required this.order,
     required this.myId,
     required this.busy,
-    required this.onPropose,
-    required this.onConfirm,
     required this.onCopyPhone,
     required this.onCancel,
     required this.onStart,
@@ -699,8 +400,6 @@ class _PinnedPlanCard extends StatefulWidget {
   final LiveOrder order;
   final String myId;
   final bool busy;
-  final VoidCallback onPropose;
-  final VoidCallback onConfirm;
   final ValueChanged<String> onCopyPhone;
   final VoidCallback onCancel;
   final ValueChanged<String> onStart;
@@ -744,24 +443,12 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
         foreground: AppColors.accent,
       );
     }
-    if (!order.planProposed) {
-      return const _PlanBadge(
-        label: AppStrings.planMissingBadge,
-        background: AppColors.otherMessageBubble,
-        foreground: AppColors.textSecondary,
-      );
-    }
-    if (order.planConfirmed) {
-      return const _PlanBadge(
-        label: AppStrings.planConfirmedBadge,
-        background: AppColors.accentSoft,
-        foreground: AppColors.accent,
-      );
-    }
+    // The plan was locked at the deal moment: an unstarted active order
+    // is simply a confirmed plan waiting for the meet code.
     return const _PlanBadge(
-      label: AppStrings.planAwaitingBadge,
-      background: AppColors.otherMessageBubble,
-      foreground: AppColors.textSecondary,
+      label: AppStrings.planConfirmedBadge,
+      background: AppColors.accentSoft,
+      foreground: AppColors.accent,
     );
   }
 
@@ -798,48 +485,7 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
               _badge(),
             ],
           ),
-          if (!order.planProposed)
-            // Invitation orders arrive without a plan: the host still owes
-            // it; the poster waits.
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      _iAmPayer
-                          ? AppStrings.planWaitingHost
-                          : AppStrings.planHostPrompt,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  if (!_iAmPayer && _active) ...<Widget>[
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      key: const ValueKey<String>('planProposeButton'),
-                      onPressed: widget.busy ? null : widget.onPropose,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.textPrimary,
-                        foregroundColor: AppColors.onDarkPrimary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 9,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      child: const Text(AppStrings.planProposeCta),
-                    ),
-                  ],
-                ],
-              ),
-            )
-          else ...<Widget>[
+          ...<Widget>[
             const SizedBox(height: 10),
             Text(
               order.planPlace,
@@ -918,52 +564,9 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
 
   /// The action area under the plan: exactly one stage is live at a time.
   List<Widget> _lifecycleSection(BuildContext context) {
-    // Plan proposed, awaiting the poster's confirmation.
-    if (_active && order.planProposed && !order.planConfirmed) {
-      return <Widget>[
-        const SizedBox(height: 12),
-        if (_iAmPayer)
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              key: const ValueKey<String>('planConfirmButton'),
-              onPressed: widget.busy ? null : widget.onConfirm,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.textPrimary,
-                foregroundColor: AppColors.onDarkPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Text(AppStrings.planConfirmCta),
-            ),
-          )
-        else
-          Row(
-            children: <Widget>[
-              const Expanded(
-                child: Text(
-                  AppStrings.planAwaitingConfirm,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textHint,
-                  ),
-                ),
-              ),
-              TextButton(
-                key: const ValueKey<String>('planEditButton'),
-                onPressed: widget.busy ? null : widget.onPropose,
-                child: const Text(AppStrings.planEditCta),
-              ),
-            ],
-          ),
-        ..._cancelRow(),
-      ];
-    }
-    // Confirmed but not started: the meet-code exchange.
-    if (_active && order.planConfirmed && !order.started) {
+    // Active but not started: the meet-code exchange (the plan itself was
+    // locked before payment, so there is nothing left to negotiate).
+    if (_active && !order.started) {
       return <Widget>[
         const SizedBox(height: 12),
         const Divider(height: 1),
@@ -1042,14 +645,6 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
               ),
             ],
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              key: const ValueKey<String>('planEditButton'),
-              onPressed: widget.busy ? null : widget.onPropose,
-              child: const Text(AppStrings.planEditCta),
-            ),
-          ),
         ],
         ..._cancelRow(),
       ];
@@ -1089,8 +684,7 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
         ),
       ];
     }
-    // Awaiting the plan (placeholder head already shows the prompt) or a
-    // closed cancelled order: just the cancel window if it is still open.
+    // A closed cancelled order: just the cancel window if it is still open.
     return _cancelRow();
   }
 

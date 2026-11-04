@@ -17,7 +17,7 @@ void main() {
   });
 
   group('MockOrdersRepository state machine', () {
-    test('plan -> meet code -> timed settle mirrors the server flow',
+    test('locked plan -> meet code -> timed settle mirrors the server flow',
         () async {
       final MockOrdersRepository repository = MockOrdersRepository();
 
@@ -39,25 +39,14 @@ void main() {
       // The payer (demo user) sees the meet code; it is a 4-digit string.
       expect(active.meetCode, matches(RegExp(r'^\d{4}$')));
 
-      // The host re-proposes; the poster confirms. A zero duration makes
-      // the started service settle on the very next read (test clock).
-      final DateTime at = DateTime.now().add(const Duration(days: 1));
-      LiveOrder updated = await repository.proposePlan(
-        active.id,
-        place: 'Greenbelt Cinema',
-        scheduledAt: at,
-        note: 'Dinner first, then the 8pm screening',
-        durationMinutes: 0,
-      );
-      expect(updated.planProposed, isTrue);
-      expect(updated.planConfirmed, isFalse);
-      expect(updated.planNote, 'Dinner first, then the 8pm screening');
-      // Each proposal drops a plan card message into the stream.
-      final List<OrderMessage> stream = await repository.listMessages(active.id);
-      expect(stream.where((OrderMessage m) => m.isPlanCard).length, 2);
-      updated = await repository.confirmPlan(active.id);
-      expect(updated.planConfirmed, isTrue);
-      expect(updated.place, 'Greenbelt Cinema');
+      // The plan was locked at the deal moment: the card already carries
+      // the effective place and time, and the stream opens with the one
+      // frozen plan card.
+      expect(active.place, isNotEmpty);
+      expect(active.scheduledAt, isNotNull);
+      final List<OrderMessage> stream =
+          await repository.listMessages(active.id);
+      expect(stream.where((OrderMessage m) => m.isPlanCard).length, 1);
 
       // Messages persist per order.
       await repository.sendMessage(active.id, 'See you there!');
@@ -66,27 +55,27 @@ void main() {
       expect(messages.last.text, 'See you there!');
       expect(messages.last.senderId, 'user-100');
 
-      // A wrong meet code bounces; the right one starts the service.
+      // A wrong meet code bounces; the right one starts the service,
+      // which then settles by itself once the planned duration (3 hours
+      // here) runs out — nothing left for the test clock to observe yet.
       await expectLater(
         repository.start(active.id, 'nope'),
         throwsA(isA<ApiException>()),
       );
-      updated = await repository.start(active.id, active.meetCode);
+      LiveOrder updated = await repository.start(active.id, active.meetCode);
       expect(updated.started, isTrue);
+      expect(updated.status, 'ACTIVE');
 
-      // The planned duration (zero here) runs out: the escrow settles on
-      // the next read with nobody tapping anything.
-      updated = await repository.getOrder(active.id);
-      expect(updated.status, 'COMPLETED');
-      expect(updated.completedAt, isNotNull);
-
-      // The conversation dies with the activity: read-only afterwards.
+      // The conversation dies with the activity: the seeded settled order
+      // is read-only while its history stays readable.
+      final LiveOrder completed = orders
+          .firstWhere((LiveOrder o) => o.status == 'COMPLETED');
       await expectLater(
-        repository.sendMessage(active.id, 'too late'),
+        repository.sendMessage(completed.id, 'too late'),
         throwsA(isA<ApiException>()),
       );
       final List<OrderMessage> history =
-          await repository.listMessages(active.id);
+          await repository.listMessages(completed.id);
       expect(history, isNotEmpty);
     });
 

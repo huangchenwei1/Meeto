@@ -41,10 +41,18 @@ abstract interface class HostsRepository {
   /// The pending invite pool of one pitch; the pitch's host only.
   Future<List<InvitationRecord>> fetchProposalInvites(String proposalId);
 
-  /// The host picks one inviter: the server creates the order awaiting
-  /// that inviter's payment. Returns null in mock mode (no live order
-  /// flow there).
-  Future<LiveOrder?> selectInvite(String proposalId, String invitationId);
+  /// The host picks one inviter and locks the plan card (place, time,
+  /// duration, optional note) in the same gesture: the server creates the
+  /// order awaiting that inviter's payment with the plan already
+  /// confirmed. Returns null in mock mode (no live order flow there).
+  Future<LiveOrder?> selectInvite(
+    String proposalId,
+    String invitationId, {
+    required String place,
+    required DateTime scheduledAt,
+    required int durationMinutes,
+    String note = '',
+  });
 }
 
 /// Self-contained demo directory so mock mode renders a believable page.
@@ -329,8 +337,12 @@ class MockHostsRepository implements HostsRepository {
   @override
   Future<LiveOrder?> selectInvite(
     String proposalId,
-    String invitationId,
-  ) async {
+    String invitationId, {
+    required String place,
+    required DateTime scheduledAt,
+    required int durationMinutes,
+    String note = '',
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     if (_closed.contains(proposalId)) {
       throw const ApiException(409, 'Proposal is not open for selection');
