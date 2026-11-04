@@ -44,12 +44,7 @@ abstract final class AppStrings {
   static const String verifiedLabel = '实名';
   // Escrow payment page
   static const String paymentTitle = '确认支付';
-  static const String paymentMatchLine = '费用托管后，计划正式生效';
   static const String paymentFeeLabel = '服务费';
-  static const String paymentHeldByLabel = '托管方';
-  static const String paymentHeldBy = 'Meeto 平台托管';
-  static const String paymentReleaseLabel = '结算时机';
-  static const String paymentRelease = '活动完成后结算给主持人';
   static const String paymentMethodDemo = '演示支付（GCash 接入中）';
   static const String paymentEscrowNote =
       '你的钱不会直接到对方手里。Meeto 全程托管，活动完成后才结算；'
@@ -58,6 +53,11 @@ abstract final class AppStrings {
   static const String paymentPaying = '支付中...';
   static const String paymentDoneSnack = '服务费已进入托管';
   static const String paymentFailedSnack = '支付失败，请重试';
+  static const String paymentCancelOrderCta = '不约了，取消订单';
+  static const String unpaidCancelledSnack = '已取消';
+  static const String paymentLaterSnack = '订单保留在「我的订单」，超时未支付将自动取消';
+  static const String myOrdersTitle = '我的订单';
+  static const String myOrdersEmpty = '还没有订单';
   static const String chatLockedNote = '服务费托管后解锁聊天';
   static const String deletePostCta = '删除帖子';
   static const String deletePostConfirmTitle = '删除这条帖子？';
@@ -167,17 +167,14 @@ abstract final class AppStrings {
   // Live orders (API mode: both sides act from their own devices)
   static const String ordersEmpty = '还没有计划 — 去报名或发布一个活动吧';
   static const String statusAwaitingPayment = '待支付';
-  static const String payToUnlockCta = '支付解锁';
   static const String statusPendingDate = '计划待定';
   static const String statusActive = '进行中';
   static const String statusCancelled = '已取消';
-  static String payCta(String amount) => '支付 $amount 进入托管';
   static const String waitingForPayment = '等待对方支付服务费';
   static String settledEarnerNote(String net) => '活动完成 · $net 已结算到你的钱包';
   static String settledPayerNote(String fee) => '活动完成 · $fee 已从托管结算';
   static const String cancelledNote = '计划已取消 · 已全额退款';
   static String escrowHeldNote(String amount) => '$amount 由 Meeto 托管中';
-  static const String selectionDoneSnack = '已选定主持人 — 支付服务费后计划生效';
 
   // Profile setup wizard (registration onboarding)
   static const String setupStepRoleTitle = '你想怎么使用 Meeto？';

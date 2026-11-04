@@ -14,7 +14,7 @@ import '../../../shared/widgets/verified_badge.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
-import '../../orders/pages/payment_page.dart';
+import '../../orders/widgets/pay_sheet.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import 'signup_plan_page.dart';
@@ -118,6 +118,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
     // tab (orders list) within a poll cycle.
   }
 
+  /// Selection and payment are one gesture: approving a candidate creates
+  /// the escrow order and the pay sheet opens on the spot. Only a paid
+  /// order opens the conversation; a dismissed sheet leaves the order in
+  /// My Orders (it auto-cancels when the pay window runs out).
   Future<void> _approveCandidate(PostAuthor candidate) async {
     if (_approving) {
       return;
@@ -125,45 +129,39 @@ class _PostDetailPageState extends State<PostDetailPage> {
     setState(() => _approving = true);
     await widget.communityRepository.selectCandidate(_post.id, candidate.id);
 
-    // Contact only exists behind the paywall: selection creates the escrow
-    // order, so the payment page opens right here for the poster.
-    LiveOrder? order =
+    final LiveOrder? order =
         await widget.ordersRepository.findByPostId(_post.id);
     if (!mounted) {
       return;
     }
+    setState(() => _approving = false);
+    LiveOrder? paid;
     if (order != null &&
         order.isPayer(AuthSession.currentUserId) &&
         order.status == 'AWAITING_PAYMENT') {
-      final LiveOrder? paid = await Navigator.of(context).push<LiveOrder>(
-        MaterialPageRoute<LiveOrder>(
-          builder: (_) => PaymentPage(
-            repository: widget.ordersRepository,
-            order: order!,
-          ),
-        ),
+      paid = await showPaySheet(
+        context,
+        repository: widget.ordersRepository,
+        order: order,
       );
-      if (paid != null) {
-        order = paid;
-      }
     }
     if (!mounted) {
       return;
     }
-    setState(() => _approving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.selectionDoneSnack)),
-    );
-    final LiveOrder? created = order;
-    if (created != null) {
+    if (paid != null) {
+      final LiveOrder opened = paid;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => OrderRoomPage(
             repository: widget.ordersRepository,
-            orderId: created.id,
-            initialOrder: created,
+            orderId: opened.id,
+            initialOrder: opened,
           ),
         ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.paymentLaterSnack)),
       );
     }
   }

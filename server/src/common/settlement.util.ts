@@ -26,3 +26,10 @@ export function cancelWindowMs(): number {
 export function forfeitAfterMs(): number {
   return Number(process.env.FORFEIT_AFTER_MS ?? 86_400_000);
 }
+
+/// An order left unpaid this long after creation auto-cancels (lazy, on
+/// reads) and the post/proposal goes back on the market: unpaid deals
+/// must never squat on a pitch.
+export function payWindowMs(): number {
+  return Number(process.env.PAY_WINDOW_MS ?? 30 * 60_000);
+}

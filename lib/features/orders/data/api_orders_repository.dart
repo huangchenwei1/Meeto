@@ -11,8 +11,10 @@ class ApiOrdersRepository implements OrdersRepository {
   final ApiClient _client;
 
   @override
-  Future<List<LiveOrder>> listMine() async {
-    final List<dynamic> json = await _client.get('/orders') as List<dynamic>;
+  Future<List<LiveOrder>> listMine({bool all = false}) async {
+    final List<dynamic> json =
+        await _client.get(all ? '/orders?view=all' : '/orders')
+            as List<dynamic>;
     return json
         .cast<Map<String, dynamic>>()
         .map(LiveOrder.fromJson)
@@ -28,7 +30,9 @@ class ApiOrdersRepository implements OrdersRepository {
 
   @override
   Future<LiveOrder?> findByPostId(String postId) async {
-    final List<LiveOrder> orders = await listMine();
+    // Full view: the freshly created order is still unpaid and would be
+    // invisible in the conversations view.
+    final List<LiveOrder> orders = await listMine(all: true);
     for (final LiveOrder order in orders) {
       if (order.postId == postId && order.status != 'CANCELLED') {
         return order;

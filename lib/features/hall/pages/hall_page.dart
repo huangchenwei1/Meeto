@@ -166,7 +166,6 @@ class HallPageState extends State<HallPage> {
           proposal: proposal,
           hostsRepository: widget.hostsRepository,
           profileRepository: widget.profileRepository,
-          ordersRepository: widget.ordersRepository,
         ),
       ),
     );

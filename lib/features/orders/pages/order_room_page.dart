@@ -11,7 +11,6 @@ import '../../../shared/widgets/form_widgets.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
-import 'payment_page.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/pages/verification_page.dart';
 
@@ -172,24 +171,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
     }
   }
 
-  Future<void> _openPayment() async {
-    final LiveOrder? current = _order;
-    if (current == null) {
-      return;
-    }
-    final LiveOrder? paid = await Navigator.of(context).push<LiveOrder>(
-      MaterialPageRoute<LiveOrder>(
-        builder: (_) => PaymentPage(
-          repository: widget.repository,
-          order: current,
-        ),
-      ),
-    );
-    if (paid != null && mounted) {
-      setState(() => _order = paid);
-    }
-  }
-
   /// Either side backs out within the cancel window: full refund, order
   /// closed.
   Future<void> _confirmCancel() async {
@@ -342,7 +323,18 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
   Widget _body(LiveOrder order) {
     switch (order.status) {
       case 'AWAITING_PAYMENT':
-        return _paymentPhase(order);
+        // Unpaid orders have no conversation and no entry points into
+        // this room; this is a bare fallback for stale deep links.
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text(
+              AppStrings.chatLockedNote,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            ),
+          ),
+        );
       case 'CANCELLED':
         return const Center(
           child: Padding(
@@ -361,85 +353,6 @@ class _OrderRoomPageState extends State<OrderRoomPage> {
         // turns read-only.
         return _chatPhase(order);
     }
-  }
-
-  /// AWAITING_PAYMENT: the poster escrows; no contact channel exists yet.
-  Widget _paymentPhase(LiveOrder order) {
-    final bool iAmPayer = order.isPayer(_myId);
-    return Column(
-      children: <Widget>[
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                AppStrings.statusAwaitingPayment,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                iAmPayer
-                    ? AppStrings.tipPayNote
-                    : AppStrings.waitingForPayment,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              if (iAmPayer) ...<Widget>[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.darkCard,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _busy ? null : _openPayment,
-                    child: Text(
-                      AppStrings.payCta('\u20b1${order.feePesos}'),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const Expanded(
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Icon(Icons.lock_outline, size: 15, color: AppColors.textHint),
-                SizedBox(width: 6),
-                Text(
-                  AppStrings.chatLockedNote,
-                  style: TextStyle(fontSize: 12.5, color: AppColors.textHint),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   /// Paid: the chat is open under the one pinned plan card, which always

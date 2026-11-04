@@ -77,9 +77,14 @@ class PlanDto {
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  /// Default: conversations (escrowed orders) for the Messages tab.
+  /// view=all: the full order history for the My Orders page.
   @Get()
-  listMine(@CurrentUser() user: User): Promise<OrderDto[]> {
-    return this.ordersService.listMine(user);
+  listMine(
+    @CurrentUser() user: User,
+    @Query('view') view?: string,
+  ): Promise<OrderDto[]> {
+    return this.ordersService.listMine(user, view);
   }
 
   @Get(':id')

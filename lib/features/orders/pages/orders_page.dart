@@ -16,13 +16,13 @@ import '../../profile/data/profile_repository.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import 'order_room_page.dart';
-import 'payment_page.dart';
+import '../widgets/order_status_pill.dart';
 import '../../../shared/widgets/app_avatar.dart';
 
 /// Messages tab: a pinned notifications inbox on top, then the caller's
-/// orders, polled from the server. Each order opens its order room
-/// (status + chat with the matched peer). Invitations live on the
-/// proposal detail pages, not here.
+/// conversations — orders whose money is already in escrow. Unpaid deals
+/// never show here (no chat before escrow; they live on the My Orders
+/// page under the profile tab). Each row opens its order room.
 class OrdersPage extends StatefulWidget {
   const OrdersPage({
     super.key,
@@ -225,9 +225,7 @@ class _NotificationsInboxTile extends StatelessWidget {
 }
 
 /// One date (order) presented as a concrete event — "who · what · where ·
-/// when" — rather than a bare conversation. Before payment the row is a
-/// locked deal: dimmed, no chat semantics, and a direct pay entry for the
-/// payer.
+/// when" — rather than a bare conversation.
 class _OrderTile extends StatelessWidget {
   const _OrderTile({required this.order, required this.repository});
 
@@ -266,31 +264,10 @@ class _OrderTile extends StatelessWidget {
     );
   }
 
-  Future<void> _payNow(BuildContext context) async {
-    final LiveOrder? paid = await Navigator.of(context).push<LiveOrder>(
-      MaterialPageRoute<LiveOrder>(
-        builder: (_) => PaymentPage(repository: repository, order: order),
-      ),
-    );
-    if (paid != null && context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => OrderRoomPage(
-            repository: repository,
-            orderId: paid.id,
-            initialOrder: paid,
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final String myId = AuthSession.currentUserId;
     final PostAuthor peer = order.peerOf(myId);
-    final bool iPay = order.isPayer(myId);
-    final bool locked = order.status == 'AWAITING_PAYMENT';
 
     // The date, as a concrete event: scene · venue · time.
     final String dateLine = <String?>[
@@ -299,7 +276,7 @@ class _OrderTile extends StatelessWidget {
       _scheduleText,
     ].whereType<String>().where((String s) => s.isNotEmpty).join(' \u00b7 ');
 
-    final Widget tile = ListTile(
+    return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       leading: AppAvatar(
@@ -319,38 +296,8 @@ class _OrderTile extends StatelessWidget {
               ),
             ),
           ),
-          if (locked) ...<Widget>[
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.lock_outline,
-              size: 15,
-              color: AppColors.textHint,
-            ),
-          ],
           const Spacer(),
-          if (locked && iPay)
-            FilledButton(
-              key: const ValueKey<String>('payToUnlockButton'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.darkCard,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () => _payNow(context),
-              child: const Text(
-                AppStrings.payToUnlockCta,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            )
-          else
-            _StatusPill(status: order.status),
+          OrderStatusPill(status: order.status),
         ],
       ),
       subtitle: Padding(
@@ -366,62 +313,6 @@ class _OrderTile extends StatelessWidget {
         ),
       ),
       onTap: () => _openRoom(context),
-    );
-
-    // Dim the waiting side; the payer keeps full contrast because the row
-    // carries their primary action (pay).
-    return locked && !iPay ? Opacity(opacity: 0.65, child: tile) : tile;
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (String label, Color fg, Color bg) = switch (status) {
-      'AWAITING_PAYMENT' => (
-          AppStrings.statusAwaitingPayment,
-          const Color(0xFF92400E),
-          const Color(0xFFFEF3C7),
-        ),
-      'ACTIVE' => (
-          AppStrings.statusActive,
-          AppColors.accent,
-          AppColors.accentSoft,
-        ),
-      'COMPLETED' => (
-          AppStrings.statusCompleted,
-          AppColors.textSecondary,
-          AppColors.surface,
-        ),
-      'FORFEITED' => (
-          AppStrings.statusForfeited,
-          AppColors.textSecondary,
-          AppColors.surface,
-        ),
-      _ => (
-          AppStrings.statusCancelled,
-          AppColors.textSecondary,
-          AppColors.surface,
-        ),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: fg,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

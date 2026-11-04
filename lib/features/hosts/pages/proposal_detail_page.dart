@@ -12,9 +12,6 @@ import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
-import '../../orders/data/orders_repository.dart';
-import '../../orders/models/live_order.dart';
-import '../../orders/pages/order_room_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/hosts_repository.dart';
@@ -37,13 +34,11 @@ class ProposalDetailPage extends StatefulWidget {
     required this.proposal,
     required this.hostsRepository,
     required this.profileRepository,
-    required this.ordersRepository,
   });
 
   final ProposalCard proposal;
   final HostsRepository hostsRepository;
   final ProfileRepository profileRepository;
-  final OrdersRepository ordersRepository;
 
   @override
   State<ProposalDetailPage> createState() => _ProposalDetailPageState();
@@ -105,34 +100,22 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
   }
 
   /// The host picks one inviter: the server creates the order awaiting
-  /// that inviter's payment, and the pitch leaves the market.
+  /// that inviter's payment, and the pitch leaves the market. No room to
+  /// enter yet — the conversation only exists once the inviter pays (it
+  /// then shows up in the Messages tab).
   Future<void> _select(InvitationRecord invitation) async {
     if (_selecting) {
       return;
     }
     setState(() => _selecting = true);
     try {
-      final LiveOrder? order = await widget.hostsRepository.selectInvite(
-        _proposal.id,
-        invitation.id,
-      );
+      await widget.hostsRepository.selectInvite(_proposal.id, invitation.id);
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.selectInviterDoneSnack)),
       );
-      if (order != null) {
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => OrderRoomPage(
-              repository: widget.ordersRepository,
-              orderId: order.id,
-              initialOrder: order,
-            ),
-          ),
-        );
-      }
       unawaited(_load());
     } on ApiException catch (e) {
       if (mounted) {

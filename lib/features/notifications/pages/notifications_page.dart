@@ -4,8 +4,11 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/time_ago.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../core/session/auth_session.dart';
 import '../../orders/data/orders_repository.dart';
+import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
+import '../../orders/widgets/pay_sheet.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
@@ -69,11 +72,46 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _open(AppNotification item) async {
     if (item.orderId.isNotEmpty) {
+      // No conversation before escrow: an unpaid order opens the pay
+      // sheet for the payer (the "you were picked - pay to start" path)
+      // instead of a dead room.
+      final LiveOrder order =
+          await widget.ordersRepository.getOrder(item.orderId);
+      if (!mounted) {
+        return;
+      }
+      if (order.status == 'AWAITING_PAYMENT') {
+        if (!order.isPayer(AuthSession.currentUserId)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppStrings.waitingForPayment)),
+          );
+          return;
+        }
+        final LiveOrder? paid = await showPaySheet(
+          context,
+          repository: widget.ordersRepository,
+          order: order,
+        );
+        if (paid == null || !mounted) {
+          return;
+        }
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => OrderRoomPage(
+              orderId: paid.id,
+              repository: widget.ordersRepository,
+              initialOrder: paid,
+            ),
+          ),
+        );
+        return;
+      }
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => OrderRoomPage(
-            orderId: item.orderId,
+            orderId: order.id,
             repository: widget.ordersRepository,
+            initialOrder: order,
           ),
         ),
       );
@@ -91,7 +129,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
             proposal: proposal,
             hostsRepository: widget.hostsRepository,
             profileRepository: widget.profileRepository,
-            ordersRepository: widget.ordersRepository,
           ),
         ),
       );

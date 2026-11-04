@@ -18,6 +18,7 @@ import {
 import {
   cancelWindowMs,
   forfeitAfterMs,
+  payWindowMs,
   serviceRunMs,
 } from '../common/settlement.util.js';
 import { LedgerService } from '../ledger/ledger.service.js';
@@ -31,7 +32,9 @@ import type { OrderDto, OrderWithParties } from './order.mapper.js';
 
 /// Server-authoritative order state machine.
 ///
-///   AWAITING_PAYMENT --pay(escrow)--> ACTIVE (chat opens)
+///   AWAITING_PAYMENT --pay(escrow)--> ACTIVE (chat opens). Unpaid past
+///     the pay window --> CANCELLED (lazy, on reads); the post/proposal
+///     goes back on the market.
 ///   ACTIVE: the host proposes the plan; the poster confirms it. At the
 ///     meeting the host asks the payer for the 4-digit meet code and
 ///     submits it --> the service starts (startedAt).
@@ -61,7 +64,13 @@ export class OrdersService {
   /// (read-only) for dispute reviews.
   private static readonly CLOSED_ORDER_GRACE_MS = 7 * 24 * 3600 * 1000;
 
-  async listMine(caller: User): Promise<OrderDto[]> {
+  /// Two views over the caller's orders:
+  /// - default (the Messages tab): conversations only — money already in
+  ///   escrow. Unpaid orders never show (no chat before escrow), and
+  ///   closed ones linger for a grace week, then leave.
+  /// - view=all (the My Orders page): every order in every status, the
+  ///   full history.
+  async listMine(caller: User, view?: string): Promise<OrderDto[]> {
     const orders = await this.prisma.order.findMany({
       where: { OR: [{ payerId: caller.id }, { earnerId: caller.id }] },
       include: { payer: true, earner: true, post: true },
@@ -70,15 +79,16 @@ export class OrdersService {
     const settled = await Promise.all(
       orders.map((order) => this.maybeSettle(order)),
     );
-    // The conversation lives and dies with the activity: closed orders
-    // linger for a grace week (read-only), then leave the list.
+    const all = view === 'all';
     const cutoff = Date.now() - OrdersService.CLOSED_ORDER_GRACE_MS;
     const visible = settled.filter((order) => {
-      if (
-        order.status !== OrderStatus.completed &&
-        order.status !== OrderStatus.cancelled &&
-        order.status !== OrderStatus.forfeited
-      ) {
+      if (all) {
+        return true;
+      }
+      if (order.status === OrderStatus.awaitingPayment) {
+        return false;
+      }
+      if (order.status === OrderStatus.active) {
         return true;
       }
       const closedAt = order.completedAt ?? order.createdAt;
@@ -288,12 +298,19 @@ export class OrdersService {
 
   /// Lazy money clock, run on every read (clients poll orders constantly,
   /// so this needs no scheduler):
+  /// - an unpaid order auto-cancels once the pay window runs out and the
+  ///   post/proposal goes back on the market;
   /// - a started service settles once its planned duration has run out;
   /// - a never-started order forfeits once the planned time (or payment,
   ///   when no plan was ever set) is a forfeit-delay in the past.
   private async maybeSettle(
     order: OrderWithParties,
   ): Promise<OrderWithParties> {
+    if (order.status === OrderStatus.awaitingPayment) {
+      return order.createdAt.getTime() + payWindowMs() <= Date.now()
+        ? this.expireUnpaid(order)
+        : order;
+    }
     if (order.status !== OrderStatus.active) {
       return order;
     }
@@ -529,6 +546,48 @@ export class OrdersService {
       orderBy: { createdAt: 'asc' },
     });
     return messages.map(toMessageDto);
+  }
+
+  /// An unpaid order ran out its pay window: cancel it and put the post
+  /// (and its proposal, for invitation deals) back on the market. No
+  /// money ever moved, so there is nothing to refund.
+  private async expireUnpaid(
+    order: OrderWithParties,
+  ): Promise<OrderWithParties> {
+    return this.prisma.$transaction(async (tx) => {
+      // Re-check inside the transaction: a concurrent payment or cancel
+      // may have landed between the check and now.
+      const current = await tx.order.findUnique({ where: { id: order.id } });
+      if (!current || current.status !== OrderStatus.awaitingPayment) {
+        return (await tx.order.findUnique({
+          where: { id: order.id },
+          include: { payer: true, earner: true, post: true },
+        }))!;
+      }
+      await tx.application.updateMany({
+        where: { postId: order.postId, status: ApplicationStatus.selected },
+        data: { status: ApplicationStatus.released },
+      });
+      await tx.post.update({
+        where: { id: order.postId },
+        data: { status: PostStatus.open },
+      });
+      await OrdersService.syncProposal(tx, order, PostStatus.open);
+      // Both sides learn the deal evaporated.
+      for (const userId of [order.payerId, order.earnerId]) {
+        await this.notifications.notify(tx, {
+          userId,
+          type: NotificationType.orderCancelled,
+          postId: order.postId,
+          orderId: order.id,
+        });
+      }
+      return tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.cancelled, completedAt: new Date() },
+        include: { payer: true, earner: true, post: true },
+      });
+    });
   }
 
   /// DIRECT posts born from selecting an invitation on a proposal carry

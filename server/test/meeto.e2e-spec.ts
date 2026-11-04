@@ -1829,4 +1829,58 @@ describe('Meeto API (e2e)', () => {
       );
     });
   });
+
+  describe('order list views: no chat before escrow', () => {
+    it('unpaid orders stay out of the conversation list but show in the full history', async () => {
+      // MIGUEL still owes the payment on the proposal deal from earlier.
+      const history = await api()
+        .get('/orders?view=all')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      const unpaid = history.body.find(
+        (o: { status: string }) => o.status === 'AWAITING_PAYMENT',
+      );
+      expect(unpaid).toBeDefined();
+
+      // The Messages view hides it: no money, no conversation.
+      const conversations = await api()
+        .get('/orders')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect(
+        conversations.body.find((o: { id: string }) => o.id === unpaid.id),
+      ).toBeUndefined();
+    });
+
+    it('an order unpaid past the pay window auto-cancels and reopens the pitch', async () => {
+      const history = await api()
+        .get('/orders?view=all')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      const unpaid = history.body.find(
+        (o: { status: string }) => o.status === 'AWAITING_PAYMENT',
+      );
+      // Age the order past the pay window; the next read runs the clock.
+      await prisma.order.update({
+        where: { id: unpaid.id },
+        data: { createdAt: new Date(Date.now() - 31 * 60_000) },
+      });
+      const expired = await api()
+        .get(`/orders/${unpaid.id}`)
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect(expired.body.status).toBe('CANCELLED');
+
+      // No money ever moved: nothing to refund, and the pitch is back on
+      // the market with the host's queue logic intact.
+      const post = await prisma.post.findUnique({
+        where: { id: unpaid.postId },
+      });
+      expect(post!.status).toBe('OPEN');
+      const proposal = await prisma.proposal.findUnique({
+        where: { id: post!.proposalId },
+      });
+      expect(proposal!.status).toBe('OPEN');
+    });
+  });
 });

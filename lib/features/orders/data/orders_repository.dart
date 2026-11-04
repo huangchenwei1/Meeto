@@ -13,7 +13,10 @@ import '../models/live_order.dart';
 /// ([ApiOrdersRepository]); mock mode runs the same state machine locally
 /// ([MockOrdersRepository]) so the demo build exercises identical UI flows.
 abstract interface class OrdersRepository {
-  Future<List<LiveOrder>> listMine();
+  /// Default: conversations only — orders whose money is already in
+  /// escrow (no chat before escrow; closed ones linger a grace week).
+  /// [all] returns every order in every status for the My Orders page.
+  Future<List<LiveOrder>> listMine({bool all = false});
 
   Future<LiveOrder> getOrder(String orderId);
 
@@ -291,20 +294,25 @@ class MockOrdersRepository implements OrdersRepository {
   }
 
   @override
-  Future<List<LiveOrder>> listMine() async {
+  Future<List<LiveOrder>> listMine({bool all = false}) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
     // Mirrors the server: the conversation lives and dies with the
-    // activity — closed orders linger for a grace week (read-only), then
-    // leave the list. The records themselves are kept.
+    // activity — unpaid orders never show (no chat before escrow) and
+    // closed ones linger for a grace week (read-only), then leave. The
+    // full-history view keeps everything.
     const Duration grace = Duration(days: 7);
     final DateTime cutoff = DateTime.now().subtract(grace);
     _orders.values.forEach(_settleIfDue);
     return _ids
         .map((String id) => _toLive(_orders[id]!))
         .where((LiveOrder order) {
-          if (order.status != 'COMPLETED' &&
-              order.status != 'CANCELLED' &&
-              order.status != 'FORFEITED') {
+          if (all) {
+            return true;
+          }
+          if (order.status == 'AWAITING_PAYMENT') {
+            return false;
+          }
+          if (order.status == 'ACTIVE') {
             return true;
           }
           return (order.completedAt ?? order.createdAt).isAfter(cutoff);
