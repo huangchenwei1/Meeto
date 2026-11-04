@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
@@ -669,8 +670,8 @@ class _PinnedPlanCardState extends State<_PinnedPlanCard> {
         const SizedBox(height: 10),
         Text(
           _iAmPayer
-              ? AppStrings.settledPayerNote('\u20b1${order.feePesos}')
-              : AppStrings.settledEarnerNote('\u20b1${order.netPesos}'),
+              ? AppStrings.settledPayerNote(MoneyFormat.format(order.feePesos))
+              : AppStrings.settledEarnerNote(MoneyFormat.format(order.netPesos)),
           style: const TextStyle(fontSize: 12, color: AppColors.textHint),
         ),
       ];

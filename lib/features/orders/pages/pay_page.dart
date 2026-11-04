@@ -5,6 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../community/models/post_author.dart';
@@ -118,7 +119,7 @@ class _PayPageState extends State<PayPage> {
   @override
   Widget build(BuildContext context) {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
-    final String fee = '\u20b1${order.feePesos}';
+    final String fee = MoneyFormat.format(order.feePesos);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

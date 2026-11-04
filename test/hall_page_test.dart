@@ -45,7 +45,7 @@ void main() {
         find.text('Show me a cafe worth leaving BGC for'),
         findsOneWidget,
       );
-      expect(find.text('\u20b11,500'), findsWidgets);
+      expect(find.text('\u00a51,500'), findsWidgets);
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
       expect(find.text('Movie night with an actual plan'), findsNothing);
       expect(find.textContaining('omakase counter'), findsNothing);

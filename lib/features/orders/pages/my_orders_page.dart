@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
@@ -239,7 +240,7 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
     final (String statusLabel, Color statusColor) = _statusText;
-    final String fee = '\u20b1${order.feePesos}';
+    final String fee = MoneyFormat.format(order.feePesos);
     final String whenLine = _whenLine(context);
     // The merchant line: the one providing or ordering the service, never
     // the item being sold.

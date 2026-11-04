@@ -387,7 +387,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               FilteringTextInputFormatter.digitsOnly,
             ],
             decoration: const InputDecoration(
-              prefixText: '\u20b1 ',
+              prefixText: '${MoneyFormat.symbol} ',
             ),
           ),
           const SizedBox(height: 16),
