@@ -14,7 +14,7 @@ import '../../../shared/widgets/verified_badge.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
-import '../../orders/widgets/pay_sheet.dart';
+import '../../orders/pages/pay_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import 'signup_plan_page.dart';
@@ -119,7 +119,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 
   /// Selection and payment are one gesture: approving a candidate creates
-  /// the escrow order and the pay sheet opens on the spot. Only a paid
+  /// the escrow order and the payment page opens on the spot. Only a paid
   /// order opens the conversation; a dismissed sheet leaves the order in
   /// My Orders (it auto-cancels when the pay window runs out).
   Future<void> _approveCandidate(PostAuthor candidate) async {
@@ -139,7 +139,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
     if (order != null &&
         order.isPayer(AuthSession.currentUserId) &&
         order.status == 'AWAITING_PAYMENT') {
-      paid = await showPaySheet(
+      paid = await openPayPage(
         context,
         repository: widget.ordersRepository,
         order: order,

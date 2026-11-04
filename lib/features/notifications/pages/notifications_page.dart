@@ -8,7 +8,7 @@ import '../../../core/session/auth_session.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/models/live_order.dart';
 import '../../orders/pages/order_room_page.dart';
-import '../../orders/widgets/pay_sheet.dart';
+import '../../orders/pages/pay_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/post_detail_page.dart';
@@ -87,7 +87,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           );
           return;
         }
-        final LiveOrder? paid = await showPaySheet(
+        final LiveOrder? paid = await openPayPage(
           context,
           repository: widget.ordersRepository,
           order: order,

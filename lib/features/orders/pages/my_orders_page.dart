@@ -10,7 +10,7 @@ import '../../community/models/post_author.dart';
 import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import '../widgets/order_status_pill.dart';
-import '../widgets/pay_sheet.dart';
+import 'pay_page.dart';
 import 'order_room_page.dart';
 
 /// The full order history under the Me tab: every status, newest first.
@@ -54,7 +54,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
   }
 
   /// An unpaid order is an unfinished action, not a conversation: the
-  /// payer gets the pay sheet (pay or cancel), the other side just waits.
+  /// payer gets the payment page (pay or cancel), the other side waits.
   /// Everything else opens its room, read-only when closed.
   Future<void> _open(LiveOrder order) async {
     if (order.status == 'AWAITING_PAYMENT') {
@@ -64,7 +64,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
         );
         return;
       }
-      final LiveOrder? paid = await showPaySheet(
+      final LiveOrder? paid = await openPayPage(
         context,
         repository: widget.ordersRepository,
         order: order,
