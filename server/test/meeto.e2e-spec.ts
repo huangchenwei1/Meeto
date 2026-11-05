@@ -278,13 +278,23 @@ describe('Meeto API (e2e)', () => {
   describe('feed: community wall vs host gig hall', () => {
     it('the default wall carries sharing posts only', async () => {
       // Demand posts never show on the community wall; it is the shared
-      // sharing surface for both roles.
+      // sharing surface for both roles. The wall is pure UGC (nothing is
+      // seeded), so post one moment to light it up.
       await api()
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
           sceneTag: 'Coffee',
           title: 'Cafe hopping in Makati',
+        })
+        .expect(201);
+      await api()
+        .post('/posts/moments')
+        .set('X-User-Id', ANDREA)
+        .send({
+          text: 'Slow sunday recap',
+          images: ['/uploads/recap-wall.jpg'],
+          venue: 'A quiet bookshop cafe',
         })
         .expect(201);
 

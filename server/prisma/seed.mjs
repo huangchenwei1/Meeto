@@ -168,52 +168,8 @@ const USERS = [
   },
 ];
 
-const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000);
-
-// Community recaps (moments): photos + a line about a completed activity.
-const MOMENTS = [
-  {
-    id: 'moment-001',
-    authorId: 'user-100',
-    type: 'MOMENT',
-    sceneTag: '',
-    title:
-      'Bianca 带我去了昙华林一家藏在书店里的咖啡馆，几个月来最舒服的周日' +
-      '——一下午没做一个决定。',
-    description:
-      'Bianca 带我去了昙华林一家藏在书店里的咖啡馆，几个月来最舒服的周日' +
-      '——一下午没做一个决定。',
-    imageUrl:
-      'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
-    imagesJson: JSON.stringify([
-      'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=800&h=800&q=80',
-      'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
-    ]),
-    venue: '昙华林深处的书店咖啡馆',
-    feeMinor: 0,
-    createdAt: hoursAgo(6),
-  },
-  {
-    id: 'moment-002',
-    authorId: 'user-102',
-    type: 'MOMENT',
-    sceneTag: '',
-    title:
-      'Kat 订到了江汉路一家我从不知道的 12 座板前日料，' +
-      '这顿服务费花得太值了。',
-    description:
-      'Kat 订到了江汉路一家我从不知道的 12 座板前日料，' +
-      '这顿服务费花得太值了。',
-    imageUrl:
-      'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
-    imagesJson: JSON.stringify([
-      'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
-    ]),
-    venue: '江汉路 12 座板前日料',
-    feeMinor: 0,
-    createdAt: hoursAgo(12),
-  },
-];
+// The sharing wall is pure UGC: no seeded moments. Ops-owned demo content
+// lives only in the curated activity templates.
 
 async function main() {
   await prisma.pricingConfig.upsert({
@@ -229,18 +185,10 @@ async function main() {
       create: user,
     });
   }
-  for (const post of MOMENTS) {
-    await prisma.post.upsert({
-      where: { id: post.id },
-      // Reseeding refreshes the ops-owned copy on existing rows too.
-      update: {
-        title: post.title,
-        description: post.description,
-        venue: post.venue,
-      },
-      create: post,
-    });
-  }
+  // Previously seeded demo moments are retired: the wall is UGC-only.
+  await prisma.post.deleteMany({
+    where: { id: { in: ['moment-001', 'moment-002'] } },
+  });
   console.log('Seed complete');
 }
 
