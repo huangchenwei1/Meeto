@@ -310,9 +310,15 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                 ),
                               final _PostJourney j => _WaitingCard(
                                   cardKey: 'myActivity-${j.post.id}',
-                                  sceneTag: j.post.sceneTag,
+                                  typeLabel: j.mine
+                                      ? AppStrings.activityMinePostLabel
+                                      : AppStrings.activityAppliedLabel,
+                                  icon: j.mine
+                                      ? Iconsax.calendar_add
+                                      : Iconsax.send_2,
                                   title: j.post.title,
                                   infoLine: <String>[
+                                    AppStrings.sceneLabel(j.post.sceneTag),
                                     if (j.post.timeSlot.isNotEmpty)
                                       AppStrings
                                           .timeSlotLabel(j.post.timeSlot),
@@ -330,14 +336,22 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                           .activityAwaitingSelection,
                                   highlighted:
                                       j.mine && j.post.signedCount > 0,
+                                  actionLabel:
+                                      j.mine && j.post.signedCount > 0
+                                          ? AppStrings.activityPickCta
+                                          : null,
                                   createdAt: j.post.createdAt,
                                   onTap: () => _openPost(j.post),
                                 ),
                               final _ProposalJourney j => _WaitingCard(
                                   cardKey: 'myActivity-${j.proposal.id}',
-                                  sceneTag: j.proposal.sceneTag,
+                                  typeLabel:
+                                      AppStrings.activityProposalLabel,
+                                  icon: Iconsax.magic_star,
                                   title: j.proposal.title,
                                   infoLine: <String>[
+                                    AppStrings
+                                        .sceneLabel(j.proposal.sceneTag),
                                     if (j.proposal.timeSlot.isNotEmpty)
                                       AppStrings.timeSlotLabel(
                                         j.proposal.timeSlot,
@@ -352,6 +366,9 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                         )
                                       : AppStrings.activityWaitingInvites,
                                   highlighted: j.proposal.inviteCount > 0,
+                                  actionLabel: j.proposal.inviteCount > 0
+                                      ? AppStrings.activityInvitesCta
+                                      : null,
                                   createdAt: j.proposal.createdAt,
                                   onTap: () => _openProposal(j.proposal),
                                 ),
@@ -523,23 +540,29 @@ class _OrderCard extends StatelessWidget {
 }
 
 /// A journey still waiting on the market: my post collecting signups, my
-/// pitch collecting invites, or my signup waiting for selection — in the
-/// same big-card language, with the stage status in the header.
+/// pitch collecting invites, or my signup waiting for selection. The
+/// header names the journey type, the status rides on the right, and an
+/// action pill appears only when something actually arrived to act on.
 class _WaitingCard extends StatelessWidget {
   const _WaitingCard({
     required this.cardKey,
-    required this.sceneTag,
+    required this.typeLabel,
+    required this.icon,
     required this.title,
     required this.infoLine,
     required this.amount,
     required this.statusLine,
     required this.highlighted,
+    required this.actionLabel,
     required this.createdAt,
     required this.onTap,
   });
 
   final String cardKey;
-  final String sceneTag;
+
+  /// The journey kind fronting the header (my post / my signup / my pitch).
+  final String typeLabel;
+  final IconData icon;
   final String title;
   final String infoLine;
   final int amount;
@@ -548,13 +571,17 @@ class _WaitingCard extends StatelessWidget {
   /// true when something arrived for the owner (signups/invites),
   /// coloring the status as a call to action.
   final bool highlighted;
+
+  /// Pill label when the status demands action; null hides the pill
+  /// (the whole card stays tappable).
+  final String? actionLabel;
   final DateTime createdAt;
   final VoidCallback onTap;
 
-  String _createdLine(BuildContext context) {
+  String _postedLine(BuildContext context) {
     final MaterialLocalizations loc = MaterialLocalizations.of(context);
     final DateTime local = createdAt.toLocal();
-    return AppStrings.myOrderCreatedAt(
+    return AppStrings.activityPostedAt(
       '${loc.formatShortDate(local)} '
       '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
     );
@@ -562,6 +589,7 @@ class _WaitingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String? label = actionLabel;
     return _BigCard(
       cardKey: cardKey,
       onTap: onTap,
@@ -569,7 +597,7 @@ class _WaitingCard extends StatelessWidget {
         children: <Widget>[
           Expanded(
             child: Text(
-              AppStrings.sceneLabel(sceneTag),
+              typeLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -592,18 +620,20 @@ class _WaitingCard extends StatelessWidget {
           ),
         ],
       ),
-      icon: Iconsax.calendar_add,
+      icon: icon,
       title: title,
       lines: <String>[if (infoLine.isNotEmpty) infoLine],
       amount: MoneyFormat.format(amount),
-      footerLeft: _createdLine(context),
+      footerLeft: _postedLine(context),
       footerRight: null,
-      action: _Pill(
-        pillKey: '$cardKey-open',
-        label: AppStrings.myOrderDetailCta,
-        primary: highlighted,
-        onTap: onTap,
-      ),
+      action: label == null
+          ? null
+          : _Pill(
+              pillKey: '$cardKey-open',
+              label: label,
+              primary: true,
+              onTap: onTap,
+            ),
     );
   }
 }
@@ -633,7 +663,10 @@ class _BigCard extends StatelessWidget {
   final String amount;
   final String footerLeft;
   final Widget? footerRight;
-  final Widget action;
+
+  /// The stage's action pill; null when the card has nothing to push
+  /// (the whole card is tappable regardless).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -721,11 +754,13 @@ class _BigCard extends StatelessWidget {
                   ?footerRight,
                 ],
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: <Widget>[action],
-              ),
+              if (action != null) ...<Widget>[
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[action!],
+                ),
+              ],
             ],
           ),
         ),

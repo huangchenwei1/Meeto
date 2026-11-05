@@ -181,6 +181,12 @@ abstract final class AppStrings {
   static const String activityFilterAll = '全部';
   static const String activityFilterWaiting = '待加入';
   static const String myOrderChatCta = '进入聊天';
+  static const String activityMinePostLabel = '我发布的活动';
+  static const String activityAppliedLabel = '我报名的活动';
+  static const String activityProposalLabel = '我的提案';
+  static String activityPostedAt(String time) => '发布时间 $time';
+  static const String activityPickCta = '去选人';
+  static const String activityInvitesCta = '查看邀约';
   static String activityInvites(int count) => '收到 $count 个邀约';
   static const String activityWaitingInvites = '等人邀约';
   static const String activityAwaitingSelection = '已报名 · 等待选择';
