@@ -7,7 +7,6 @@ import '../../../core/constants/scene_pricing.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/form_widgets.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../hosts/data/hosts_repository.dart';
@@ -143,11 +142,6 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
   }();
   late int _budget = ScenePricing.defaultBudgetForScene(_scene);
 
-  // Free-form publishes pick a curated cover (no user uploads: there is
-  // no moderation pipeline yet); template launches keep the curated
-  // template cover silently.
-  late String _coverUrl =
-      widget.template?.imageUrl ?? SceneImages.galleryForScene(_scene).first;
   String _timeSlot = '';
   // A template launch prefills the location with the template's anchor
   // area; free-form publishes start blank.
@@ -156,16 +150,21 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
 
   bool get _freeForm => widget.template == null;
 
+  /// The cover is never user-picked: template launches keep the curated
+  /// template cover, free-form publishes get the activity type's fixed
+  /// cover automatically.
+  String get _coverUrl =>
+      widget.template?.imageUrl ?? SceneImages.forScene(_scene);
+
   void _pickScene(String scene) {
     if (scene == _scene) {
       return;
     }
     setState(() {
       _scene = scene;
-      // Each scene prices in its own tiers and curates its own covers:
-      // re-default both.
+      // Each scene prices in its own tiers: re-default the budget. The
+      // cover follows the scene automatically via [_coverUrl].
       _budget = ScenePricing.defaultBudgetForScene(scene);
-      _coverUrl = SceneImages.galleryForScene(scene).first;
     });
   }
 
@@ -246,8 +245,8 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
             TemplateQuoteCard(template: widget.template!),
           ],
           // Free-form publish (hall entry): the author picks the activity
-          // type from the platform's priced scenes and one of its curated
-          // covers.
+          // type from the platform's priced scenes; the cover is assigned
+          // from the type automatically.
           if (_freeForm) ...<Widget>[
             const FormFieldLabel(AppStrings.composerSceneLabel),
             SceneChips(
@@ -255,12 +254,6 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
               selected: _scene,
               onSelect: _pickScene,
               keyPrefix: 'composerScene',
-            ),
-            const FormFieldLabel(AppStrings.composerCoverLabel),
-            _CoverGalleryPicker(
-              sceneTag: _scene,
-              selected: _coverUrl,
-              onSelect: (String url) => setState(() => _coverUrl = url),
             ),
           ],
           const FormFieldLabel(AppStrings.activityBudgetLabel),
@@ -347,50 +340,3 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
 /// Horizontal strip of the scene's curated covers; the selected one gets
 /// the dark ring. Picking replaces uploading: there is no moderation
 /// pipeline for user photos yet.
-class _CoverGalleryPicker extends StatelessWidget {
-  const _CoverGalleryPicker({
-    required this.sceneTag,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final String sceneTag;
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<String> gallery = SceneImages.galleryForScene(sceneTag);
-    return SizedBox(
-      height: 76,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: gallery.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (BuildContext context, int index) {
-          final String url = gallery[index];
-          final bool isSelected = url == selected;
-          return InkWell(
-            key: ValueKey<String>('composerCover$index'),
-            onTap: () => onSelect(url),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  width: 2,
-                  color: isSelected ? AppColors.darkCard : Colors.transparent,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: AppNetworkImage(url: url, width: 68, height: 68),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
