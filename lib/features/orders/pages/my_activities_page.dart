@@ -43,12 +43,17 @@ class MyActivitiesPage extends StatefulWidget {
     required this.communityRepository,
     required this.hostsRepository,
     required this.profileRepository,
+    this.onActionableCount,
   });
 
   final OrdersRepository ordersRepository;
   final CommunityRepository communityRepository;
   final HostsRepository hostsRepository;
   final ProfileRepository profileRepository;
+
+  /// Reports how many journeys have a counterpart action waiting (signups
+  /// on my posts, invites on my pitches) so the shell can badge the tab.
+  final ValueChanged<int>? onActionableCount;
 
   @override
   State<MyActivitiesPage> createState() => MyActivitiesPageState();
@@ -186,6 +191,17 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
         _journeys = journeys;
         _loaded = true;
       });
+      // Counterpart interactions waiting on me: these mirror the cards'
+      // action pills (去选人 / 查看邀约) and drive the tab badge.
+      widget.onActionableCount?.call(
+        journeys
+            .where(
+              (_Journey j) =>
+                  (j is _PostJourney && j.mine && j.post.signedCount > 0) ||
+                  (j is _ProposalJourney && j.proposal.inviteCount > 0),
+            )
+            .length,
+      );
     } on Exception {
       // Keep the last known board; the next poll retries.
     }

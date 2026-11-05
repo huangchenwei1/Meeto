@@ -69,6 +69,10 @@ class _HomeShellState extends State<HomeShell> {
 
   int _selectedIndex = 0;
 
+  /// Journeys with a counterpart action waiting (signups on my posts,
+  /// invites on my pitches); badges the My Activities tab.
+  int _actionableCount = 0;
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> tabs = <Widget>[
@@ -93,6 +97,11 @@ class _HomeShellState extends State<HomeShell> {
         communityRepository: _communityRepository,
         hostsRepository: _hostsRepository,
         profileRepository: _profileRepository,
+        onActionableCount: (int count) {
+          if (count != _actionableCount && mounted) {
+            setState(() => _actionableCount = count);
+          }
+        },
       ),
       ProfilePage(
         key: _profileKey,
@@ -123,23 +132,31 @@ class _HomeShellState extends State<HomeShell> {
               _profileKey.currentState?.reload();
           }
         },
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
+        destinations: <NavigationDestination>[
+          const NavigationDestination(
             icon: Icon(Iconsax.people),
             selectedIcon: Icon(Iconsax.people5),
             label: AppStrings.tabActivityCommunity,
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Iconsax.home_2),
             selectedIcon: Icon(Iconsax.home_25),
             label: AppStrings.tabHall,
           ),
           NavigationDestination(
-            icon: Icon(Iconsax.calendar_1),
-            selectedIcon: Icon(Iconsax.calendar5),
+            icon: Badge.count(
+              count: _actionableCount,
+              isLabelVisible: _actionableCount > 0,
+              child: const Icon(Iconsax.calendar_1),
+            ),
+            selectedIcon: Badge.count(
+              count: _actionableCount,
+              isLabelVisible: _actionableCount > 0,
+              child: const Icon(Iconsax.calendar5),
+            ),
             label: AppStrings.tabMyActivities,
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Iconsax.user),
             selectedIcon: Icon(Iconsax.profile_circle5),
             label: AppStrings.tabMe,
