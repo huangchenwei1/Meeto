@@ -268,6 +268,13 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
               ],
             ),
           ],
+          // User viewers get the budget concept too, told from the
+          // payer's side: what the amount covers and how escrow protects
+          // it. Host browsers see the mechanics on demand posts already.
+          if (!_isMine && !AuthSession.isHost) ...<Widget>[
+            const SizedBox(height: 18),
+            _BudgetCard(proposal: _proposal),
+          ],
           if (_isMine) ...<Widget>[
             const SizedBox(height: 18),
             _InvitesSection(
@@ -525,6 +532,85 @@ class _HostCardTile extends StatelessWidget {
 
 /// Bottom bar for a user viewing someone else's open pitch: the locked
 /// price they would pay, plus the invite CTA (disabled once queued).
+/// The payer-side budget explainer: the amount plus three rules covering
+/// what it includes, the escrow protection and the release moment.
+class _BudgetCard extends StatelessWidget {
+  const _BudgetCard({required this.proposal});
+
+  final ProposalCard proposal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Text(
+                AppStrings.activityBudgetLabel,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                MoneyFormat.format(proposal.budgetAmount),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          const _BudgetRule(text: AppStrings.budgetRuleUserCovers),
+          const SizedBox(height: 6),
+          const _BudgetRule(text: AppStrings.budgetRuleUserEscrow),
+          const SizedBox(height: 6),
+          const _BudgetRule(text: AppStrings.budgetRuleUserRelease),
+        ],
+      ),
+    );
+  }
+}
+
+class _BudgetRule extends StatelessWidget {
+  const _BudgetRule({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Padding(
+          padding: EdgeInsets.only(top: 3),
+          child: Icon(Iconsax.tick_circle, size: 14, color: AppColors.accent),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12.5,
+              height: 1.6,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _InviteBottomBar extends StatelessWidget {
   const _InviteBottomBar({required this.proposal, required this.onInvite});
 
@@ -552,7 +638,7 @@ class _InviteBottomBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 const Text(
-                  AppStrings.tipPayLabel,
+                  AppStrings.activityBudgetLabel,
                   style: TextStyle(fontSize: 11, color: AppColors.textHint),
                 ),
                 const SizedBox(height: 2),
