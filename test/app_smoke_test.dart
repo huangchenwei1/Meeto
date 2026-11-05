@@ -62,10 +62,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Liza'), findsOneWidget);
-    expect(find.text(AppStrings.statusActive), findsOneWidget);
-    expect(find.text('Bianca'), findsOneWidget);
-    expect(find.text(AppStrings.statusCompleted), findsOneWidget);
+    // Big order-style cards: the provider line carries the peer, the
+    // status strings also label the filter chips.
+    expect(find.textContaining('Liza'), findsOneWidget);
+    expect(find.text(AppStrings.statusActive), findsWidgets);
+    expect(find.textContaining('Bianca'), findsOneWidget);
+    expect(find.text(AppStrings.statusCompleted), findsWidgets);
 
     // Me tab: menu renders; the wallet is host-side only, so the USER
     // persona must not see it.

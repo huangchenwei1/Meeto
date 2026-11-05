@@ -14,7 +14,6 @@ import '../../auth/pages/login_page.dart';
 import '../../auth/pages/profile_setup_page.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../orders/data/orders_repository.dart';
-import '../../orders/pages/my_orders_page.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/pages/my_posts_page.dart';
 import '../data/profile_repository.dart';
@@ -73,17 +72,6 @@ class ProfilePageState extends State<ProfilePage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => WalletPage(repository: widget.repository),
-      ),
-    );
-    _load();
-  }
-
-  /// The full order history (every status): unpaid deals get finished or
-  /// cancelled here, closed ones stay reviewable.
-  Future<void> _openMyOrders() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MyOrdersPage(ordersRepository: widget.ordersRepository),
       ),
     );
     _load();
@@ -156,11 +144,6 @@ class ProfilePageState extends State<ProfilePage> {
                   _WalletCard(wallet: wallet, onOpen: _openWallet),
                   const SizedBox(height: 8),
                 ],
-                _MenuItem(
-                  icon: Iconsax.receipt_1,
-                  label: AppStrings.myOrdersTitle,
-                  onTap: _openMyOrders,
-                ),
                 _MenuItem(
                   icon: Iconsax.note_2,
                   label: AppStrings.menuMyPosts,

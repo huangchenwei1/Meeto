@@ -55,14 +55,12 @@ abstract final class AppStrings {
   static const String paymentFailedSnack = '支付失败，请重试';
   static const String paymentCancelOrderCta = '不约了，取消订单';
   static const String unpaidCancelledSnack = '已取消';
-  static const String paymentLaterSnack = '订单保留在「我的订单」，超时未支付将自动取消';
-  static const String myOrdersTitle = '我的订单';
+  static const String paymentLaterSnack = '未支付的订单超时将自动取消';
   static const String myOrderDetailCta = '查看详情';
   static String myOrderTotal(String fee) => '合计 $fee';
   static String myOrderHostLine(String name) => '$name · 主持人';
   static String myOrderGuestLine(String name) => '$name · 发起人';
   static String myOrderCreatedAt(String time) => '下单时间 $time';
-  static const String myOrdersEmpty = '还没有完成的订单';
   static const String chatLockedNote = '服务费托管后解锁聊天';
   static const String deletePostCta = '删除帖子';
   static const String deletePostConfirmTitle = '删除这条帖子？';
@@ -180,6 +178,9 @@ abstract final class AppStrings {
   // Live orders (API mode: both sides act from their own devices)
   static const String myActivitiesEmpty = '还没有活动 — 去发布或报名一个吧';
   static const String activityWaitingSignups = '等人报名';
+  static const String activityFilterAll = '全部';
+  static const String activityFilterWaiting = '待加入';
+  static const String myOrderChatCta = '进入聊天';
   static String activityInvites(int count) => '收到 $count 个邀约';
   static const String activityWaitingInvites = '等人邀约';
   static const String activityAwaitingSelection = '已报名 · 等待选择';

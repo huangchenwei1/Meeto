@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
@@ -20,14 +21,20 @@ import '../data/orders_repository.dart';
 import '../models/live_order.dart';
 import 'order_room_page.dart';
 
-/// Tab 3: the My Activities board. One card per activity journey, the
-/// status lives on the card, and the tap follows the status:
-/// - a deal in progress opens its chat room
-/// - my open post shows who signed up and opens the candidate screening
-/// - my open pitch shows the invite queue (hosts)
-/// - a post I signed up for waits for selection (hosts)
-/// Deliberately simple: no awaiting-payment or cancelled entries — unpaid
-/// deals finish (or expire) where they were formed, dead deals disappear.
+/// My Activities filter identifiers (display labels live in [AppStrings]).
+const String _filterAll = 'ALL';
+const String _filterWaiting = 'WAITING';
+const String _filterActive = 'ACTIVE';
+const String _filterDone = 'DONE';
+
+/// Tab 3: the My Activities board — the order page folded into the tab.
+/// One big order-style card per activity journey, filterable by stage:
+/// - 待加入 (waiting): my open post collecting signups, my open pitch
+///   collecting invites, a post I signed up for awaiting selection
+/// - 进行中 (active): formed deals; the card opens the chat room
+/// - 已完成 (done): finished deals, reviewable forever
+/// Deliberately no awaiting-payment or cancelled entries — unpaid deals
+/// finish (or expire) where they were formed, dead deals disappear.
 class MyActivitiesPage extends StatefulWidget {
   const MyActivitiesPage({
     super.key,
@@ -46,8 +53,8 @@ class MyActivitiesPage extends StatefulWidget {
   State<MyActivitiesPage> createState() => MyActivitiesPageState();
 }
 
-/// One entry on the board. [group] drives the sort: running deals first,
-/// then everything still waiting, finished deals last.
+/// One entry on the board. [group] drives the all-view sort: running
+/// deals first, then everything still waiting, finished deals last.
 sealed class _Journey {
   const _Journey();
 
@@ -60,8 +67,10 @@ class _OrderJourney extends _Journey {
 
   final LiveOrder order;
 
+  bool get active => order.status == 'ACTIVE';
+
   @override
-  int get group => order.status == 'ACTIVE' ? 0 : 2;
+  int get group => active ? 0 : 2;
 
   @override
   DateTime get createdAt => order.createdAt;
@@ -96,6 +105,7 @@ class _ProposalJourney extends _Journey {
 
 class MyActivitiesPageState extends State<MyActivitiesPage> {
   List<_Journey> _journeys = <_Journey>[];
+  String _filter = _filterAll;
   bool _loaded = false;
   Timer? _pollTimer;
 
@@ -129,7 +139,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
         List<ProposalCard>,
         List<ActivityPost>,
       ) r = await (
-        widget.ordersRepository.listMine(),
+        widget.ordersRepository.listMine(all: true),
         isHost
             ? Future<List<ActivityPost>>.value(const <ActivityPost>[])
             : widget.communityRepository.fetchPostsByAuthor(myId),
@@ -144,9 +154,14 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
         return;
       }
       final List<_Journey> journeys = <_Journey>[
-        // Deals (paid and recent finished) — the conversations view
-        // already excludes unpaid and cancelled orders.
-        ...r.$1.map(_OrderJourney.new),
+        // Formed deals only: unpaid and cancelled orders stay off the
+        // board on purpose.
+        ...r.$1
+            .where(
+              (LiveOrder o) =>
+                  o.status == 'ACTIVE' || o.status == 'COMPLETED',
+            )
+            .map(_OrderJourney.new),
         // My open posts, waiting for signups. Posts with a live deal are
         // already represented by their order card.
         ...r.$2
@@ -174,6 +189,18 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
       // Keep the last known board; the next poll retries.
     }
   }
+
+  List<_Journey> get _visible => switch (_filter) {
+        _filterWaiting =>
+          _journeys.where((_Journey j) => j.group == 1).toList(),
+        _filterActive => _journeys
+            .where((_Journey j) => j is _OrderJourney && j.active)
+            .toList(),
+        _filterDone => _journeys
+            .where((_Journey j) => j is _OrderJourney && !j.active)
+            .toList(),
+        _ => _journeys,
+      };
 
   Future<void> _openOrder(LiveOrder order) async {
     await Navigator.of(context).push(
@@ -217,6 +244,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final List<_Journey> visible = _visible;
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
@@ -224,145 +252,479 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
         surfaceTintColor: Colors.transparent,
         title: const Text(AppStrings.tabMyActivities),
       ),
-      body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : _journeys.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text(
-                      AppStrings.myActivitiesEmpty,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                    ),
+      body: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+            child: Row(
+              children: <Widget>[
+                for (final (String id, String label)
+                    in <(String, String)>[
+                  (_filterAll, AppStrings.activityFilterAll),
+                  (_filterWaiting, AppStrings.activityFilterWaiting),
+                  (_filterActive, AppStrings.statusActive),
+                  (_filterDone, AppStrings.statusCompleted),
+                ]) ...<Widget>[
+                  _FilterChip(
+                    key: ValueKey<String>('activityFilter$id'),
+                    label: label,
+                    selected: _filter == id,
+                    onTap: () => setState(() => _filter = id),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _poll,
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 20),
-                    itemCount: _journeys.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (BuildContext context, int index) {
-                      return switch (_journeys[index]) {
-                        final _OrderJourney j => _OrderCard(
-                            order: j.order,
-                            onTap: () => _openOrder(j.order),
-                          ),
-                        final _PostJourney j => _WaitingCard(
-                            key: ValueKey<String>('myActivity-${j.post.id}'),
-                            icon: j.mine
-                                ? Iconsax.calendar_1
-                                : Iconsax.send_2,
-                            title: j.post.title,
-                            statusLine: j.mine
-                                ? (j.post.signedCount > 0
-                                    ? AppStrings
-                                        .appliedCount(j.post.signedCount)
-                                    : AppStrings.activityWaitingSignups)
-                                : AppStrings.activityAwaitingSelection,
-                            highlighted:
-                                j.mine && j.post.signedCount > 0,
-                            onTap: () => _openPost(j.post),
-                          ),
-                        final _ProposalJourney j => _WaitingCard(
-                            key: ValueKey<String>(
-                              'myActivity-${j.proposal.id}',
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: !_loaded
+                ? const Center(child: CircularProgressIndicator())
+                : visible.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text(
+                            AppStrings.myActivitiesEmpty,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 15,
                             ),
-                            icon: Iconsax.magic_star,
-                            title: j.proposal.title,
-                            statusLine: j.proposal.inviteCount > 0
-                                ? AppStrings
-                                    .activityInvites(j.proposal.inviteCount)
-                                : AppStrings.activityWaitingInvites,
-                            highlighted: j.proposal.inviteCount > 0,
-                            onTap: () => _openProposal(j.proposal),
                           ),
-                      };
-                    },
-                  ),
-                ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _poll,
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding:
+                              const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            return switch (visible[index]) {
+                              final _OrderJourney j => _OrderCard(
+                                  order: j.order,
+                                  onTap: () => _openOrder(j.order),
+                                ),
+                              final _PostJourney j => _WaitingCard(
+                                  cardKey: 'myActivity-${j.post.id}',
+                                  sceneTag: j.post.sceneTag,
+                                  title: j.post.title,
+                                  infoLine: <String>[
+                                    if (j.post.timeSlot.isNotEmpty)
+                                      AppStrings
+                                          .timeSlotLabel(j.post.timeSlot),
+                                    if (j.post.area.isNotEmpty) j.post.area,
+                                  ].join(' \u00b7 '),
+                                  amount: j.post.budgetAmount,
+                                  statusLine: j.mine
+                                      ? (j.post.signedCount > 0
+                                          ? AppStrings.appliedCount(
+                                              j.post.signedCount,
+                                            )
+                                          : AppStrings
+                                              .activityWaitingSignups)
+                                      : AppStrings
+                                          .activityAwaitingSelection,
+                                  highlighted:
+                                      j.mine && j.post.signedCount > 0,
+                                  createdAt: j.post.createdAt,
+                                  onTap: () => _openPost(j.post),
+                                ),
+                              final _ProposalJourney j => _WaitingCard(
+                                  cardKey: 'myActivity-${j.proposal.id}',
+                                  sceneTag: j.proposal.sceneTag,
+                                  title: j.proposal.title,
+                                  infoLine: <String>[
+                                    if (j.proposal.timeSlot.isNotEmpty)
+                                      AppStrings.timeSlotLabel(
+                                        j.proposal.timeSlot,
+                                      ),
+                                    if (j.proposal.area.isNotEmpty)
+                                      j.proposal.area,
+                                  ].join(' \u00b7 '),
+                                  amount: j.proposal.budgetAmount,
+                                  statusLine: j.proposal.inviteCount > 0
+                                      ? AppStrings.activityInvites(
+                                          j.proposal.inviteCount,
+                                        )
+                                      : AppStrings.activityWaitingInvites,
+                                  highlighted: j.proposal.inviteCount > 0,
+                                  createdAt: j.proposal.createdAt,
+                                  onTap: () => _openProposal(j.proposal),
+                                ),
+                            };
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// A formed deal: the peer fronts the card and the tap goes straight to
-/// the chat room (read-only once closed).
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.darkCard : AppColors.background,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? AppColors.onDarkPrimary
+                : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A formed deal as a service-purchase card: provider line + status in
+/// the header, the service item (activity + locked plan + price) as the
+/// body, order time + total + the stage's action in the footer. Tap (or
+/// the pill) opens the chat room, read-only once closed.
 class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.order, required this.onTap});
 
   final LiveOrder order;
   final VoidCallback onTap;
 
+  bool get _iAmPayer => order.isPayer(AuthSession.currentUserId);
+  bool get _active => order.status == 'ACTIVE';
+
+  String _whenLine(BuildContext context) {
+    if (order.planAt == null) {
+      return '';
+    }
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = order.planAt!.toLocal();
+    final String when = '${loc.formatShortDate(local)} '
+        '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+    return order.planDurationMinutes > 0
+        ? '$when \u00b7 ${AppStrings.durationAbout(order.planDurationMinutes)}'
+        : when;
+  }
+
+  String _createdLine(BuildContext context) {
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = order.createdAt.toLocal();
+    return AppStrings.myOrderCreatedAt(
+      '${loc.formatShortDate(local)} '
+      '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final PostAuthor peer = order.peerOf(AuthSession.currentUserId);
-    final bool active = order.status == 'ACTIVE';
-    final String eventLine = <String>[
-      order.postTitle,
-      if (order.planPlace.isNotEmpty) order.planPlace,
-    ].where((String s) => s.isNotEmpty).join(' \u00b7 ');
+    final String fee = MoneyFormat.format(order.feePesos);
+    final String whenLine = _whenLine(context);
+    // The merchant line: the one providing or ordering the service, never
+    // the item being sold.
+    final String providerLine = _iAmPayer
+        ? AppStrings.myOrderHostLine(peer.name)
+        : AppStrings.myOrderGuestLine(peer.name);
+    return _BigCard(
+      cardKey: 'myActivity-${order.id}',
+      onTap: onTap,
+      header: Row(
+        children: <Widget>[
+          AppAvatar(
+            size: 22,
+            imageUrl: peer.avatarUrl,
+            fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              providerLine,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            _active ? AppStrings.statusActive : AppStrings.statusCompleted,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _active ? AppColors.accent : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+      icon: Iconsax.calendar_1,
+      title: order.postTitle,
+      lines: <String>[
+        if (order.planPlace.isNotEmpty) order.planPlace,
+        if (whenLine.isNotEmpty) whenLine,
+      ],
+      amount: fee,
+      footerLeft: _createdLine(context),
+      footerRight: Text.rich(
+        TextSpan(
+          text: AppStrings.myOrderTotal(''),
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: AppColors.textSecondary,
+          ),
+          children: <InlineSpan>[
+            TextSpan(
+              text: fee,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+      action: _Pill(
+        pillKey: 'myActivityAction-${order.id}',
+        label: _active
+            ? AppStrings.myOrderChatCta
+            : AppStrings.myOrderDetailCta,
+        primary: _active,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// A journey still waiting on the market: my post collecting signups, my
+/// pitch collecting invites, or my signup waiting for selection — in the
+/// same big-card language, with the stage status in the header.
+class _WaitingCard extends StatelessWidget {
+  const _WaitingCard({
+    required this.cardKey,
+    required this.sceneTag,
+    required this.title,
+    required this.infoLine,
+    required this.amount,
+    required this.statusLine,
+    required this.highlighted,
+    required this.createdAt,
+    required this.onTap,
+  });
+
+  final String cardKey;
+  final String sceneTag;
+  final String title;
+  final String infoLine;
+  final int amount;
+  final String statusLine;
+
+  /// true when something arrived for the owner (signups/invites),
+  /// coloring the status as a call to action.
+  final bool highlighted;
+  final DateTime createdAt;
+  final VoidCallback onTap;
+
+  String _createdLine(BuildContext context) {
+    final MaterialLocalizations loc = MaterialLocalizations.of(context);
+    final DateTime local = createdAt.toLocal();
+    return AppStrings.myOrderCreatedAt(
+      '${loc.formatShortDate(local)} '
+      '${loc.formatTimeOfDay(TimeOfDay.fromDateTime(local))}',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BigCard(
+      cardKey: cardKey,
+      onTap: onTap,
+      header: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              AppStrings.sceneLabel(sceneTag),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            statusLine,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: highlighted
+                  ? AppColors.accent
+                  : const Color(0xFFD97706),
+            ),
+          ),
+        ],
+      ),
+      icon: Iconsax.calendar_add,
+      title: title,
+      lines: <String>[if (infoLine.isNotEmpty) infoLine],
+      amount: MoneyFormat.format(amount),
+      footerLeft: _createdLine(context),
+      footerRight: null,
+      action: _Pill(
+        pillKey: '$cardKey-open',
+        label: AppStrings.myOrderDetailCta,
+        primary: highlighted,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// The shared big-card skeleton: header row, divider, service-item body
+/// (icon tile + title + info lines + amount), footer row + action pill.
+class _BigCard extends StatelessWidget {
+  const _BigCard({
+    required this.cardKey,
+    required this.onTap,
+    required this.header,
+    required this.icon,
+    required this.title,
+    required this.lines,
+    required this.amount,
+    required this.footerLeft,
+    required this.footerRight,
+    required this.action,
+  });
+
+  final String cardKey;
+  final VoidCallback onTap;
+  final Widget header;
+  final IconData icon;
+  final String title;
+  final List<String> lines;
+  final String amount;
+  final String footerLeft;
+  final Widget? footerRight;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
       color: AppColors.background,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        key: ValueKey<String>('myActivity-${order.id}'),
+        key: ValueKey<String>(cardKey),
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              AppAvatar(
-                size: 44,
-                imageUrl: peer.avatarUrl,
-                fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
+              header,
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 22, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        for (final String line in lines) ...<Widget>[
+                          const SizedBox(height: 3),
+                          Text(
+                            line,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    amount,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      peer.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      footerLeft,
                       style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                        fontSize: 11.5,
+                        color: AppColors.textHint,
                       ),
                     ),
-                    if (eventLine.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 3),
-                      Text(
-                        eventLine,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                  ?footerRight,
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                active
-                    ? AppStrings.statusActive
-                    : AppStrings.statusCompleted,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      active ? AppColors.accent : AppColors.textHint,
-                ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[action],
               ),
             ],
           ),
@@ -372,89 +734,43 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-/// A journey still waiting on the market: my post collecting signups, my
-/// pitch collecting invites, or my signup waiting for selection.
-class _WaitingCard extends StatelessWidget {
-  const _WaitingCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.statusLine,
-    required this.highlighted,
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.pillKey,
+    required this.label,
+    required this.primary,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String title;
-  final String statusLine;
-
-  /// true when something is waiting for the owner (signups/invites
-  /// arrived), coloring the status line as a call to action.
-  final bool highlighted;
+  final String pillKey;
+  final String label;
+  final bool primary;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.background,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, size: 20, color: AppColors.accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      statusLine,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight:
-                            highlighted ? FontWeight.w600 : FontWeight.w400,
-                        color: highlighted
-                            ? AppColors.accent
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Icon(
-                Iconsax.arrow_right_3,
-                size: 16,
-                color: AppColors.textHint,
-              ),
-            ],
+    return SizedBox(
+      height: 32,
+      child: OutlinedButton(
+        key: ValueKey<String>(pillKey),
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor:
+              primary ? AppColors.background : AppColors.textSecondary,
+          backgroundColor: primary ? AppColors.darkCard : null,
+          side: primary
+              ? BorderSide.none
+              : const BorderSide(color: AppColors.border),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
           ),
         ),
+        child: Text(label),
       ),
     );
   }
