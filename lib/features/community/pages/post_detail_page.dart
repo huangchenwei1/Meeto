@@ -331,17 +331,22 @@ class _PostDetailPageState extends State<PostDetailPage> {
           const SizedBox(height: 18),
           // The signup info is trimmed by viewer role (the server already
           // serves role-appropriate data):
-          // - owner: full candidate pool with approve actions
+          // - owner: budget rules plus the full candidate pool with
+          //   approve actions
           // - host: budget rules first, then anonymous blurred interest
-          // - user: host previews first (the service showcase), then budget
+          // - user: host previews only (the service showcase) — the money
+          //   mechanics are between the poster and the host, so no
+          //   budget card
           if (!_isMine &&
               !AuthSession.isHost &&
               _post.applicantPreviews.isNotEmpty) ...<Widget>[
             _HostPreviewsSection(post: _post),
             const SizedBox(height: 14),
           ],
-          _BudgetCard(post: _post),
-          const SizedBox(height: 14),
+          if (_isMine || AuthSession.isHost) ...<Widget>[
+            _BudgetCard(post: _post),
+            const SizedBox(height: 14),
+          ],
           if (!_isMine &&
               AuthSession.isHost &&
               _post.signedCount > 0) ...<Widget>[
