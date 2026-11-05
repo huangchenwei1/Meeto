@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { HostsModule } from './hosts/hosts.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { PlacesModule } from './places/places.module.js';
 import { PostsModule } from './posts/posts.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -24,6 +25,7 @@ import { VerificationModule } from './verification/verification.module.js';
     AdminModule,
     UploadsModule,
     VerificationModule,
+    PlacesModule,
   ],
 })
 export class AppModule {}

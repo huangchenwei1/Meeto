@@ -8,6 +8,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/pages/verification_page.dart';
 import '../../../shared/widgets/form_widgets.dart';
+import '../../../shared/widgets/place_search_field.dart';
 import '../data/community_repository.dart';
 
 /// Composer for a community recap (moment): short text + up to 3 photos.
@@ -142,14 +143,11 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
           ),
           const SizedBox(height: 4),
           const FormFieldLabel(AppStrings.momentVenueLabel),
-          TextField(
-            key: const ValueKey<String>('momentVenueField'),
+          PlaceSearchField(
+            fieldKey: const ValueKey<String>('momentVenueField'),
             controller: _venueController,
             maxLength: 80,
-            decoration: const InputDecoration(
-              hintText: AppStrings.momentVenueHint,
-              prefixIcon: Icon(Iconsax.location, size: 18),
-            ),
+            hintText: AppStrings.momentVenueHint,
           ),
           if (_photosEnabled) ...<Widget>[
             const SizedBox(height: 8),

@@ -1741,6 +1741,23 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
+  describe('place search proxy', () => {
+    it('requires auth and a query; degrades to empty without a key', async () => {
+      await api().get('/places/search?q=coffee').expect(401);
+      await api()
+        .get('/places/search')
+        .set('X-User-Id', ANDREA)
+        .expect(400);
+      // The test environment has no AMAP_KEY: the proxy answers an empty
+      // list so the client fields degrade to free typing.
+      const res = await api()
+        .get('/places/search?q=coffee')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(res.body).toEqual([]);
+    });
+  });
+
   describe('runtime repricing (admin)', () => {
     it('only admins can reprice; changes apply to new posts only', async () => {
       await api()

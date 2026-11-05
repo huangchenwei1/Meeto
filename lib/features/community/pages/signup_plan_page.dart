@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/form_widgets.dart';
+import '../../../shared/widgets/place_search_field.dart';
 
 /// Full-screen plan composer: the pitch plus the plan card (place, time,
 /// duration). Used in two mirrored places — a host signing up on a demand
@@ -161,14 +162,11 @@ class _SignUpPlanPageState extends State<SignUpPlanPage> {
                     ),
                     const SizedBox(height: 14),
                     _sectionLabel(AppStrings.proposalPlaceLabel),
-                    TextField(
-                      key: const ValueKey<String>('proposalPlaceField'),
+                    PlaceSearchField(
+                      fieldKey: const ValueKey<String>('proposalPlaceField'),
                       controller: _placeController,
                       maxLength: 120,
-                      decoration: const InputDecoration(
-                        hintText: AppStrings.planPlaceHint,
-                        prefixIcon: Icon(Icons.place_outlined, size: 20),
-                      ),
+                      hintText: AppStrings.planPlaceHint,
                     ),
                     const SizedBox(height: 14),
                     _sectionLabel(AppStrings.proposalTimeLabel),
