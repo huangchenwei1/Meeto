@@ -10,7 +10,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/feed_activity_card.dart';
 import '../../../shared/widgets/form_widgets.dart';
-import '../../../shared/widgets/guidelines_banner.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/pages/activity_composer_page.dart';
@@ -238,14 +237,10 @@ class HallPageState extends State<HallPage> {
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                        // index 0: guidelines banner.
-                        itemCount: items.isEmpty ? 2 : items.length + 1,
+                        itemCount: items.isEmpty ? 1 : items.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: 22),
                         itemBuilder: (BuildContext context, int index) {
-                          if (index == 0) {
-                            return const GuidelinesBanner();
-                          }
                           if (items.isEmpty) {
                             return const Padding(
                               padding: EdgeInsets.only(top: 100),
@@ -258,7 +253,7 @@ class HallPageState extends State<HallPage> {
                               ),
                             );
                           }
-                          final Object item = items[index - 1];
+                          final Object item = items[index];
                           return item is ActivityPost
                               ? _RequestCard(
                                   post: item,

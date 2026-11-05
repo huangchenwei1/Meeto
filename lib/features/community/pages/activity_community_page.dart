@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_network_image.dart';
+import '../../../shared/widgets/guidelines_banner.dart';
 import '../../hosts/data/hosts_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/community_repository.dart';
@@ -151,13 +152,18 @@ class ActivityCommunityPageState extends State<ActivityCommunityPage> {
                                     16,
                                     24,
                                   ),
-                                  itemCount: _templates.length,
+                                  // index 0: the community guidelines
+                                  // banner fronts the template shelf.
+                                  itemCount: _templates.length + 1,
                                   separatorBuilder: (_, _) =>
                                       const SizedBox(height: 14),
                                   itemBuilder:
                                       (BuildContext context, int index) {
+                                    if (index == 0) {
+                                      return const GuidelinesBanner();
+                                    }
                                     final ActivityTemplate template =
-                                        _templates[index];
+                                        _templates[index - 1];
                                     return _TemplateCard(
                                       template: template,
                                       onLaunch: () => _launch(template),
