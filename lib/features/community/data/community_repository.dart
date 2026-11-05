@@ -528,6 +528,10 @@ class MockCommunityRepository implements CommunityRepository {
     String venue,
   ) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
+    // Mock mode has no upload endpoint, but the wall's cards are
+    // image-led, so stand in with a scene placeholder cover.
+    final List<String> covers =
+        images.isEmpty ? <String>[SceneImages.forScene('')] : images;
     final ActivityPost post = ActivityPost(
       id: 'post-${++_postSequence}',
       type: 'MOMENT',
@@ -537,8 +541,8 @@ class MockCommunityRepository implements CommunityRepository {
       detail: text,
       venue: venue,
       signedCount: 0,
-      imageUrl: images.isEmpty ? '' : images.first,
-      images: images,
+      imageUrl: covers.first,
+      images: covers,
       author: currentUserAuthor,
       createdAt: DateTime.now(),
       budgetAmount: 0,

@@ -66,7 +66,7 @@ export class PostsController {
     return this.postsService.createMoment(
       user,
       input.text,
-      input.images ?? [],
+      input.images,
       input.venue,
     );
   }

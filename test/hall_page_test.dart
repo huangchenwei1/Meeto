@@ -36,8 +36,9 @@ void main() {
       );
       await pumpHall(tester);
 
-      // Open demand posts appear with the pitch pill; in-progress
-      // activities and moments stay out. The activity budget rides on the
+      // Demand posts appear with the pitch pill; requests stay listed
+      // through their whole life (only cancelled ones drop out), while
+      // moments stay out of the hall. The activity budget rides on the
       // request card: it is the host's core take-the-gig signal.
       expect(
         find.text('Show me a cafe worth leaving BGC for'),
@@ -45,7 +46,6 @@ void main() {
       );
       expect(find.text('\u00a51,500'), findsWidgets);
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
-      expect(find.text('Movie night with an actual plan'), findsNothing);
       expect(find.textContaining('omakase counter'), findsNothing);
 
       // Host proposals are visible but carry no invite pill for a host.

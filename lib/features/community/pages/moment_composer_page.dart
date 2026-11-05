@@ -86,6 +86,15 @@ class _MomentComposerPageState extends State<MomentComposerPage> {
       );
       return;
     }
+    // The wall renders image-led cards, so at least one photo is required.
+    // Mock mode has no upload endpoint; the mock repository injects a
+    // placeholder cover instead.
+    if (_photosEnabled && _photoUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.momentPhotoRequiredHint)),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
       await widget.repository.createMoment(text, _photoUrls, venue);

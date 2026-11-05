@@ -1679,9 +1679,23 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', JAMES)
         .send({
           text: 'Hosted a great cafe crawl today',
+          images: ['/uploads/crawl.jpg'],
           venue: 'Yardstick Coffee, Legazpi Village',
         })
         .expect(201);
+
+      // Photos carry the recap: a moment without at least one image is
+      // rejected, whether the field is missing or an empty array.
+      await api()
+        .post('/posts/moments')
+        .set('X-User-Id', JAMES)
+        .send({ text: 'No photos', venue: 'Somewhere' })
+        .expect(400);
+      await api()
+        .post('/posts/moments')
+        .set('X-User-Id', JAMES)
+        .send({ text: 'No photos', images: [], venue: 'Somewhere' })
+        .expect(400);
 
       // Text is required.
       await api()
@@ -1694,7 +1708,7 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post('/posts/moments')
         .set('X-User-Id', ANDREA)
-        .send({ text: 'Great afternoon' })
+        .send({ text: 'Great afternoon', images: ['/uploads/x.jpg'] })
         .expect(400);
 
       const wall = await api()

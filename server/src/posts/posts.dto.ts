@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayNotEmpty,
   IsArray,
   IsInt,
   IsISO8601,
@@ -59,11 +60,13 @@ export class CreateMomentDto {
   @MaxLength(600)
   text!: string;
 
-  @IsOptional()
+  /// Photos carry the recap — the community wall renders image-led
+  /// cards — so at least one is required.
   @IsArray()
+  @ArrayNotEmpty()
   @ArrayMaxSize(6)
   @IsString({ each: true })
-  images?: string[];
+  images!: string[];
 
   /// Venue name (e.g. a cafe or cinema): the recommendation itself, so it
   /// is required — a recap without the place has no reuse value.
