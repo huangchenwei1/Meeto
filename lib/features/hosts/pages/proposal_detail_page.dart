@@ -10,16 +10,13 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
-import '../../../shared/widgets/app_network_image.dart';
 import '../../../shared/widgets/verified_badge.dart';
 import '../../community/pages/signup_plan_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/hosts_repository.dart';
-import '../models/host_card.dart';
 import '../models/proposal_card.dart';
 import '../widgets/invite_flow.dart';
-import 'host_detail_page.dart';
 
 /// Full-screen proposal detail — the exact mirror of the activity post
 /// detail on the demand side.
@@ -154,12 +151,14 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
     }
   }
 
+  /// Hosts get the same rich public profile as everyone else (photos,
+  /// stats, reviews) — no separate stripped-down host page.
   void _openHost() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => HostDetailPage(
-          repository: widget.hostsRepository,
-          hostId: _proposal.hostId,
+        builder: (_) => UserProfilePage(
+          userId: _proposal.hostId,
+          profileRepository: widget.profileRepository,
         ),
       ),
     );
@@ -188,127 +187,95 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    // No hero cover: the page is text-first like the request detail. Each
+    // viewpoint leads with its own focus:
+    // - user viewer: the host card right after the title (inviting is
+    //   picking a person), then the plan text; price + CTA in the bar
+    // - host owner: the invite queue is the job, right after the header
+    // - host bystander: info only, no action surface
     return Scaffold(
-      body: CustomScrollView(
-        slivers: <Widget>[
-          SliverAppBar(
-            expandedHeight: 300,
-            pinned: true,
-            backgroundColor: AppColors.background,
-            leading: _BackButton(onTap: () => Navigator.of(context).pop()),
-            flexibleSpace: FlexibleSpaceBar(
-              background: AppNetworkImage(url: _proposal.coverImageUrl),
+      appBar: AppBar(),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        children: <Widget>[
+          Text.rich(
+            TextSpan(
+              children: <InlineSpan>[
+                TextSpan(
+                  text: AppStrings.sceneLabel(_proposal.sceneTag),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent,
+                  ),
+                ),
+                if (!_proposal.isOpen)
+                  const TextSpan(
+                    text: ' \u00b7 ${AppStrings.proposalNotOpenSnack}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+              ],
             ),
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentSoft,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          AppStrings.sceneLabel(_proposal.sceneTag),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                      if (!_proposal.isOpen) ...<Widget>[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.otherMessageBubble,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            AppStrings.proposalNotOpenSnack,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _proposal.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  if (_proposal.description.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Text(
-                      _proposal.description,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 1.7,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                  if (_infoLine.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Row(
-                      children: <Widget>[
-                        const Icon(
-                          Iconsax.location,
-                          size: 15,
-                          color: AppColors.textHint,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _infoLine,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  if (_isMine) ...<Widget>[
-                    _InvitesSection(
-                      invites: _invites,
-                      busy: _selecting,
-                      onSelect: _select,
-                      onOpenProfile: _openInviterProfile,
-                    ),
-                    const SizedBox(height: 14),
-                  ] else ...<Widget>[
-                    _HostCardTile(proposal: _proposal, onTap: _openHost),
-                    const SizedBox(height: 14),
-                  ],
-                  const _SafetyNote(),
-                ],
+          const SizedBox(height: 6),
+          Text(
+            _proposal.title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          if (!_isMine) ...<Widget>[
+            const SizedBox(height: 14),
+            _HostCardTile(proposal: _proposal, onTap: _openHost),
+          ],
+          if (_proposal.description.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            Text(
+              _proposal.description,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.7,
+                color: AppColors.textSecondary,
               ),
             ),
-          ),
+          ],
+          if (_infoLine.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                const Icon(
+                  Iconsax.location,
+                  size: 15,
+                  color: AppColors.textHint,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _infoLine,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_isMine) ...<Widget>[
+            const SizedBox(height: 18),
+            _InvitesSection(
+              invites: _invites,
+              busy: _selecting,
+              onSelect: _select,
+              onOpenProfile: _openInviterProfile,
+            ),
+          ],
         ],
       ),
       // Inviting is a user action on open pitches; the host owner and
@@ -320,34 +287,6 @@ class _ProposalDetailPageState extends State<ProposalDetailPage> {
                   onInvite: _invite,
                 )
               : null,
-    );
-  }
-}
-
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.background.withValues(alpha: 0.92),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Iconsax.arrow_left_2,
-            size: 20,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -578,38 +517,6 @@ class _HostCardTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SafetyNote extends StatelessWidget {
-  const _SafetyNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const <Widget>[
-          Icon(Iconsax.shield_tick, size: 17, color: AppColors.accent),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              AppStrings.safetyNotice,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
