@@ -15,6 +15,7 @@ import '../../community/pages/signup_plan_page.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/pages/user_profile_page.dart';
 import '../data/hosts_repository.dart';
+import '../models/host_card.dart';
 import '../models/proposal_card.dart';
 import '../widgets/invite_flow.dart';
 
