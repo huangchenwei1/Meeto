@@ -16,6 +16,7 @@ class LiveOrder {
     required this.payerPhone,
     required this.earnerPhone,
     required this.postTitle,
+    this.postImageUrl = '',
     required this.scheduledAt,
     required this.place,
     required this.placeLat,
@@ -50,6 +51,7 @@ class LiveOrder {
       payerPhone: json['payerPhone'] as String? ?? '',
       earnerPhone: json['earnerPhone'] as String? ?? '',
       postTitle: json['postTitle'] as String? ?? '',
+      postImageUrl: resolveMediaUrl(json['postImageUrl'] as String? ?? ''),
       scheduledAt: parseDate(json['scheduledAt']),
       place: json['place'] as String? ?? '',
       placeLat: (json['placeLat'] as num?)?.toDouble() ?? 0,
@@ -88,6 +90,9 @@ class LiveOrder {
   /// Date context from the post so the order can be presented as a
   /// concrete activity rather than a bare chat.
   final String postTitle;
+
+  /// The activity's cover image (empty on legacy orders).
+  final String postImageUrl;
 
   /// EFFECTIVE venue and time: set once the plan is confirmed
   /// (zeros/empty/null mean nothing structured yet).

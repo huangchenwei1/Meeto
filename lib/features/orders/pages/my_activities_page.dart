@@ -9,6 +9,7 @@ import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/widgets/app_avatar.dart';
+import '../../../shared/widgets/app_network_image.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
 import '../../community/models/post_author.dart';
@@ -313,6 +314,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                   typeLabel: j.mine
                                       ? AppStrings.activityMinePostLabel
                                       : AppStrings.activityAppliedLabel,
+                                  imageUrl: j.post.imageUrl,
                                   icon: j.mine
                                       ? Iconsax.calendar_add
                                       : Iconsax.send_2,
@@ -347,6 +349,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                   cardKey: 'myActivity-${j.proposal.id}',
                                   typeLabel:
                                       AppStrings.activityProposalLabel,
+                                  imageUrl: j.proposal.coverImageUrl,
                                   icon: Iconsax.magic_star,
                                   title: j.proposal.title,
                                   infoLine: <String>[
@@ -500,6 +503,7 @@ class _OrderCard extends StatelessWidget {
           ),
         ],
       ),
+      imageUrl: order.postImageUrl,
       icon: Iconsax.calendar_1,
       title: order.postTitle,
       lines: <String>[
@@ -547,6 +551,7 @@ class _WaitingCard extends StatelessWidget {
   const _WaitingCard({
     required this.cardKey,
     required this.typeLabel,
+    required this.imageUrl,
     required this.icon,
     required this.title,
     required this.infoLine,
@@ -562,6 +567,7 @@ class _WaitingCard extends StatelessWidget {
 
   /// The journey kind fronting the header (my post / my signup / my pitch).
   final String typeLabel;
+  final String imageUrl;
   final IconData icon;
   final String title;
   final String infoLine;
@@ -620,6 +626,7 @@ class _WaitingCard extends StatelessWidget {
           ),
         ],
       ),
+      imageUrl: imageUrl,
       icon: icon,
       title: title,
       lines: <String>[if (infoLine.isNotEmpty) infoLine],
@@ -639,12 +646,13 @@ class _WaitingCard extends StatelessWidget {
 }
 
 /// The shared big-card skeleton: header row, divider, service-item body
-/// (icon tile + title + info lines + amount), footer row + action pill.
+/// (cover image + title + info lines + amount), footer row + action pill.
 class _BigCard extends StatelessWidget {
   const _BigCard({
     required this.cardKey,
     required this.onTap,
     required this.header,
+    required this.imageUrl,
     required this.icon,
     required this.title,
     required this.lines,
@@ -657,6 +665,10 @@ class _BigCard extends StatelessWidget {
   final String cardKey;
   final VoidCallback onTap;
   final Widget header;
+
+  /// The activity's cover; [icon] is the fallback tile for entries
+  /// without one (e.g. legacy orders).
+  final String imageUrl;
   final IconData icon;
   final String title;
   final List<String> lines;
@@ -689,15 +701,25 @@ class _BigCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.accentSoft,
+                  if (imageUrl.isNotEmpty)
+                    ClipRRect(
                       borderRadius: BorderRadius.circular(12),
+                      child: AppNetworkImage(
+                        url: imageUrl,
+                        width: 48,
+                        height: 48,
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentSoft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, size: 22, color: AppColors.accent),
                     ),
-                    child: Icon(icon, size: 22, color: AppColors.accent),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

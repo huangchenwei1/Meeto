@@ -27,6 +27,9 @@ export interface OrderDto {
   /// EFFECTIVE values: set once the plan is confirmed, empty/zero/null
   /// before that (posts carry no structured time or place).
   postTitle: string;
+  /// The activity's cover, so order cards render the same image as the
+  /// post/proposal they came from.
+  postImageUrl: string;
   scheduledAt: Date | null;
   place: string;
   placeLat: number;
@@ -84,6 +87,7 @@ export function toOrderDto(
     payerPhone: disclosePhones ? order.payer.phone : '',
     earnerPhone: disclosePhones ? order.earner.phone : '',
     postTitle: order.post.title,
+    postImageUrl: order.post.imageUrl,
     scheduledAt: planConfirmed ? order.planAt : null,
     place: planConfirmed ? order.planPlace : '',
     placeLat: planConfirmed ? order.planLat : 0,
