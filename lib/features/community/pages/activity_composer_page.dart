@@ -149,7 +149,9 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
   late String _coverUrl =
       widget.template?.imageUrl ?? SceneImages.galleryForScene(_scene).first;
   String _timeSlot = '';
-  String _area = '';
+  // A template launch prefills the location with the template's anchor
+  // area; free-form publishes start blank.
+  late String _area = widget.template?.area ?? '';
   bool _submitting = false;
 
   bool get _freeForm => widget.template == null;
@@ -303,7 +305,7 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
           ),
           const FormFieldLabel(AppStrings.proposalAreaLabel),
           OptionChips(
-            options: AppStrings.manilaAreas,
+            options: AppStrings.cityAreas,
             selected: _area,
             onChanged: (String value) => setState(() => _area = value),
             keyPrefix: 'publishArea',

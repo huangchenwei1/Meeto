@@ -12,6 +12,7 @@ class ActivityTemplate {
     required this.imageUrl,
     required this.durationLabel,
     required this.venueLabel,
+    this.area = '',
   });
 
   factory ActivityTemplate.fromJson(Map<String, dynamic> json) {
@@ -23,6 +24,7 @@ class ActivityTemplate {
       imageUrl: json['imageUrl'] as String? ?? '',
       durationLabel: json['durationLabel'] as String? ?? '',
       venueLabel: json['venueLabel'] as String? ?? '',
+      area: json['area'] as String? ?? '',
     );
   }
 
@@ -38,9 +40,7 @@ class ActivityTemplate {
   /// Display label for the venue type, e.g. "咖啡馆".
   final String venueLabel;
 
-  /// "约 1.5 小时 · 咖啡馆" — the shelf card's info line.
-  String get metaLine => <String>[
-        if (durationLabel.isNotEmpty) durationLabel,
-        if (venueLabel.isNotEmpty) venueLabel,
-      ].join(' \u00b7 ');
+  /// Rough city area the activity anchors to (e.g. "黎黄陂路"); matches
+  /// the composer's area chips so launching prefills the post location.
+  final String area;
 }

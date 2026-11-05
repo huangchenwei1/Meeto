@@ -401,78 +401,85 @@ class MockCommunityRepository implements CommunityRepository {
     return _scenes;
   }
 
-  // Mirrors server/src/posts/activity-templates.ts: a hand-picked Manila
+  // Mirrors server/src/posts/activity-templates.ts: a hand-picked Wuhan
   // list standing in for the future ops console.
   static const List<ActivityTemplate> _templates = <ActivityTemplate>[
     ActivityTemplate(
-      id: 'template-salcedo-market-coffee',
+      id: 'template-lihuangpi-road-coffee',
       sceneTag: 'Coffee',
-      title: 'Salcedo 周末市集咖啡散步',
-      description: '市集开档的周六早上，边逛边喝，Makati 最松弛的两小时',
+      title: '黎黄陂路街角咖啡散步',
+      description: '老租界的红砖路，一杯手冲边走边喝，武汉最松弛的两小时',
       imageUrl:
           'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 2 小时',
-      venueLabel: '周末市集',
+      venueLabel: '街区漫步',
+      area: '黎黄陂路',
     ),
     ActivityTemplate(
-      id: 'template-legazpi-bookshop-cafe',
+      id: 'template-tanhualin-bookshop-cafe',
       sceneTag: 'Coffee',
-      title: 'Legazpi 书店里的隐藏咖啡馆',
+      title: '昙华林书店里的隐藏咖啡馆',
       description: '藏在书架后面的吧台，豆子好，人少安静',
       imageUrl:
           'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 1.5 小时',
       venueLabel: '咖啡馆',
+      area: '昙华林',
     ),
     ActivityTemplate(
-      id: 'template-poblacion-filipino-dinner',
+      id: 'template-wansongyuan-crayfish-dinner',
       sceneTag: 'Dinner',
-      title: 'Poblacion 小巷菲式融合晚餐',
-      description: '本地主厨的创意菜，一个人不敢点满桌，两个人刚好',
+      title: '万松园油焖大虾宵夜局',
+      description: '老牌虾店加生烫牛肉，一个人不敢点满桌，两个人刚好',
       imageUrl:
           'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 2 小时',
-      venueLabel: '餐厅',
+      venueLabel: '大排档',
+      area: '万松园',
     ),
     ActivityTemplate(
-      id: 'template-little-tokyo-omakase',
+      id: 'template-jianghan-road-omakase',
       sceneTag: 'Dinner',
-      title: '小东京板前日料',
-      description: 'Makati 小东京 12 座板前，当天最新鲜的交给主厨',
+      title: '江汉路板前日料',
+      description: '12 座的板前，当天最新鲜的交给主厨安排',
       imageUrl:
           'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 2 小时',
       venueLabel: '日料店',
+      area: '江汉路',
     ),
     ActivityTemplate(
-      id: 'template-poblacion-rooftop-bars',
+      id: 'template-jiangtan-riverside-bars',
       sceneTag: 'Bar',
-      title: 'Poblacion 天台酒吧巡礼',
-      description: '从精酿到调酒，三家风格完全不同的天台，微醺收尾',
+      title: '江滩夜景酒吧巡礼',
+      description: '从精酿到调酒，三家风格不同的小店，看着长江微醺收尾',
       imageUrl:
           'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 3 小时',
       venueLabel: '酒吧',
+      area: '汉口江滩',
     ),
     ActivityTemplate(
-      id: 'template-bgc-movie-dessert',
+      id: 'template-chuhehanjie-movie-dessert',
       sceneTag: 'Movie',
-      title: 'BGC 影院夜 + 散场甜品',
+      title: '楚河汉街影院夜 + 散场甜品',
       description: '新片加散场后的甜品店复盘，不用自己做任何决定',
       imageUrl:
           'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 3 小时',
       venueLabel: '影院',
+      area: '楚河汉街',
     ),
     ActivityTemplate(
-      id: 'template-intramuros-tea',
+      id: 'template-donghu-lakeside-tea',
       sceneTag: 'Tea',
-      title: 'Intramuros 老城下午茶',
-      description: '西班牙老城区走一圈，末站是百年建筑里的茶室',
+      title: '东湖边的下午茶',
+      description: '听涛绿道走一圈，末站是湖边安静的茶室',
       imageUrl:
           'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
       durationLabel: '约 2.5 小时',
       venueLabel: '茶室',
+      area: '东湖',
     ),
   ];
 

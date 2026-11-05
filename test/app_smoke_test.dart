@@ -29,7 +29,7 @@ void main() {
     // Community tab (default): the curated template shelf — the only
     // publish entry — plus the sharing wall behind the second header tab.
     expect(find.text(AppStrings.hotActivitiesTab), findsOneWidget);
-    expect(find.text('Salcedo 周末市集咖啡散步'), findsOneWidget);
+    expect(find.text('黎黄陂路街角咖啡散步'), findsOneWidget);
     expect(find.text(AppStrings.templateLaunchCta), findsWidgets);
     await tester.tap(
       find.byKey(const ValueKey<String>('communityTabShares')),

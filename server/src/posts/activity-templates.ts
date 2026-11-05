@@ -16,6 +16,9 @@ export interface ActivityTemplate {
   durationLabel: string;
   /// Display label for the venue type, e.g. "咖啡馆".
   venueLabel: string;
+  /// Rough city area the activity anchors to (e.g. "黎黄陂路"); matches
+  /// the composer's area chips so launching prefills the post location.
+  area: string;
 }
 
 export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
@@ -28,6 +31,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2 小时',
     venueLabel: '街区漫步',
+    area: '黎黄陂路',
   },
   {
     id: 'template-tanhualin-bookshop-cafe',
@@ -38,6 +42,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 1.5 小时',
     venueLabel: '咖啡馆',
+    area: '昙华林',
   },
   {
     id: 'template-wansongyuan-crayfish-dinner',
@@ -48,6 +53,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2 小时',
     venueLabel: '大排档',
+    area: '万松园',
   },
   {
     id: 'template-jianghan-road-omakase',
@@ -58,6 +64,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2 小时',
     venueLabel: '日料店',
+    area: '江汉路',
   },
   {
     id: 'template-jiangtan-riverside-bars',
@@ -68,6 +75,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 3 小时',
     venueLabel: '酒吧',
+    area: '汉口江滩',
   },
   {
     id: 'template-chuhehanjie-movie-dessert',
@@ -78,6 +86,7 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 3 小时',
     venueLabel: '影院',
+    area: '楚河汉街',
   },
   {
     id: 'template-donghu-lakeside-tea',
@@ -88,5 +97,6 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
       'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2.5 小时',
     venueLabel: '茶室',
+    area: '东湖',
   },
 ];
