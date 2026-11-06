@@ -207,7 +207,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
         _loaded = true;
       });
       // Counterpart interactions waiting on me: these mirror the cards'
-      // action pills (去选人 / 查看邀约) and drive the tab badge.
+      // highlighted status badges and drive the tab badge.
       widget.onActionableCount?.call(
         journeys
             .where(
@@ -360,10 +360,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                           : '',
                                   highlighted:
                                       j.mine && j.post.signedCount > 0,
-                                  actionLabel:
-                                      j.mine && j.post.signedCount > 0
-                                          ? AppStrings.activityPickCta
-                                          : null,
                                   createdAt: j.post.createdAt,
                                   onTap: () => _openPost(j.post),
                                 ),
@@ -388,9 +384,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                         )
                                       : '',
                                   highlighted: j.proposal.inviteCount > 0,
-                                  actionLabel: j.proposal.inviteCount > 0
-                                      ? AppStrings.activityInvitesCta
-                                      : null,
                                   createdAt: j.proposal.createdAt,
                                   onTap: () => _openProposal(j.proposal),
                                 ),
@@ -538,8 +531,8 @@ class _OrderCard extends StatelessWidget {
 
 /// A journey still waiting on the market: my post collecting signups, my
 /// pitch collecting invites, or my signup waiting for selection. The
-/// status reads as quiet body copy, and an action pill appears only when
-/// something actually arrived to act on.
+/// status sits in the card's top-right corner and speaks only when
+/// someone showed up; no pill — the whole card is the tap target.
 class _WaitingCard extends StatelessWidget {
   const _WaitingCard({
     required this.cardKey,
@@ -549,7 +542,6 @@ class _WaitingCard extends StatelessWidget {
     required this.infoLine,
     required this.statusLine,
     required this.highlighted,
-    required this.actionLabel,
     required this.createdAt,
     required this.onTap,
   });
@@ -564,10 +556,6 @@ class _WaitingCard extends StatelessWidget {
   /// true when something arrived for the owner (signups/invites),
   /// coloring the status as a call to action.
   final bool highlighted;
-
-  /// Pill label when the status demands action; null hides the pill
-  /// (the whole card stays tappable).
-  final String? actionLabel;
   final DateTime createdAt;
   final VoidCallback onTap;
 
@@ -582,7 +570,6 @@ class _WaitingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? label = actionLabel;
     return _BigCard(
       cardKey: cardKey,
       onTap: onTap,
@@ -595,23 +582,16 @@ class _WaitingCard extends StatelessWidget {
           highlighted ? AppColors.accent : const Color(0xFFD97706),
       footerLeft: _postedLine(context),
       footerRight: null,
-      action: label == null
-          ? null
-          : _Pill(
-              pillKey: '$cardKey-open',
-              label: label,
-              primary: true,
-              onTap: onTap,
-            ),
+      action: null,
     );
   }
 }
 
 /// The shared big-card skeleton: service-item body (cover image + title +
-/// info lines + quiet status line), footer row + action pill. Money
-/// stays off the board by design — the deal's total lives on the order
-/// footer only.
-/// Deliberately no header band: who/status live as body copy, and the
+/// info lines, stage badge in the top-right corner), footer row + action
+/// pill. Money stays off the board by design — the deal's total lives on
+/// the order footer only.
+/// Deliberately no header band: the who reads as body copy, and the
 /// running deal announces itself through its accent chat pill instead.
 class _BigCard extends StatelessWidget {
   const _BigCard({
@@ -638,7 +618,7 @@ class _BigCard extends StatelessWidget {
   final String title;
   final List<String> lines;
 
-  /// The stage, told as body copy (进行中 / 等人报名 / N 人已报名…).
+  /// The stage (进行中 / N 人已报名…), shown top-right; empty hides it.
   final String statusText;
   final Color statusColor;
   final String footerLeft;
@@ -711,22 +691,20 @@ class _BigCard extends StatelessWidget {
                             ),
                           ),
                         ],
-                        if (statusText.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 3),
-                          Text(
-                            statusText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: statusColor,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
+                  if (statusText.isNotEmpty) ...<Widget>[
+                    const SizedBox(width: 10),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 10),
