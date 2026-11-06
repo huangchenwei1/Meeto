@@ -63,7 +63,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     // Big order-style cards: the provider line carries the peer, the
-    // status strings also label the filter chips.
+    // stage reads as a body status line on each card.
     expect(find.textContaining('Liza'), findsOneWidget);
     expect(find.text(AppStrings.statusActive), findsWidgets);
     expect(find.textContaining('Bianca'), findsOneWidget);

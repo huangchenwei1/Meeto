@@ -23,16 +23,16 @@ import 'order_room_page.dart';
 
 /// My Activities filter identifiers (display labels live in [AppStrings]).
 const String _filterAll = 'ALL';
-const String _filterWaiting = 'WAITING';
-const String _filterActive = 'ACTIVE';
-const String _filterDone = 'DONE';
+const String _filterPublished = 'PUBLISHED';
+const String _filterJoined = 'JOINED';
 
 /// Tab 3: the My Activities board — the order page folded into the tab.
-/// One big order-style card per activity journey, filterable by stage:
-/// - 待加入 (waiting): my open post collecting signups, my open pitch
-///   collecting invites, a post I signed up for awaiting selection
-/// - 进行中 (active): formed deals; the card opens the chat room
-/// - 已完成 (done): finished deals, reviewable forever
+/// One big order-style card per activity journey, filterable by who
+/// started it:
+/// - 我发布的: activities I initiated — my open posts, my open pitches,
+///   and formed deals where I'm the one paying the budget
+/// - 我加入的: activities I joined — posts I signed up for and formed
+///   deals where I'm the one providing the service
 /// Deliberately no awaiting-payment or cancelled entries — unpaid deals
 /// finish (or expire) where they were formed, dead deals disappear.
 class MyActivitiesPage extends StatefulWidget {
@@ -65,6 +65,10 @@ sealed class _Journey {
 
   int get group;
   DateTime get createdAt;
+
+  /// true when I started this activity (posted / pitched / paying for
+  /// it); false when I joined someone else's. Drives the role filter.
+  bool get publishedByMe;
 }
 
 class _OrderJourney extends _Journey {
@@ -79,6 +83,11 @@ class _OrderJourney extends _Journey {
 
   @override
   DateTime get createdAt => order.createdAt;
+
+  /// Both deal flows (post + signup, proposal + invite) make the activity
+  /// owner the payer, so payer == the one who started it.
+  @override
+  bool get publishedByMe => order.isPayer(AuthSession.currentUserId);
 }
 
 class _PostJourney extends _Journey {
@@ -94,6 +103,9 @@ class _PostJourney extends _Journey {
 
   @override
   DateTime get createdAt => post.createdAt;
+
+  @override
+  bool get publishedByMe => mine;
 }
 
 class _ProposalJourney extends _Journey {
@@ -106,6 +118,10 @@ class _ProposalJourney extends _Journey {
 
   @override
   DateTime get createdAt => proposal.createdAt;
+
+  /// My open pitch on the hall: mine by definition.
+  @override
+  bool get publishedByMe => true;
 }
 
 class MyActivitiesPageState extends State<MyActivitiesPage> {
@@ -207,14 +223,10 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
   }
 
   List<_Journey> get _visible => switch (_filter) {
-        _filterWaiting =>
-          _journeys.where((_Journey j) => j.group == 1).toList(),
-        _filterActive => _journeys
-            .where((_Journey j) => j is _OrderJourney && j.active)
-            .toList(),
-        _filterDone => _journeys
-            .where((_Journey j) => j is _OrderJourney && !j.active)
-            .toList(),
+        _filterPublished =>
+          _journeys.where((_Journey j) => j.publishedByMe).toList(),
+        _filterJoined =>
+          _journeys.where((_Journey j) => !j.publishedByMe).toList(),
         _ => _journeys,
       };
 
@@ -277,9 +289,8 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                 for (final (String id, String label)
                     in <(String, String)>[
                   (_filterAll, AppStrings.activityFilterAll),
-                  (_filterWaiting, AppStrings.activityFilterWaiting),
-                  (_filterActive, AppStrings.statusActive),
-                  (_filterDone, AppStrings.statusCompleted),
+                  (_filterPublished, AppStrings.activityFilterPublished),
+                  (_filterJoined, AppStrings.activityFilterJoined),
                 ]) ...<Widget>[
                   _FilterChip(
                     key: ValueKey<String>('activityFilter$id'),
