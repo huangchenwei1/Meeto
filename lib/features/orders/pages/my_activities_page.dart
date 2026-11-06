@@ -349,15 +349,15 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                           .timeSlotLabel(j.post.timeSlot),
                                     if (j.post.area.isNotEmpty) j.post.area,
                                   ].join(' \u00b7 '),
-                                  statusLine: j.mine
-                                      ? (j.post.signedCount > 0
+                                  // Idle waiting needs no caption — the
+                                  // status line only speaks when someone
+                                  // actually showed up.
+                                  statusLine:
+                                      j.mine && j.post.signedCount > 0
                                           ? AppStrings.appliedCount(
                                               j.post.signedCount,
                                             )
-                                          : AppStrings
-                                              .activityWaitingSignups)
-                                      : AppStrings
-                                          .activityAwaitingSelection,
+                                          : '',
                                   highlighted:
                                       j.mine && j.post.signedCount > 0,
                                   actionLabel:
@@ -386,7 +386,7 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                       ? AppStrings.activityInvites(
                                           j.proposal.inviteCount,
                                         )
-                                      : AppStrings.activityWaitingInvites,
+                                      : '',
                                   highlighted: j.proposal.inviteCount > 0,
                                   actionLabel: j.proposal.inviteCount > 0
                                       ? AppStrings.activityInvitesCta
