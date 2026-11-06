@@ -1,12 +1,15 @@
 /// Platform pricing configuration.
 ///
 /// PRODUCT RULES (confirmed):
-/// - The price buys the whole activity, not companionship: the platform
-///   defines budget tiers per scene and the poster picks one; free
-///   pricing is never allowed.
-/// - The host covers the activity costs (food, drinks, tickets) out of the
-///   budget and keeps the remainder as hosting income.
-/// - The poster always pays the budget; signing up as a host is free.
+/// - The fee buys the hosting SERVICE — planning the itinerary, booking
+///   the venue, coordinating on site — never companionship and never the
+///   consumption itself: the platform defines fee tiers per scene and
+///   the poster picks one; free pricing is never allowed.
+/// - On-site spend (food, drinks, tickets) is NOT included: every
+///   participant pays their own share at the venue. The host advances
+///   nothing and earns the same regardless of what the outing costs, so
+///   there is no incentive to cut corners.
+/// - The poster always pays the fee; signing up as a host is free.
 /// - Payment is held in escrow by the platform and settled to the host
 ///   after the activity completes, minus [platformFeeRate].
 /// - Cancellation refunds the full amount.
@@ -50,7 +53,7 @@ class PricingConfig {
   /// Platform commission taken from the service fee on settlement (0..1).
   final double platformFeeRate;
 
-  /// Platform-defined activity budget tiers (whole pesos, ascending) per
+  /// Platform-defined hosting-fee tiers (whole pesos, ascending) per
   /// scene tag; the poster picks one.
   final Map<String, List<int>> sceneBudgetTiers;
 

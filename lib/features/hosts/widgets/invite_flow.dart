@@ -174,7 +174,7 @@ class _InviteSheetState extends State<InviteSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            AppStrings.budgetCoversNoteUser,
+            AppStrings.serviceFeeNoteUser,
             style: const TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
           const SizedBox(height: 14),

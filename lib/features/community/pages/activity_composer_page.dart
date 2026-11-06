@@ -36,8 +36,8 @@ Future<bool?> openActivityComposer(
             ? AppStrings.proposalComposerTitle
             : AppStrings.publishTitle,
         budgetNote: isHost
-            ? AppStrings.budgetCoversNoteHost
-            : AppStrings.budgetCoversNoteUser,
+            ? AppStrings.serviceFeeNoteHost
+            : AppStrings.serviceFeeNoteUser,
         template: template,
         onSubmit: (ActivityDraft draft) async {
           if (isHost) {
@@ -256,7 +256,7 @@ class _ActivityComposerPageState extends State<ActivityComposerPage> {
               keyPrefix: 'composerScene',
             ),
           ],
-          const FormFieldLabel(AppStrings.activityBudgetLabel),
+          const FormFieldLabel(AppStrings.hostingFeeLabel),
           BudgetTierChips(
             sceneTag: _scene,
             selected: _budget,
