@@ -143,11 +143,16 @@ export class HostsService {
   }
 
   /// The hall feed: open pitches only (matched ones left the market),
-  /// newest first. Per-proposal counts are batched so the feed stays a
-  /// handful of queries, not one per card.
+  /// newest first. ROLE-ISOLATED: users shop every host's pitches; a host
+  /// sees only their own — same-side browsing is deliberately off (no
+  /// peeking at competitors' copy and pricing). Per-proposal counts are
+  /// batched so the feed stays a handful of queries, not one per card.
   async proposalFeed(caller: User): Promise<ProposalDto[]> {
     const proposals = await this.prisma.proposal.findMany({
-      where: { status: PostStatus.open },
+      where: {
+        status: PostStatus.open,
+        ...(caller.role === Role.host ? { hostId: caller.id } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { host: true },

@@ -360,9 +360,15 @@ class MockCommunityRepository implements CommunityRepository {
   @override
   Future<List<ActivityPost>> fetchOpenRequests() async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Mirrors the server's role isolation: hosts see every request (their
+    // work queue); users see only their own.
     return _posts
         .where(
-          (ActivityPost post) => !post.isMoment && post.status != 'CANCELLED',
+          (ActivityPost post) =>
+              !post.isMoment &&
+              post.status != 'CANCELLED' &&
+              (AuthSession.isHost ||
+                  post.author.id == AuthSession.currentUserId),
         )
         .toList()
       ..sort(

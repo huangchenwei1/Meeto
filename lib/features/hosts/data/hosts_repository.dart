@@ -238,8 +238,15 @@ class MockHostsRepository implements HostsRepository {
   @override
   Future<List<ProposalCard>> fetchProposals() async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
+    // Mirrors the server's role isolation: users shop every host's
+    // pitches; a host sees only their own.
     return _proposals
-        .where((ProposalCard p) => !_closed.contains(p.id))
+        .where(
+          (ProposalCard p) =>
+              !_closed.contains(p.id) &&
+              (!AuthSession.isHost ||
+                  p.hostId == AuthSession.currentUserId),
+        )
         .map(_decorate)
         .toList(growable: false);
   }
@@ -274,7 +281,7 @@ class MockHostsRepository implements HostsRepository {
       timeSlot: timeSlot,
       budgetAmount: budget,
       createdAt: DateTime.now(),
-      hostId: 'host-you',
+      hostId: AuthSession.currentUserId,
       hostName: 'You',
       hostAvatarUrl: '',
       hostMeta: '',

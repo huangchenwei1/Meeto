@@ -157,9 +157,11 @@ export class PostsService {
     // Two public surfaces plus two personal views:
     // - default (the community wall): sharing posts (moments) only; demand
     //   posts never show here.
-    // - view=requests (the host gig hall): demand posts in every live
-    //   status. Private invitation deals (DIRECT origin) are excluded at
-    //   all times.
+    // - view=requests (the gig hall): demand posts in every live status.
+    //   ROLE-ISOLATED: hosts see every user's requests (their work queue);
+    //   users see only their own — same-side browsing is deliberately off
+    //   (the hall trades services, it is not a bulletin board). Private
+    //   invitation deals (DIRECT origin) are excluded at all times.
     // - view=applied: still-open demand posts the caller signed up for
     //   and is waiting on (the host's side of the activity board).
     // - authorId: that author's posts in every status.
@@ -171,6 +173,7 @@ export class PostsService {
             ? {
                 origin: PostOrigin.feed,
                 type: PostType.demand,
+                ...(caller.role === Role.host ? {} : { authorId: caller.id }),
                 // Requests stay listed through their whole life —
                 // selection, payment, even completion — so the hall
                 // keeps showing activity. Only cancelled/deleted posts

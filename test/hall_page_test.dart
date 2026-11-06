@@ -48,10 +48,11 @@ void main() {
       expect(find.text(AppStrings.gigPitchCta), findsWidgets);
       expect(find.textContaining('omakase counter'), findsNothing);
 
-      // Host proposals are visible but carry no invite pill for a host.
-      await tester.scrollUntilVisible(
+      // Role isolation: other hosts' pitches are invisible to a host —
+      // no peeking at competitors' copy and pricing.
+      expect(
         find.textContaining('Poblacion \u5929\u53f0\u9152\u5427'),
-        400,
+        findsNothing,
       );
       expect(find.text(AppStrings.hostInviteCta), findsNothing);
     });
@@ -74,16 +75,26 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(AppStrings.hostInviteCta), findsWidgets);
-      // Other users' requests are browse-only: no pitch pill anywhere.
+      // Role isolation: other users' requests are invisible (the hall is
+      // not a bulletin board); Andrea still sees her own post, which
+      // carries no pitch pill for her.
+      expect(
+        find.text('Show me a cafe worth leaving BGC for'),
+        findsNothing,
+      );
       expect(find.text(AppStrings.gigPitchCta), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Slow Sunday: dessert cafe and no agenda'),
+        400,
+      );
 
-      // The proposals filter hides demand posts.
+      // The proposals filter hides her own demand post too.
       await tester.tap(
         find.byKey(const ValueKey<String>('hallFilterPROPOSALS')),
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('Show me a cafe worth leaving BGC for'),
+        find.text('Slow Sunday: dessert cafe and no agenda'),
         findsNothing,
       );
     });

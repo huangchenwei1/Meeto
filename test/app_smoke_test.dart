@@ -47,7 +47,7 @@ void main() {
 
     // Hall tab: the unified board. For a USER persona the host proposals
     // lead with invite pills; demand posts from other users are browse-only.
-    await tester.tap(find.byIcon(Iconsax.home_2));
+    await tester.tap(find.byIcon(Iconsax.discover_1));
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.hallTitle), findsOneWidget);
     expect(find.text(AppStrings.hostInviteCta), findsWidgets);
@@ -58,7 +58,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationBar),
-        matching: find.byIcon(Iconsax.calendar_1),
+        matching: find.byIcon(Iconsax.calendar),
       ),
     );
     await tester.pumpAndSettle();
@@ -71,7 +71,7 @@ void main() {
 
     // Me tab: menu renders; the wallet is host-side only, so the USER
     // persona must not see it.
-    await tester.tap(find.byIcon(Iconsax.user));
+    await tester.tap(find.byIcon(Iconsax.profile_circle));
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.walletLabel), findsNothing);
     expect(find.text(AppStrings.menuMyPosts), findsOneWidget);
