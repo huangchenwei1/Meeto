@@ -338,7 +338,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                           .timeSlotLabel(j.post.timeSlot),
                                     if (j.post.area.isNotEmpty) j.post.area,
                                   ].join(' \u00b7 '),
-                                  amount: j.post.budgetAmount,
                                   statusLine: j.mine
                                       ? (j.post.signedCount > 0
                                           ? AppStrings.appliedCount(
@@ -372,7 +371,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                     if (j.proposal.area.isNotEmpty)
                                       j.proposal.area,
                                   ].join(' \u00b7 '),
-                                  amount: j.proposal.budgetAmount,
                                   statusLine: j.proposal.inviteCount > 0
                                       ? AppStrings.activityInvites(
                                           j.proposal.inviteCount,
@@ -493,7 +491,6 @@ class _OrderCard extends StatelessWidget {
       statusText:
           _active ? AppStrings.statusActive : AppStrings.statusCompleted,
       statusColor: _active ? AppColors.accent : AppColors.textHint,
-      amount: fee,
       footerLeft: _createdLine(context),
       footerRight: Text.rich(
         TextSpan(
@@ -539,7 +536,6 @@ class _WaitingCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.infoLine,
-    required this.amount,
     required this.statusLine,
     required this.highlighted,
     required this.actionLabel,
@@ -552,7 +548,6 @@ class _WaitingCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String infoLine;
-  final int amount;
   final String statusLine;
 
   /// true when something arrived for the owner (signups/invites),
@@ -587,7 +582,6 @@ class _WaitingCard extends StatelessWidget {
       statusText: statusLine,
       statusColor:
           highlighted ? AppColors.accent : const Color(0xFFD97706),
-      amount: MoneyFormat.format(amount),
       footerLeft: _postedLine(context),
       footerRight: null,
       action: label == null
@@ -603,7 +597,9 @@ class _WaitingCard extends StatelessWidget {
 }
 
 /// The shared big-card skeleton: service-item body (cover image + title +
-/// info lines + quiet status line + amount), footer row + action pill.
+/// info lines + quiet status line), footer row + action pill. Money
+/// stays off the board by design — the deal's total lives on the order
+/// footer only.
 /// Deliberately no header band: who/status live as body copy, and the
 /// running deal announces itself through its accent chat pill instead.
 class _BigCard extends StatelessWidget {
@@ -616,7 +612,6 @@ class _BigCard extends StatelessWidget {
     required this.lines,
     required this.statusText,
     required this.statusColor,
-    required this.amount,
     required this.footerLeft,
     required this.footerRight,
     required this.action,
@@ -635,7 +630,6 @@ class _BigCard extends StatelessWidget {
   /// The stage, told as body copy (进行中 / 等人报名 / N 人已报名…).
   final String statusText;
   final Color statusColor;
-  final String amount;
   final String footerLeft;
   final Widget? footerRight;
 
@@ -720,15 +714,6 @@ class _BigCard extends StatelessWidget {
                           ),
                         ],
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    amount,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],
