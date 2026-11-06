@@ -8,7 +8,6 @@ import '../../../core/env/app_env.dart';
 import '../../../core/session/auth_session.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
-import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/app_network_image.dart';
 import '../../community/data/community_repository.dart';
 import '../../community/models/activity_post.dart';
@@ -327,9 +326,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                 ),
                               final _PostJourney j => _WaitingCard(
                                   cardKey: 'myActivity-${j.post.id}',
-                                  typeLabel: j.mine
-                                      ? AppStrings.activityMinePostLabel
-                                      : AppStrings.activityAppliedLabel,
                                   imageUrl: j.post.imageUrl,
                                   icon: j.mine
                                       ? Iconsax.calendar_add
@@ -363,8 +359,6 @@ class MyActivitiesPageState extends State<MyActivitiesPage> {
                                 ),
                               final _ProposalJourney j => _WaitingCard(
                                   cardKey: 'myActivity-${j.proposal.id}',
-                                  typeLabel:
-                                      AppStrings.activityProposalLabel,
                                   imageUrl: j.proposal.coverImageUrl,
                                   icon: Iconsax.magic_star,
                                   title: j.proposal.title,
@@ -488,44 +482,17 @@ class _OrderCard extends StatelessWidget {
     return _BigCard(
       cardKey: 'myActivity-${order.id}',
       onTap: onTap,
-      header: Row(
-        children: <Widget>[
-          AppAvatar(
-            size: 22,
-            imageUrl: peer.avatarUrl,
-            fallbackLetter: peer.name.isEmpty ? '?' : peer.name[0],
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              providerLine,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            _active ? AppStrings.statusActive : AppStrings.statusCompleted,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _active ? AppColors.accent : AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
       imageUrl: order.postImageUrl,
       icon: Iconsax.calendar_1,
       title: order.postTitle,
       lines: <String>[
+        providerLine,
         if (order.planPlace.isNotEmpty) order.planPlace,
         if (whenLine.isNotEmpty) whenLine,
       ],
+      statusText:
+          _active ? AppStrings.statusActive : AppStrings.statusCompleted,
+      statusColor: _active ? AppColors.accent : AppColors.textHint,
       amount: fee,
       footerLeft: _createdLine(context),
       footerRight: Text.rich(
@@ -552,7 +519,9 @@ class _OrderCard extends StatelessWidget {
         label: _active
             ? AppStrings.myOrderChatCta
             : AppStrings.myOrderDetailCta,
-        primary: _active,
+        primary: false,
+        // The board's one emphasis: the running deal's chat entry.
+        accent: _active,
         onTap: onTap,
       ),
     );
@@ -561,12 +530,11 @@ class _OrderCard extends StatelessWidget {
 
 /// A journey still waiting on the market: my post collecting signups, my
 /// pitch collecting invites, or my signup waiting for selection. The
-/// header names the journey type, the status rides on the right, and an
-/// action pill appears only when something actually arrived to act on.
+/// status reads as quiet body copy, and an action pill appears only when
+/// something actually arrived to act on.
 class _WaitingCard extends StatelessWidget {
   const _WaitingCard({
     required this.cardKey,
-    required this.typeLabel,
     required this.imageUrl,
     required this.icon,
     required this.title,
@@ -580,9 +548,6 @@ class _WaitingCard extends StatelessWidget {
   });
 
   final String cardKey;
-
-  /// The journey kind fronting the header (my post / my signup / my pitch).
-  final String typeLabel;
   final String imageUrl;
   final IconData icon;
   final String title;
@@ -615,37 +580,13 @@ class _WaitingCard extends StatelessWidget {
     return _BigCard(
       cardKey: cardKey,
       onTap: onTap,
-      header: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              typeLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            statusLine,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: highlighted
-                  ? AppColors.accent
-                  : const Color(0xFFD97706),
-            ),
-          ),
-        ],
-      ),
       imageUrl: imageUrl,
       icon: icon,
       title: title,
       lines: <String>[if (infoLine.isNotEmpty) infoLine],
+      statusText: statusLine,
+      statusColor:
+          highlighted ? AppColors.accent : const Color(0xFFD97706),
       amount: MoneyFormat.format(amount),
       footerLeft: _postedLine(context),
       footerRight: null,
@@ -661,17 +602,20 @@ class _WaitingCard extends StatelessWidget {
   }
 }
 
-/// The shared big-card skeleton: header row, divider, service-item body
-/// (cover image + title + info lines + amount), footer row + action pill.
+/// The shared big-card skeleton: service-item body (cover image + title +
+/// info lines + quiet status line + amount), footer row + action pill.
+/// Deliberately no header band: who/status live as body copy, and the
+/// running deal announces itself through its accent chat pill instead.
 class _BigCard extends StatelessWidget {
   const _BigCard({
     required this.cardKey,
     required this.onTap,
-    required this.header,
     required this.imageUrl,
     required this.icon,
     required this.title,
     required this.lines,
+    required this.statusText,
+    required this.statusColor,
     required this.amount,
     required this.footerLeft,
     required this.footerRight,
@@ -680,7 +624,6 @@ class _BigCard extends StatelessWidget {
 
   final String cardKey;
   final VoidCallback onTap;
-  final Widget header;
 
   /// The activity's cover; [icon] is the fallback tile for entries
   /// without one (e.g. legacy orders).
@@ -688,6 +631,10 @@ class _BigCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final List<String> lines;
+
+  /// The stage, told as body copy (进行中 / 等人报名 / N 人已报名…).
+  final String statusText;
+  final Color statusColor;
   final String amount;
   final String footerLeft;
   final Widget? footerRight;
@@ -710,10 +657,6 @@ class _BigCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              header,
-              const SizedBox(height: 10),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -760,6 +703,19 @@ class _BigCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                        if (statusText.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 3),
+                          Text(
+                            statusText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
                             ),
                           ),
                         ],
@@ -813,15 +769,21 @@ class _Pill extends StatelessWidget {
     required this.label,
     required this.primary,
     required this.onTap,
+    this.accent = false,
   });
 
   final String pillKey;
   final String label;
   final bool primary;
+
+  /// Brand-green fill: reserved for the running deal's chat pill, the
+  /// one emphasis on the board.
+  final bool accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final bool filled = primary || accent;
     return SizedBox(
       height: 32,
       child: OutlinedButton(
@@ -829,9 +791,10 @@ class _Pill extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           foregroundColor:
-              primary ? AppColors.background : AppColors.textSecondary,
-          backgroundColor: primary ? AppColors.darkCard : null,
-          side: primary
+              filled ? AppColors.background : AppColors.textSecondary,
+          backgroundColor:
+              accent ? AppColors.accent : (primary ? AppColors.darkCard : null),
+          side: filled
               ? BorderSide.none
               : const BorderSide(color: AppColors.border),
           padding: const EdgeInsets.symmetric(horizontal: 16),
