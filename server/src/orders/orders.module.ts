@@ -4,11 +4,12 @@ import {
   MockPaymentProvider,
   PAYMENT_PROVIDER,
 } from '../payments/payment.provider.js';
+import { PricingModule } from '../pricing/pricing.module.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
 
 @Module({
-  imports: [LedgerModule],
+  imports: [LedgerModule, PricingModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,

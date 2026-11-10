@@ -23,6 +23,9 @@ model User {
   name       String
   gender     String // MALE | FEMALE
   role       String   @default("USER") // USER | ADMIN
+  // ACTIVE | BANNED. A banned account fails every authenticated request
+  // immediately (checked in the auth guard), so a ban needs no token expiry.
+  status     String   @default("ACTIVE")
   avatarUrl  String   @default("")
   meta       String   @default("")
   bio        String   @default("")
@@ -53,6 +56,23 @@ model User {
   invitationsSent     Invitation[] @relation("inviter")
   invitationsReceived Invitation[] @relation("invitedHost")
   proposals           Proposal[]
+  reportsFiled        Report[]
+}
+
+// An in-room safety report. While a report is OPEN the order's automatic
+// settlement is held (the community guidelines promise exactly that), so
+// ops can refund or release deliberately.
+model Report {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id])
+  reason     String
+  status     String   @default("OPEN") // OPEN | RESOLVED
+  createdAt  DateTime @default(now())
+
+  @@index([status])
 }
 
 // A HOST's standing activity pitch ("let's catch a live gig"), the supply
@@ -68,15 +88,15 @@ model Proposal {
   description String   @default("") // optional elaboration, mirrors demand posts
   sceneTag    String // bound to the host's offered scenes, drives pricing
   imageUrl    String   @default("") // cover photo, optional
-  // Rough area of the pitch (e.g. "Poblacion", "BGC"), picked from a fixed
-  // list client-side. The exact venue still comes via the order plan flow.
+  // The platform activity template the pitch was launched from: scene,
+  // cover, district and meeting point all resolve from it.
+  templateId  String   @default("")
+  // District snapshot from the template (e.g. "Makati").
   area      String   @default("")
-  // Fuzzy time window (e.g. "weekend"), same options as demand posts.
-  timeSlot  String   @default("")
-  // The host picks one of the platform's budget tiers for the scene when
-  // publishing: whoever launches the activity prices it. Invitations from
-  // this pitch lock to this tier.
-  budgetMinor Int    @default(0)
+  // The host's rough availability window: the pitch is a service shelf
+  // listing, not a scheduled event. Inviters pick the concrete time (and
+  // the price tier) inside this window; selection locks it.
+  timeSlot  String   @default("ANYTIME") // ANYTIME | NOON | EVENING
   // Mirrors Post.status: OPEN takes invitations; selecting one moves it to
   // PENDING_PAYMENT, payment to MATCHED; a cancelled order reopens it.
   status    String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
@@ -103,6 +123,10 @@ model Invitation {
   // Activity budget tier the inviter picked; snapshotted so repricing
   // never changes a pending invitation.
   budgetMinor Int       @default(0)
+  // The concrete meeting time the inviter picked, inside the pitch's
+  // availability window and the host working hours. Selection turns this
+  // into the order's plan time.
+  scheduledAt DateTime?
   note        String    @default("")
   status      String    @default("PENDING") // PENDING | ACCEPTED
   postId      String    @default("") // set when selected
@@ -137,11 +161,14 @@ model Post {
   title       String
   description String   @default("")
   detail      String   @default("")
-  // Fuzzy availability window picked at publish time (e.g. TONIGHT,
-  // WEEKEND). The exact schedule still lives on the order: the host
-  // proposes planAt/planPlace in the plan flow after matching.
-  timeSlot    String   @default("")
-  // Rough district (e.g. Makati); the exact venue comes with the plan.
+  // The platform activity template this post was published from. The
+  // meeting point, venue and duration label resolve from it; empty on
+  // MOMENT recaps.
+  templateId  String   @default("")
+  // The concrete meeting time the publisher picked. Duration is the
+  // platform standard, so this fully schedules the activity.
+  scheduledAt DateTime?
+  // District snapshot from the template (e.g. "Makati").
   area        String   @default("")
   imageUrl    String   @default("")
   imagesJson  String   @default("[]") // JSON array of photo URLs (moments)
@@ -149,6 +176,9 @@ model Post {
   // required at publish. Empty on demand posts.
   venue       String   @default("")
   status      String   @default("OPEN") // OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED
+  // Who covers on-site expenses (food, drinks...): TREAT = the publisher
+  // treats; AA = everyone pays their own. Distinct from the hosting fee.
+  expensePolicy String @default("TREAT") // TREAT | AA
   // FEED: publicly listed in the community. DIRECT: backing post of a
   // private invitation deal; never shown in the community feed.
   origin      String   @default("FEED")
@@ -169,15 +199,9 @@ model Application {
   applicantId String
   applicant   User     @relation(fields: [applicantId], references: [id])
   status      String   @default("APPLIED") // APPLIED | SELECTED | RELEASED
-  // The host's one-line plan pitch (what makes this plan good), written at
-  // sign-up. Selection is picking the best plan, not just the person.
-  proposal    String   @default("")
-  // The structured plan card: sign-up delivers the concrete place + time
-  // up front, so selecting a candidate approves the plan in the same tap.
-  planPlace   String   @default("")
-  planAt      DateTime?
-  // How long the activity is planned to run.
-  planDurationMinutes Int @default(0)
+  // Sign-up carries no plan: the activity (venue, meeting point, time,
+  // duration) is fully fixed by the template and the post, so applying is
+  // a one-tap confirmation and selection is purely about the person.
   createdAt   DateTime @default(now())
 
   @@unique([postId, applicantId])
@@ -211,6 +235,12 @@ model Order {
   planProposedAt  DateTime?
   planConfirmedAt DateTime?
 
+  // Per-side read cursors for the order's chat. Reading the message list
+  // advances the caller's cursor; the conversation list counts the other
+  // side's messages past it as unread. Null = never opened the room.
+  payerLastReadAt  DateTime?
+  earnerLastReadAt DateTime?
+
   // Proof of meeting: a 4-digit code generated with the order and shown
   // only to the payer. The host asks for it in person and submits it to
   // start the service; the escrow settles automatically once the started
@@ -231,6 +261,7 @@ model Order {
   payments      Payment[]
   ledgerEntries LedgerEntry[]
   messages      Message[]
+  reports       Report[]
 }
 
 // Order-scoped chat between the two matched parties. Interim transport

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -17,6 +18,13 @@ import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
+import {
+  ACTIVITY_DURATION_MINUTES,
+  findTemplate,
+  isWithinMeetingHours,
+  isWithinProposalSlot,
+  PROPOSAL_TIME_SLOTS,
+} from '../posts/activity-templates.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -38,11 +46,18 @@ export interface ProposalDto {
   description: string;
   sceneTag: string;
   imageUrl: string;
-  area: string;
+  /// The platform template the pitch launched from.
+  templateId: string;
+  /// The host's rough availability window: ANYTIME | NOON | EVENING.
+  /// Inviters pick the concrete time inside it.
   timeSlot: string;
-  /// The budget tier the host picked at publish time (minor units):
-  /// invitations on this pitch lock to it.
-  budgetMinor: number;
+  area: string;
+  /// Partner venue resolved from the template, e.g. "Glorietta Mall".
+  venueName: string;
+  /// Exact meeting point resolved from the template.
+  meetingPoint: string;
+  /// Display label for the suggested duration, e.g. "约 2 小时".
+  durationLabel: string;
   /// OPEN | PENDING_PAYMENT | MATCHED | COMPLETED | CANCELLED, mirroring
   /// post statuses; only OPEN proposals take invitations.
   status: string;
@@ -57,11 +72,16 @@ export interface ProposalDto {
 
 /// One user's invitation on a proposal, shown to the proposal's host in
 /// the candidate list (the mirror of ApplicationDto on the demand side).
+/// Carries the deal terms the inviter picked: time and price tier.
 export interface InvitationDto {
   id: string;
   proposalId: string;
   note: string;
   status: string;
+  /// The concrete meeting time the inviter picked.
+  scheduledAt: Date | null;
+  /// The price tier the inviter picked (minor units).
+  budgetMinor: number;
   from: PublicUser;
   createdAt: Date;
 }
@@ -103,39 +123,38 @@ export class HostsService {
     return this.toHostCard(host);
   }
 
-  /// A host publishes an activity pitch to the hall. Any priced scene
-  /// goes: what a host "offers" is whatever they actually pitch, not a
-  /// list declared at registration.
+  /// A host publishes an activity pitch to the hall: a service shelf
+  /// listing. Template-only, like demand posts, but even lighter — the
+  /// host brings words and a rough availability window; the inviter
+  /// brings the concrete time and the price tier.
   async createProposal(
     caller: User,
+    templateId: string,
     title: string,
     description: string,
-    sceneTag: string,
-    imageUrl: string,
-    area: string,
     timeSlot: string,
-    budgetMinor?: number,
   ): Promise<ProposalDto> {
     assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can publish proposals');
     }
-    // Whoever launches the activity prices it: the host picks one of the
-    // platform tiers, exactly like a poster pricing a demand post.
-    const budget = await this.pricingService.resolveBudget(
-      sceneTag,
-      budgetMinor,
-    );
+    const template = findTemplate(templateId);
+    if (!template) {
+      throw new NotFoundException('TEMPLATE_NOT_FOUND');
+    }
+    if (!PROPOSAL_TIME_SLOTS[timeSlot]) {
+      throw new BadRequestException('INVALID_TIME_SLOT');
+    }
     const proposal = await this.prisma.proposal.create({
       data: {
         hostId: caller.id,
         title: title.trim(),
         description: description.trim(),
-        sceneTag,
-        imageUrl,
-        area,
+        sceneTag: template.sceneTag,
+        imageUrl: template.imageUrl,
+        templateId: template.id,
+        area: template.area,
         timeSlot,
-        budgetMinor: budget,
       },
       include: { host: true },
     });
@@ -186,22 +205,28 @@ export class HostsService {
       inviteCounts.map((c) => [c.proposalId, c._count._all]),
     );
     const invited = new Set(mine.map((i) => i.proposalId));
-    return proposals.map((p) => ({
-      id: p.id,
-      title: p.title,
-      description: p.description,
-      sceneTag: p.sceneTag,
-      imageUrl: p.imageUrl,
-      area: p.area,
-      timeSlot: p.timeSlot,
-      budgetMinor: p.budgetMinor,
-      status: p.status,
-      inviteCount: invitesByProposal.get(p.id) ?? 0,
-      hasInvited: invited.has(p.id),
-      createdAt: p.createdAt,
-      host: toPublicUser(p.host),
-      hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,
-    }));
+    return proposals.map((p) => {
+      const template = findTemplate(p.templateId);
+      return {
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        sceneTag: p.sceneTag,
+        imageUrl: p.imageUrl,
+        templateId: p.templateId,
+        timeSlot: p.timeSlot,
+        area: p.area,
+        venueName: template?.venueName ?? '',
+        meetingPoint: template?.meetingPoint ?? '',
+        durationLabel: template?.durationLabel ?? '',
+        status: p.status,
+        inviteCount: invitesByProposal.get(p.id) ?? 0,
+        hasInvited: invited.has(p.id),
+        createdAt: p.createdAt,
+        host: toPublicUser(p.host),
+        hostCompletedActivities: completedByHost.get(p.hostId) ?? 0,
+      };
+    });
   }
 
   /// Full proposal detail, any viewer. The invite pool itself stays
@@ -212,11 +237,15 @@ export class HostsService {
   }
 
   /// A user invites the host on a pitch — the mirror of a host signing up
-  /// on a demand post. Free, non-binding, and several users can queue on
-  /// the same proposal; the scene and the price are locked to the pitch.
+  /// on a demand post, plus the deal terms: the inviter picks the concrete
+  /// meeting time (inside the pitch's availability window and working
+  /// hours) and the price tier. Free, non-binding, and several users can
+  /// queue on the same proposal.
   async invite(
     caller: User,
     proposalId: string,
+    scheduledAt: string,
+    budgetMinor: number | undefined,
     note: string,
   ): Promise<InvitationDto> {
     assertVerified(caller);
@@ -226,6 +255,13 @@ export class HostsService {
     const proposal = await this.findProposalOrThrow(proposalId);
     if (proposal.status !== PostStatus.open) {
       throw new ConflictException('PROPOSAL_NOT_OPEN');
+    }
+    const meetAt = new Date(scheduledAt);
+    if (!isWithinMeetingHours(meetAt)) {
+      throw new BadRequestException('MEET_TIME_OUT_OF_HOURS');
+    }
+    if (!isWithinProposalSlot(proposal.timeSlot, meetAt)) {
+      throw new BadRequestException('MEET_TIME_OUTSIDE_SLOT');
     }
     const pending = await this.prisma.invitation.findFirst({
       where: {
@@ -237,20 +273,22 @@ export class HostsService {
     if (pending) {
       throw new ConflictException('INVITE_ALREADY_PENDING');
     }
-    // Snapshot the pitch's tier now so platform repricing never changes a
-    // pending invitation under anyone's feet.
-    const budgetMinor =
-      proposal.budgetMinor > 0
-        ? proposal.budgetMinor
-        : await this.pricingService.resolveBudget(proposal.sceneTag);
+    // The inviter prices the deal from the scene's platform tiers (middle
+    // tier when omitted); snapshotted so repricing never changes a pending
+    // invitation under anyone's feet.
+    const budget = await this.pricingService.resolveBudget(
+      proposal.sceneTag,
+      budgetMinor,
+    );
     const invitation = await this.prisma.invitation.create({
       data: {
         proposalId,
         fromUserId: caller.id,
         hostId: proposal.hostId,
         sceneTag: proposal.sceneTag,
+        scheduledAt: meetAt,
         note,
-        budgetMinor,
+        budgetMinor: budget,
       },
       include: { from: true },
     });
@@ -278,19 +316,15 @@ export class HostsService {
   /// The host picks one inviter. Creates the whole order context in one
   /// transaction: a direct post (never shown in the open feed) carrying
   /// the proposal link, a SELECTED application, and an order awaiting the
-  /// inviter's payment. Downstream (payment, plan, meet code, settlement)
-  /// is the standard order flow; the order lifecycle mirrors its status
-  /// back onto the proposal through the post's proposalId.
+  /// inviter's payment. The plan is the template's meeting point plus the
+  /// time (and tier) that inviter picked, so selection needs no extra
+  /// input. Downstream (payment, meet code, settlement) is the standard
+  /// order flow; the order lifecycle mirrors its status back onto the
+  /// proposal through the post's proposalId.
   async select(
     caller: User,
     proposalId: string,
     invitationId: string,
-    plan: {
-      place: string;
-      scheduledAt: string;
-      durationMinutes: number;
-      note: string;
-    },
   ): Promise<OrderDto> {
     assertVerified(caller);
     const proposal = await this.findProposalOrThrow(proposalId);
@@ -310,20 +344,36 @@ export class HostsService {
     if (invitation.status !== InvitationStatus.pending) {
       throw new ConflictException('Inviter is no longer available');
     }
-    // The budget was snapshotted at invite time; legacy rows without one
-    // fall back to the scene's default tier.
+    // The deal terms were snapshotted at invite time: the inviter's tier
+    // and the inviter's picked meeting time.
     const feeMinor =
       invitation.budgetMinor > 0
         ? invitation.budgetMinor
         : await this.pricingService.resolveBudget(invitation.sceneTag);
     const split = await this.pricingService.splitFee(feeMinor);
+    const template = findTemplate(proposal.templateId);
+    const planPlace = template?.meetingPoint ?? '';
+    const planAt = invitation.scheduledAt;
     const order = await this.prisma.$transaction(async (tx) => {
+      // Atomic claim: OPEN -> PENDING_PAYMENT is the mutex that defeats
+      // two racing selections; the loser matches zero rows and rolls back.
+      const claimed = await tx.proposal.updateMany({
+        where: { id: proposalId, status: PostStatus.open },
+        data: { status: PostStatus.pendingPayment },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Proposal is not open for selection');
+      }
       const post = await tx.post.create({
         data: {
           authorId: invitation.fromUserId,
           sceneTag: proposal.sceneTag,
           title: proposal.title,
           description: invitation.note,
+          templateId: proposal.templateId,
+          scheduledAt: invitation.scheduledAt,
+          area: proposal.area,
+          imageUrl: proposal.imageUrl,
           status: PostStatus.pendingPayment,
           origin: PostOrigin.direct,
           proposalId,
@@ -337,9 +387,6 @@ export class HostsService {
           status: ApplicationStatus.selected,
         },
       });
-      // The host fills the plan card at selection (mirror of a sign-up's
-      // plan card): the order is born with the plan confirmed, and the
-      // inviter accepts it by paying.
       const planApproved = new Date();
       const created = await tx.order.create({
         data: {
@@ -351,32 +398,41 @@ export class HostsService {
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
           meetCode: generateMeetCode(),
-          planPlace: plan.place,
-          planAt: new Date(plan.scheduledAt),
-          planDurationMinutes: plan.durationMinutes,
-          planNote: plan.note,
-          planProposedAt: planApproved,
-          planConfirmedAt: planApproved,
+          ...(planPlace !== '' && planAt !== null
+            ? {
+                planPlace,
+                planAt,
+                planDurationMinutes: ACTIVITY_DURATION_MINUTES,
+                planProposedAt: planApproved,
+                planConfirmedAt: planApproved,
+              }
+            : {}),
         },
         include: { payer: true, earner: true, post: true },
       });
-      // The locked plan card opens the conversation as its first message,
-      // visible as soon as the payment unlocks the chat.
-      await tx.message.create({
-        data: {
-          orderId: created.id,
-          senderId: caller.id,
-          kind: 'PLAN',
-          text: JSON.stringify({
-            place: plan.place,
-            scheduledAt: plan.scheduledAt,
-            durationMinutes: plan.durationMinutes,
-            note: plan.note,
-          }),
-        },
-      });
-      await tx.invitation.update({
-        where: { id: invitation.id },
+      if (planPlace !== '' && planAt !== null) {
+        // The locked plan card opens the conversation as its first
+        // message, visible as soon as the payment unlocks the chat.
+        await tx.message.create({
+          data: {
+            orderId: created.id,
+            senderId: caller.id,
+            kind: 'PLAN',
+            text: JSON.stringify({
+              place: planPlace,
+              scheduledAt: planAt.toISOString(),
+              durationMinutes: ACTIVITY_DURATION_MINUTES,
+              note: '',
+            }),
+          },
+        });
+      }
+      // Conditional for the same reason: only a still-pending invitation
+      // can be accepted. (The proposal claim above is already off the
+      // market while the payment is pending; paying moves it to MATCHED,
+      // a cancelled order reopens it.)
+      const accepted = await tx.invitation.updateMany({
+        where: { id: invitation.id, status: InvitationStatus.pending },
         data: {
           status: InvitationStatus.accepted,
           postId: post.id,
@@ -384,12 +440,9 @@ export class HostsService {
           respondedAt: new Date(),
         },
       });
-      // Off the market while the payment is pending; paying moves it to
-      // MATCHED, a cancelled order reopens it.
-      await tx.proposal.update({
-        where: { id: proposalId },
-        data: { status: PostStatus.pendingPayment },
-      });
+      if (accepted.count === 0) {
+        throw new ConflictException('Inviter is no longer available');
+      }
       return created;
     });
     // The caller is the host (earner): the meet code stays hidden here.
@@ -429,15 +482,19 @@ export class HostsService {
         select: { id: true },
       }),
     ]);
+    const template = findTemplate(proposal.templateId);
     return {
       id: proposal.id,
       title: proposal.title,
       description: proposal.description,
       sceneTag: proposal.sceneTag,
       imageUrl: proposal.imageUrl,
-      area: proposal.area,
+      templateId: proposal.templateId,
       timeSlot: proposal.timeSlot,
-      budgetMinor: proposal.budgetMinor,
+      area: proposal.area,
+      venueName: template?.venueName ?? '',
+      meetingPoint: template?.meetingPoint ?? '',
+      durationLabel: template?.durationLabel ?? '',
       status: proposal.status,
       inviteCount,
       hasInvited: mine !== null,
@@ -448,21 +505,23 @@ export class HostsService {
   }
 
   private async toHostCard(host: User): Promise<HostCardDto> {
-    const [completedActivities, applications] = await Promise.all([
+    const [completedActivities, proposals] = await Promise.all([
       this.prisma.order.count({
         where: { earnerId: host.id, status: OrderStatus.completed },
       }),
-      this.prisma.application.findMany({
-        where: { applicantId: host.id, proposal: { not: '' } },
+      // Applications carry no pitch anymore; the host's own published
+      // pitches are the credential line.
+      this.prisma.proposal.findMany({
+        where: { hostId: host.id },
         orderBy: { createdAt: 'desc' },
         take: 3,
-        select: { proposal: true },
+        select: { title: true },
       }),
     ]);
     return {
       user: toPublicUser(host),
       completedActivities,
-      recentProposals: applications.map((a) => a.proposal),
+      recentProposals: proposals.map((p) => p.title),
     };
   }
 
@@ -474,6 +533,8 @@ export class HostsService {
       proposalId: invitation.proposalId,
       note: invitation.note,
       status: invitation.status,
+      scheduledAt: invitation.scheduledAt,
+      budgetMinor: invitation.budgetMinor,
       from: toPublicUser(invitation.from),
       createdAt: invitation.createdAt,
     };

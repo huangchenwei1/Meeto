@@ -22,24 +22,39 @@ const ADMIN = 'admin-1'; // FEMALE, role ADMIN
 
 const TEST_DB_URL = 'file:./test.db';
 
-// The plan card every host sign-up carries (place + time + pitch).
-// Selecting the candidate approves this plan in the same tap, so paid
-// orders start with chat open and the plan already confirmed.
-const PLAN_CARD = {
-  proposal: 'Cafe in Makati, Saturday 3pm',
-  place: 'Single Origin, Salcedo Village',
-  scheduledAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
-  durationMinutes: 180,
-};
+// Curated Manila templates (see src/posts/activity-templates.ts): the only
+// publish path. The template fixes scene, cover, district and meeting
+// point; publishers bring words and a concrete meeting time. All four
+// curated dates are Dinner-scene, so Dinner tiers price everything.
+const STEAK_TEMPLATE = 'template-western-steak-date';
+const BBQ_TEMPLATE = 'template-korean-bbq-date';
+const HOTPOT_TEMPLATE = 'template-chinese-hotpot-date';
+const STEAK_MEETING_POINT = 'Glorietta Mall 主入口';
+const HOTPOT_MEETING_POINT = 'Mall of Asia 海底捞门口';
 
-// The plan card the host fills when selecting an inviter on a pitch:
-// the mirror of the sign-up plan card, locked at the same tap.
-const SELECT_PLAN = {
-  place: 'NOEL Bar, Poblacion',
-  scheduledAt: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
-  durationMinutes: 150,
-  note: 'Signature cocktails first, rooftop after',
-};
+// Every activity runs the platform-standard duration.
+const UNIFORM_DURATION_MINUTES = 120;
+
+// A concrete meeting time a week out at 14:00 Manila (06:00 UTC) — well
+// inside the host working window — reused across publishes.
+const MEET_AT = (() => {
+  const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+  d.setUTCHours(6, 0, 0, 0);
+  return d.toISOString();
+})();
+// 23:00 Manila (15:00 UTC): past the host closing time of 22:00.
+const MEET_AT_LATE_NIGHT = (() => {
+  const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+  d.setUTCHours(15, 0, 0, 0);
+  return d.toISOString();
+})();
+// 21:00 Manila (13:00 UTC): inside working hours, but the 2h activity
+// would end at 23:00, after closing — still rejected.
+const MEET_AT_TOO_LATE_TO_FINISH = (() => {
+  const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+  d.setUTCHours(13, 0, 0, 0);
+  return d.toISOString();
+})();
 
 describe('Meeto API (e2e)', () => {
   let app: INestApplication<App>;
@@ -75,7 +90,7 @@ describe('Meeto API (e2e)', () => {
     const res = await api().get('/config/pricing').expect(200);
     expect(res.body.platformFeeRateBp).toBe(1000);
     expect(res.body.sceneBudgetTiers.Dinner).toEqual([
-      30000, 40000, 60000,
+      100000, 150000, 250000,
     ]);
   });
 
@@ -229,7 +244,11 @@ describe('Meeto API (e2e)', () => {
       const postRes = await api()
         .post('/posts')
         .set('Authorization', `Bearer ${bearer}`)
-        .send({ sceneTag: 'Coffee', title: 'Blocked' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Blocked',
+          scheduledAt: MEET_AT,
+        })
         .expect(403);
       expect(postRes.body.message).toBe('VERIFICATION_REQUIRED');
     });
@@ -262,7 +281,11 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post('/posts')
         .set('Authorization', `Bearer ${bearer}`)
-        .send({ sceneTag: 'Coffee', title: 'Now allowed' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Now allowed',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
     });
 
@@ -284,8 +307,9 @@ describe('Meeto API (e2e)', () => {
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Coffee',
+          templateId: BBQ_TEMPLATE,
           title: 'Cafe hopping in Makati',
+          scheduledAt: MEET_AT,
         })
         .expect(201);
       await api()
@@ -345,7 +369,11 @@ describe('Meeto API (e2e)', () => {
       const gone = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Dinner', title: 'Cancelled leaves the hall' })
+        .send({
+          templateId: STEAK_TEMPLATE,
+          title: 'Cancelled leaves the hall',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       await api()
         .delete(`/posts/${gone.body.id}`)
@@ -392,12 +420,13 @@ describe('Meeto API (e2e)', () => {
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Dinner',
+          templateId: STEAK_TEMPLATE,
           title: 'Dinner on the starter tier',
-          budgetMinor: 30000,
+          scheduledAt: MEET_AT,
+          budgetMinor: 100000,
         })
         .expect(201);
-      expect(low.body.feeMinor).toBe(30000);
+      expect(low.body.feeMinor).toBe(100000);
 
       // An amount outside the scene's tier list is rejected: the platform
       // prices, the poster only picks.
@@ -405,8 +434,9 @@ describe('Meeto API (e2e)', () => {
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Dinner',
+          templateId: STEAK_TEMPLATE,
           title: 'Free-priced dinner',
+          scheduledAt: MEET_AT,
           budgetMinor: 123456,
         })
         .expect(400);
@@ -419,21 +449,26 @@ describe('Meeto API (e2e)', () => {
         .expect(200);
     });
 
-    it('demand posts carry the fuzzy slot and area through to the hall', async () => {
-      // Publish from a template: fuzzy window + rough district only; the
-      // exact schedule still arrives later via the plan flow.
+    it('the template envelope rides the post into the hall', async () => {
+      // Publish from a template: scene, cover, district and meeting point
+      // all come from the template; the poster only picks the time.
       const created = await api()
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Tea',
-          title: 'Dessert run with zero decisions by me',
-          timeSlot: 'WEEKEND',
-          area: 'Rockwell',
+          templateId: BBQ_TEMPLATE,
+          title: 'KBBQ run with zero decisions by me',
+          scheduledAt: MEET_AT,
         })
         .expect(201);
-      expect(created.body.timeSlot).toBe('WEEKEND');
-      expect(created.body.area).toBe('Rockwell');
+      expect(created.body.templateId).toBe(BBQ_TEMPLATE);
+      expect(created.body.scheduledAt).toBe(MEET_AT);
+      expect(created.body.sceneTag).toBe('Dinner');
+      expect(created.body.area).toBe('BGC, Taguig');
+      expect(created.body.venueName).toBe('Bonifacio High Street');
+      expect(created.body.meetingPoint).toContain('High Street');
+      expect(created.body.durationLabel).toBeTruthy();
+      expect(created.body.imageUrl).toContain('https://');
 
       const hall = await api()
         .get('/posts?view=requests')
@@ -442,14 +477,74 @@ describe('Meeto API (e2e)', () => {
       const seen = hall.body.find(
         (p: { id: string }) => p.id === created.body.id,
       );
-      expect(seen.timeSlot).toBe('WEEKEND');
-      expect(seen.area).toBe('Rockwell');
-      // Seeded posts got the backfill too.
-      const seeded = hall.body.find(
-        (p: { id: string }) => p.id === 'post-001',
-      );
-      expect(seeded.timeSlot).toBe('WEEKEND');
-      expect(seeded.area).toBe('Makati');
+      expect(seen.scheduledAt).toBe(MEET_AT);
+      expect(seen.area).toBe('BGC, Taguig');
+
+      // Publishing off-template is impossible: an unknown template is a
+      // 404 and a missing meeting time a 400.
+      await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: 'template-free-form',
+          title: 'No such template',
+          scheduledAt: MEET_AT,
+        })
+        .expect(404);
+      await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: BBQ_TEMPLATE, title: 'No time picked' })
+        .expect(400);
+    });
+
+    it('rejects meeting times outside the host working window', async () => {
+      // Hosts clock out at 22:00 Manila: a 23:00 meet is plainly out...
+      await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Night owl coffee',
+          scheduledAt: MEET_AT_LATE_NIGHT,
+        })
+        .expect(400);
+      // ...and a 21:00 start is too: the standard 2h run would end at
+      // 23:00, past closing.
+      await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Too late to finish',
+          scheduledAt: MEET_AT_TOO_LATE_TO_FINISH,
+        })
+        .expect(400);
+      // The same guard covers the pitch side, where the INVITER picks the
+      // time: out-of-hours invites bounce, and so do invites outside the
+      // pitch's declared availability window.
+      const pitch = await api()
+        .post('/proposals')
+        .set('X-User-Id', KAT)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Evening BBQ availability',
+          timeSlot: 'EVENING',
+        })
+        .expect(201);
+      await api()
+        .post(`/proposals/${pitch.body.id}/invitations`)
+        .set('X-User-Id', ANDREA)
+        .send({ scheduledAt: MEET_AT_LATE_NIGHT, note: 'night owl' })
+        .expect(400);
+      // MEET_AT is 14:00 Manila: inside working hours but outside the
+      // EVENING window (17:00-20:00 starts).
+      const outsideSlot = await api()
+        .post(`/proposals/${pitch.body.id}/invitations`)
+        .set('X-User-Id', ANDREA)
+        .send({ scheduledAt: MEET_AT, note: 'noon on an evening pitch' })
+        .expect(400);
+      expect(outsideSlot.body.message).toBe('MEET_TIME_OUTSIDE_SLOT');
     });
   });
 
@@ -459,14 +554,16 @@ describe('Meeto API (e2e)', () => {
         .get('/templates')
         .set('X-User-Id', ANDREA)
         .expect(200);
-      expect(asUser.body.length).toBeGreaterThanOrEqual(5);
+      expect(asUser.body.length).toBeGreaterThanOrEqual(3);
       for (const template of asUser.body) {
         expect(template.id).toContain('template-');
         expect(template.sceneTag).toBeTruthy();
         expect(template.title).toBeTruthy();
         expect(template.imageUrl).toContain('https://');
         expect(template.durationLabel).toBeTruthy();
-        expect(template.venueLabel).toBeTruthy();
+        expect(template.venueName).toBeTruthy();
+        expect(template.meetingPoint).toBeTruthy();
+        expect(template.area).toBeTruthy();
       }
 
       const asHost = await api()
@@ -488,16 +585,17 @@ describe('Meeto API (e2e)', () => {
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Movie',
+          templateId: HOTPOT_TEMPLATE,
           title: 'Signup visibility flow',
+          scheduledAt: MEET_AT,
         })
         .expect(201);
       postId = postRes.body.id;
 
+      // One-tap sign-up: no body, the plan is fixed by the template.
       await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', NOEL)
-        .send(PLAN_CARD)
         .expect(201);
 
       // Notifications are gone on purpose: every state lives on a surface
@@ -524,8 +622,8 @@ describe('Meeto API (e2e)', () => {
         notApplied.body.find((p: { id: string }) => p.id === postId),
       ).toBeUndefined();
 
-      // Other hosts see anonymous interest on the post: a count plus
-      // avatar URLs only, never names, ids, or rival pitches.
+      // Non-owners see anonymous interest on the post: a count plus
+      // avatar URLs only, never names or ids.
       const asHost = await api()
         .get(`/posts/${postId}`)
         .set('X-User-Id', NOEL)
@@ -533,31 +631,46 @@ describe('Meeto API (e2e)', () => {
       expect(asHost.body.applicantCount).toBe(1);
       expect(asHost.body.applicantAvatars).toHaveLength(1);
       expect(typeof asHost.body.applicantAvatars[0]).toBe('string');
-      expect(asHost.body.applicantPreviews).toEqual([]);
 
-      // Other users instead get a service showcase: clear avatar plus a
-      // server-truncated pitch teaser, still no names or ids.
       const asUser = await api()
         .get(`/posts/${postId}`)
         .set('X-User-Id', MIGUEL)
         .expect(200);
-      expect(asUser.body.applicantAvatars).toEqual([]);
-      expect(asUser.body.applicantPreviews).toHaveLength(1);
-      const preview = asUser.body.applicantPreviews[0];
-      expect(Object.keys(preview).sort()).toEqual([
-        'avatarUrl',
-        'proposalTeaser',
-      ]);
-      expect(preview.proposalTeaser.length).toBeLessThanOrEqual(13);
+      expect(asUser.body.applicantAvatars).toHaveLength(1);
 
-      // The owner needs neither trimmed view: the full pool lives on the
+      // The owner needs no trimmed view: the full pool lives on the
       // owner-only applications endpoint.
       const asOwner = await api()
         .get(`/posts/${postId}`)
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(asOwner.body.applicantAvatars).toEqual([]);
-      expect(asOwner.body.applicantPreviews).toEqual([]);
+    });
+
+    it('the pending signup reaches the owner via the notice feed', async () => {
+      // Stateless replacement for the dropped notifications table: the
+      // owner polls pending sign-ups on everything they published and the
+      // client diffs against a local last-seen timestamp.
+      const notices = await api()
+        .get('/posts/signups/notice')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const mine = notices.body.find(
+        (n: { targetId: string }) => n.targetId === postId,
+      );
+      expect(mine).toBeDefined();
+      expect(mine.kind).toBe('APPLICATION');
+      expect(mine.actor.id).toBe(NOEL);
+      expect(typeof mine.actor.avatarUrl).toBe('string');
+
+      // The candidate themselves has nothing pending on their own posts.
+      const quiet = await api()
+        .get('/posts/signups/notice')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      expect(
+        quiet.body.find((n: { targetId: string }) => n.targetId === postId),
+      ).toBeUndefined();
     });
 
     it('selection creates an awaiting-payment order for the candidate', async () => {
@@ -572,6 +685,19 @@ describe('Meeto API (e2e)', () => {
         .expect(201);
       orderId = orderRes.body.id;
       expect(orderRes.body.status).toBe('AWAITING_PAYMENT');
+      // Nobody has opened the fresh room yet; the deal-notice bar keys
+      // off this flag to nudge the earner into the new chat.
+      expect(orderRes.body.viewerEnteredRoom).toBe(false);
+
+      // Selection closes the post, so the sign-up stops being actionable
+      // and drops off the notice feed.
+      const notices = await api()
+        .get('/posts/signups/notice')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(
+        notices.body.find((n: { targetId: string }) => n.targetId === postId),
+      ).toBeUndefined();
     });
 
     it('payment activates the order', async () => {
@@ -701,59 +827,47 @@ describe('Meeto API (e2e)', () => {
         .post('/posts')
         .set('X-User-Id', ANDREA)
         .send({
-          sceneTag: 'Dinner',
-          title: 'Japanese dinner downtown',
+          templateId: STEAK_TEMPLATE,
+          title: 'Dinner then a mall walk downtown',
+          scheduledAt: MEET_AT,
         })
         .expect(201);
       postId = res.body.id;
       // No explicit tier pick -> the middle Dinner tier.
-      expect(res.body.feeMinor).toBe(40000);
+      expect(res.body.feeMinor).toBe(150000);
       expect(res.body.status).toBe('OPEN');
-      // Posts carry no structured time or place: the host proposes the
-      // concrete plan on the order after matching.
-      expect(res.body.scheduledAt).toBeUndefined();
-      expect(res.body.place).toBeUndefined();
+      // The post is fully scheduled at publish: template meeting point
+      // plus the picked time.
+      expect(res.body.scheduledAt).toBe(MEET_AT);
+      expect(res.body.meetingPoint).toBe(STEAK_MEETING_POINT);
     });
 
     it('candidates of any gender sign up for free; invalid sign-ups are rejected', async () => {
       const jamesRes = await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', JAMES)
-        .send(PLAN_CARD)
         .expect(201);
       jamesApplicationId = jamesRes.body.id;
       await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', NOEL)
-        .send(PLAN_CARD)
         .expect(201);
       // Same-gender sign-up is allowed: the marketplace is gender-neutral.
       await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', BIANCA)
-        .send(PLAN_CARD)
         .expect(201);
 
       // Only hosts can sign up; users invite hosts instead.
       await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', MIGUEL)
-        .send(PLAN_CARD)
         .expect(403);
       // Duplicate sign-up rejected.
       await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', JAMES)
-        .send(PLAN_CARD)
         .expect(409);
-      // The pitch and the plan card are required: selection means
-      // picking a concrete plan.
-      const noProposal = await api()
-        .post(`/posts/${postId}/applications`)
-        .set('X-User-Id', KAT)
-        .send({})
-        .expect(400);
-      expect(noProposal.body.message).toBeDefined();
     });
 
     it('only the author sees the candidate pool', async () => {
@@ -766,11 +880,10 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(res.body).toHaveLength(3);
-      // Each candidate pitches a plan; the poster picks between plans.
-      expect(res.body[0].proposal).toBe(PLAN_CARD.proposal);
-      expect(res.body[0].planPlace).toBe(PLAN_CARD.place);
-      expect(res.body[0].planAt).toBe(PLAN_CARD.scheduledAt);
-      expect(res.body[0].planDurationMinutes).toBe(180);
+      // Applications carry only the person: the activity is fixed by the
+      // template, so selection is purely about who hosts it.
+      expect(res.body[0].applicant.id).toBe(JAMES);
+      expect(res.body[0].status).toBe('APPLIED');
     });
 
     it('selection creates an order where the poster pays the host', async () => {
@@ -784,9 +897,9 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(JAMES);
       // 10% commission, exact remainder to the earner.
-      expect(res.body.feeMinor).toBe(40000);
-      expect(res.body.commissionMinor).toBe(4000);
-      expect(res.body.netMinor).toBe(36000);
+      expect(res.body.feeMinor).toBe(150000);
+      expect(res.body.commissionMinor).toBe(15000);
+      expect(res.body.netMinor).toBe(135000);
 
       const post = await api()
         .get(`/posts/${postId}`)
@@ -831,34 +944,32 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_ESCROW', orderId },
         _sum: { amountMinor: true },
       });
-      expect(escrow._sum.amountMinor).toBe(40000);
+      expect(escrow._sum.amountMinor).toBe(150000);
     });
 
-    it('selection locked the sign-up plan card; no plan flow in chat', async () => {
-      // The plan card delivered at sign-up was approved by the selection:
-      // place and time are already effective, nothing left to confirm.
+    it('selection locked the template plan; no plan flow in chat', async () => {
+      // The plan is the template meeting point plus the post's time,
+      // locked at publish: place and time are already effective.
       const current = await api()
         .get(`/orders/${orderId}`)
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(current.body.planConfirmedAt).not.toBeNull();
-      expect(current.body.place).toBe(PLAN_CARD.place);
-      expect(current.body.scheduledAt).toBe(PLAN_CARD.scheduledAt);
-      // The sign-up pitch doubles as the itinerary.
-      expect(current.body.planNote).toBe(PLAN_CARD.proposal);
+      expect(current.body.place).toBe(STEAK_MEETING_POINT);
+      expect(current.body.scheduledAt).toBe(MEET_AT);
 
-      // The approved plan card opened the conversation as a PLAN message
-      // carrying the frozen snapshot of the card.
+      // The locked plan card opened the conversation as a PLAN message
+      // carrying the frozen snapshot.
       const opening = await api()
         .get(`/orders/${orderId}/messages`)
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(opening.body[0].kind).toBe('PLAN');
       expect(JSON.parse(opening.body[0].text)).toEqual({
-        place: PLAN_CARD.place,
-        scheduledAt: PLAN_CARD.scheduledAt,
-        note: PLAN_CARD.proposal,
-        durationMinutes: PLAN_CARD.durationMinutes,
+        place: STEAK_MEETING_POINT,
+        scheduledAt: MEET_AT,
+        note: '',
+        durationMinutes: UNIFORM_DURATION_MINUTES,
       });
 
       // The in-chat plan machinery is gone: the plan was settled at the
@@ -1001,14 +1112,13 @@ describe('Meeto API (e2e)', () => {
         .send({ code: mine.body.meetCode })
         .expect(409);
 
-      // The conversation dies with the activity: the thread turns
-      // read-only, while the history stays listable for both sides.
-      const closed = await api()
+      // The conversation OUTLIVES the activity: people who met keep the
+      // channel, so rebooking a known host starts right here.
+      await api()
         .post(`/orders/${orderId}/messages`)
         .set('X-User-Id', ANDREA)
-        .send({ text: 'one more thing...' })
-        .expect(409);
-      expect(closed.body.message).toBe('CHAT_CLOSED');
+        .send({ text: 'that was fun — next time hotpot?' })
+        .expect(201);
       const history = await api()
         .get(`/orders/${orderId}/messages`)
         .set('X-User-Id', JAMES)
@@ -1026,7 +1136,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_REVENUE', orderId },
         _sum: { amountMinor: true },
       });
-      expect(revenue._sum.amountMinor).toBe(4000);
+      expect(revenue._sum.amountMinor).toBe(15000);
     });
 
     it('the earner wallet reflects net income and supports withdrawal', async () => {
@@ -1034,8 +1144,8 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(wallet.body.balanceMinor).toBe(36000);
-      expect(wallet.body.monthIncomeMinor).toBe(36000);
+      expect(wallet.body.balanceMinor).toBe(135000);
+      expect(wallet.body.monthIncomeMinor).toBe(135000);
 
       await api()
         .post('/wallet/withdrawals')
@@ -1046,13 +1156,13 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(after.body.balanceMinor).toBe(31000);
+      expect(after.body.balanceMinor).toBe(130000);
 
       // Overdraft rejected.
       await api()
         .post('/wallet/withdrawals')
         .set('X-User-Id', JAMES)
-        .send({ amountMinor: 40000 })
+        .send({ amountMinor: 140000 })
         .expect(409);
     });
 
@@ -1069,6 +1179,235 @@ describe('Meeto API (e2e)', () => {
         ),
       ).toBe(true);
     });
+
+    it('a settled chat carries a rebooking card that forms a new deal', async () => {
+      // Only the payer sends request cards; the host answers them.
+      await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', JAMES)
+        .send({ templateId: HOTPOT_TEMPLATE, scheduledAt: MEET_AT })
+        .expect(403);
+      // The same rails as everywhere else: template-only, host working
+      // hours, platform price tiers.
+      await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: 'template-anything-goes', scheduledAt: MEET_AT })
+        .expect(404);
+      await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: HOTPOT_TEMPLATE, scheduledAt: MEET_AT_LATE_NIGHT })
+        .expect(400);
+      const freePrice = await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          scheduledAt: MEET_AT,
+          budgetMinor: 99,
+        })
+        .expect(400);
+      expect(freePrice.body.message).toBe('INVALID_BUDGET');
+
+      const card = await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          scheduledAt: MEET_AT,
+          budgetMinor: 250000,
+          note: 'Same crew, spicier pot',
+        })
+        .expect(201);
+      expect(card.body.kind).toBe('REQUEST');
+      const payload = JSON.parse(card.body.text as string) as {
+        status: string;
+        budgetMinor: number;
+        meetingPoint: string;
+      };
+      expect(payload.status).toBe('PENDING');
+      expect(payload.budgetMinor).toBe(250000);
+      expect(payload.meetingPoint).toBe(HOTPOT_MEETING_POINT);
+
+      // One open card per conversation.
+      const dup = await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: HOTPOT_TEMPLATE, scheduledAt: MEET_AT })
+        .expect(409);
+      expect(dup.body.message).toBe('REQUEST_ALREADY_PENDING');
+
+      // Only the host answers; accepting creates the whole new deal
+      // awaiting the requester's payment, plan locked to the card.
+      await api()
+        .post(`/orders/${orderId}/messages/${card.body.id}/respond`)
+        .set('X-User-Id', ANDREA)
+        .send({ accept: true })
+        .expect(403);
+      const accepted = await api()
+        .post(`/orders/${orderId}/messages/${card.body.id}/respond`)
+        .set('X-User-Id', JAMES)
+        .send({ accept: true })
+        .expect(201);
+      const acceptedPayload = JSON.parse(accepted.body.text as string) as {
+        status: string;
+        orderId: string;
+      };
+      expect(acceptedPayload.status).toBe('ACCEPTED');
+      expect(acceptedPayload.orderId).not.toBe('');
+
+      // No double answers.
+      const again = await api()
+        .post(`/orders/${orderId}/messages/${card.body.id}/respond`)
+        .set('X-User-Id', JAMES)
+        .send({ accept: false })
+        .expect(409);
+      expect(again.body.message).toBe('REQUEST_NOT_PENDING');
+
+      const newOrder = await api()
+        .get(`/orders/${acceptedPayload.orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(newOrder.body.status).toBe('AWAITING_PAYMENT');
+      expect(newOrder.body.feeMinor).toBe(250000);
+      expect(newOrder.body.payer.id).toBe(ANDREA);
+      expect(newOrder.body.earner.id).toBe(JAMES);
+      expect(newOrder.body.planPlace).toBe(HOTPOT_MEETING_POINT);
+      expect(newOrder.body.planAt).toBe(MEET_AT);
+      expect(newOrder.body.planDurationMinutes).toBe(
+        UNIFORM_DURATION_MINUTES,
+      );
+
+      // Paying forms the deal exactly like any other order.
+      const paid = await api()
+        .post(`/orders/${acceptedPayload.orderId}/payment`)
+        .set('X-User-Id', ANDREA)
+        .expect(201);
+      expect(paid.body.status).toBe('ACTIVE');
+    });
+
+    it('conversations group by partner, not by order', async () => {
+      // Andrea and James now share TWO deals (the settled original and
+      // the rebooked live one) — but the contact list shows ONE row for
+      // the partner, opening into the live deal's room.
+      const mine = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const rows = mine.body as {
+        peer: { id: string };
+        roomOrderId: string;
+        hasLiveOrder: boolean;
+        lastMessageKind: string;
+      }[];
+      const withJames = rows.filter((r) => r.peer.id === JAMES);
+      expect(withJames.length).toBe(1);
+      expect(withJames[0].hasLiveOrder).toBe(true);
+      // The room is the live rebooked order, not the settled original.
+      expect(withJames[0].roomOrderId).not.toBe(orderId);
+      expect(withJames[0].lastMessageKind).not.toBe('');
+
+      // The mirror view: James sees one row for Andrea.
+      const theirs = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      const withAndrea = (theirs.body as { peer: { id: string } }[]).filter(
+        (r) => r.peer.id === ANDREA,
+      );
+      expect(withAndrea.length).toBe(1);
+    });
+
+    it('unread counts rise with partner messages and clear on reading', async () => {
+      // James texts into the live room; the message lands past Andrea's
+      // read cursor, so her conversation row counts it as unread.
+      const mineBefore = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const before = (
+        mineBefore.body as { peer: { id: string }; unreadCount: number }[]
+      ).find((r) => r.peer.id === JAMES);
+      expect(before).toBeDefined();
+      const roomId = (
+        mineBefore.body as { peer: { id: string }; roomOrderId: string }[]
+      ).find((r) => r.peer.id === JAMES)!.roomOrderId;
+
+      await api()
+        .post(`/orders/${roomId}/messages`)
+        .set('X-User-Id', JAMES)
+        .send({ text: 'See you Friday!' })
+        .expect(201);
+
+      const mineAfter = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const after = (
+        mineAfter.body as { peer: { id: string }; unreadCount: number }[]
+      ).find((r) => r.peer.id === JAMES)!;
+      expect(after.unreadCount).toBe(before!.unreadCount + 1);
+
+      // Own messages never count against the sender: once James catches
+      // up on both shared rooms, his row stays clear even though the
+      // latest message is his.
+      await api()
+        .get(`/orders/${orderId}/messages`)
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      await api()
+        .get(`/orders/${roomId}/messages`)
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      const theirs = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      const jamesRow = (
+        theirs.body as { peer: { id: string }; unreadCount: number }[]
+      ).find((r) => r.peer.id === ANDREA)!;
+      expect(jamesRow.unreadCount).toBe(0);
+
+      // Opening the room (reading the messages) clears the badge.
+      await api()
+        .get(`/orders/${roomId}/messages`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const cleared = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const row = (
+        cleared.body as { peer: { id: string }; unreadCount: number }[]
+      ).find((r) => r.peer.id === JAMES)!;
+      expect(row.unreadCount).toBe(0);
+    });
+
+    it('declining a rebooking card only marks the card', async () => {
+      const card = await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: BBQ_TEMPLATE, scheduledAt: MEET_AT })
+        .expect(201);
+      const declined = await api()
+        .post(`/orders/${orderId}/messages/${card.body.id}/respond`)
+        .set('X-User-Id', JAMES)
+        .send({ accept: false })
+        .expect(201);
+      const payload = JSON.parse(declined.body.text as string) as {
+        status: string;
+        orderId: string;
+      };
+      expect(payload.status).toBe('DECLINED');
+      expect(payload.orderId).toBe('');
+      // A declined card frees the slot for a new attempt.
+      await api()
+        .post(`/orders/${orderId}/messages/request`)
+        .set('X-User-Id', ANDREA)
+        .send({ templateId: BBQ_TEMPLATE, scheduledAt: MEET_AT })
+        .expect(201);
+    });
   });
 
   describe('post deletion (author only, open posts only)', () => {
@@ -1076,14 +1415,17 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Coffee', title: 'Delete me' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Delete me',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
 
       // Someone applied before deletion.
       await api()
         .post(`/posts/${post.body.id}/applications`)
         .set('X-User-Id', BIANCA)
-        .send(PLAN_CARD)
         .expect(201);
 
       // Only the author may delete.
@@ -1119,12 +1461,15 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Dinner', title: 'Meet code flow' })
+        .send({
+          templateId: STEAK_TEMPLATE,
+          title: 'Meet code flow',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       await api()
         .post(`/posts/${post.body.id}/applications`)
         .set('X-User-Id', KAT)
-        .send(PLAN_CARD)
         .expect(201);
       const pool = await api()
         .get(`/posts/${post.body.id}/applications`)
@@ -1187,14 +1532,17 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Coffee', title: 'Coffee date' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Coffee date',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       postId = post.body.id;
 
       const application = await api()
         .post(`/posts/${postId}/applications`)
         .set('X-User-Id', BIANCA)
-        .send(PLAN_CARD)
         .expect(201);
       const selection = await api()
         .post(`/posts/${postId}/selection`)
@@ -1264,12 +1612,15 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', MIGUEL)
-        .send({ sceneTag: 'Coffee', title: 'Window test date' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Window test date',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       const application = await api()
         .post(`/posts/${post.body.id}/applications`)
         .set('X-User-Id', BIANCA)
-        .send(PLAN_CARD)
         .expect(201);
       const selection = await api()
         .post(`/posts/${post.body.id}/selection`)
@@ -1353,7 +1704,11 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post('/posts')
         .set('X-User-Id', JAMES)
-        .send({ sceneTag: 'Coffee', title: 'Host post' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Host post',
+          scheduledAt: MEET_AT,
+        })
         .expect(403);
     });
 
@@ -1361,12 +1716,15 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', PAOLO)
-        .send({ sceneTag: 'Tea', title: 'Role guard' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Role guard',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       await api()
         .post(`/posts/${post.body.id}/applications`)
         .set('X-User-Id', MIGUEL)
-        .send({ ...PLAN_CARD, proposal: 'A plan from the wrong side' })
         .expect(403);
     });
   });
@@ -1389,7 +1747,7 @@ describe('Meeto API (e2e)', () => {
       expect(bianca).toBeDefined();
       expect(bianca.user.role).toBe('HOST');
       expect(typeof bianca.completedActivities).toBe('number');
-      // The seeded application proposal surfaces as a hosting credential.
+      // The host's own published pitch titles surface as credentials.
       expect(bianca.recentProposals.length).toBeGreaterThan(0);
 
       // Gender preference filter.
@@ -1406,59 +1764,81 @@ describe('Meeto API (e2e)', () => {
       await api().get(`/hosts/${MIGUEL}`).set('X-User-Id', ANDREA).expect(404);
     });
 
-    it('several users queue invitations; the pitch locks the price', async () => {
+    it('several users queue invitations carrying their own deal terms', async () => {
       // A fresh pitch so the seeded feed stays untouched for later tests.
+      // A pitch is a shelf listing: template + availability window only.
       const pitch = await api()
         .post('/proposals')
         .set('X-User-Id', NOEL)
         .send({
-          title: 'Friday rooftop crawl, my shortlist',
-          sceneTag: 'Bar',
-          budgetMinor: 35000,
+          templateId: HOTPOT_TEMPLATE,
+          title: 'Friday hotpot night, my pick',
+          timeSlot: 'ANYTIME',
         })
         .expect(201);
       proposalId = pitch.body.id;
       expect(pitch.body.status).toBe('OPEN');
       expect(pitch.body.inviteCount).toBe(0);
       expect(pitch.body.hasInvited).toBe(false);
+      // The template envelope rides the pitch.
+      expect(pitch.body.timeSlot).toBe('ANYTIME');
+      expect(pitch.body.meetingPoint).toBe(HOTPOT_MEETING_POINT);
+      expect(pitch.body.area).toBe('Pasay');
 
-      // Inviting carries only the note: scene and price come from the
-      // pitch (whoever launches the activity prices it).
+      // Inviting carries the deal terms: the inviter picks the concrete
+      // time (inside the window) and the price tier.
       const first = await api()
         .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', ANDREA)
-        .send({ note: 'Friday works for me, pick the quiet rooftops' })
+        .send({
+          scheduledAt: MEET_AT,
+          budgetMinor: 250000,
+          note: 'Friday works for me, pick the quiet rooftops',
+        })
         .expect(201);
       andreaInviteId = first.body.id;
       expect(first.body.status).toBe('PENDING');
       expect(first.body.from.id).toBe(ANDREA);
       expect(first.body.proposalId).toBe(proposalId);
+      expect(first.body.scheduledAt).toBe(MEET_AT);
+      expect(first.body.budgetMinor).toBe(250000);
+
+      // Off-tier pricing is rejected: the platform prices, the inviter
+      // only picks.
+      const offTier = await api()
+        .post(`/proposals/${proposalId}/invitations`)
+        .set('X-User-Id', MIGUEL)
+        .send({ scheduledAt: MEET_AT, budgetMinor: 99, note: 'cheap' })
+        .expect(400);
+      expect(offTier.body.message).toBe('INVALID_BUDGET');
 
       // Duplicate pending invitation on the same pitch conflicts...
       const dup = await api()
         .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', ANDREA)
-        .send({ note: 'Again' })
+        .send({ scheduledAt: MEET_AT, note: 'Again' })
         .expect(409);
       expect(dup.body.message).toBe('INVITE_ALREADY_PENDING');
-      // ...but other users queue freely on the same pitch.
+      // ...but other users queue freely on the same pitch, each with
+      // their own terms (omitted budget lands on the middle tier).
       const second = await api()
         .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', MIGUEL)
-        .send({ note: 'Any Friday after 9pm' })
+        .send({ scheduledAt: MEET_AT, note: 'Any Friday after 9pm' })
         .expect(201);
       miguelInviteId = second.body.id;
+      expect(second.body.budgetMinor).toBe(150000);
 
       // Hosts cannot invite; a dead proposal id is a 404.
       await api()
         .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', JAMES)
-        .send({ note: 'no' })
+        .send({ scheduledAt: MEET_AT, note: 'no' })
         .expect(403);
       await api()
         .post('/proposals/nope/invitations')
         .set('X-User-Id', ANDREA)
-        .send({ note: 'no' })
+        .send({ scheduledAt: MEET_AT, note: 'no' })
         .expect(404);
 
       // The detail view counts the queue; inviters see their own flag.
@@ -1483,47 +1863,60 @@ describe('Meeto API (e2e)', () => {
       expect(pool.body[1].from.id).toBe(MIGUEL);
     });
 
+    it('queued invitations reach the host via the notice feed', async () => {
+      const notices = await api()
+        .get('/posts/signups/notice')
+        .set('X-User-Id', NOEL)
+        .expect(200);
+      const mine = notices.body.filter(
+        (n: { targetId: string }) => n.targetId === proposalId,
+      );
+      expect(mine).toHaveLength(2);
+      for (const n of mine) {
+        expect(n.kind).toBe('INVITATION');
+      }
+      expect(new Set(mine.map((n: { actor: { id: string } }) => n.actor.id))).toEqual(
+        new Set([ANDREA, MIGUEL]),
+      );
+    });
+
     it('only the host selects; selection creates the order and takes the pitch off the market', async () => {
       await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', ANDREA)
-        .send(SELECT_PLAN)
         .expect(403);
 
       const res = await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', NOEL)
-        .send(SELECT_PLAN)
         .expect(201);
       orderId = res.body.id;
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(NOEL);
-      expect(res.body.feeMinor).toBe(35000); // the pitch's locked tier
-      // The host's plan card was locked in the same tap: the order is
-      // born with the plan confirmed, nothing left to negotiate in chat.
+      expect(res.body.feeMinor).toBe(250000); // the tier Andrea picked
+      // The plan is the template's meeting point plus the time the
+      // INVITER picked: the order is born with the plan confirmed,
+      // nothing left to negotiate in chat.
       expect(res.body.planConfirmedAt).not.toBeNull();
-      expect(res.body.place).toBe(SELECT_PLAN.place);
-      expect(res.body.scheduledAt).toBe(SELECT_PLAN.scheduledAt);
-      expect(res.body.planNote).toBe(SELECT_PLAN.note);
+      expect(res.body.place).toBe(HOTPOT_MEETING_POINT);
+      expect(res.body.scheduledAt).toBe(MEET_AT);
 
       // Selecting twice, or selecting another inviter while the deal is
       // pending, both conflict: the pitch is off the market.
       await api()
         .post(`/proposals/${proposalId}/invitations/${andreaInviteId}/select`)
         .set('X-User-Id', NOEL)
-        .send(SELECT_PLAN)
         .expect(409);
       await api()
         .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
         .set('X-User-Id', NOEL)
-        .send(SELECT_PLAN)
         .expect(409);
       // New invitations bounce too, and the pitch left the hall feed.
       const late = await api()
         .post(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', ANDREA)
-        .send({ note: 'too late' })
+        .send({ scheduledAt: MEET_AT, note: 'too late' })
         .expect(409);
       expect(late.body.message).toBe('PROPOSAL_NOT_OPEN');
       const feed = await api()
@@ -1585,7 +1978,6 @@ describe('Meeto API (e2e)', () => {
       const res = await api()
         .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)
         .set('X-User-Id', NOEL)
-        .send(SELECT_PLAN)
         .expect(201);
       expect(res.body.payer.id).toBe(MIGUEL);
     });
@@ -1608,52 +2000,63 @@ describe('Meeto API (e2e)', () => {
         (p: { host: { id: string } }) => p.host.id === NOEL,
       );
       expect(pitch).toBeDefined();
-      expect(pitch.sceneTag).toBe('Bar');
+      expect(pitch.sceneTag).toBe('Dinner');
       expect(pitch.imageUrl).toContain('https://');
-      expect(pitch.area).toBe('Poblacion');
+      expect(pitch.area).toBe('Makati');
       expect(pitch.host.role).toBe('HOST');
       expect(typeof pitch.hostCompletedActivities).toBe('number');
     });
 
-    it('only hosts publish; any priced scene goes', async () => {
+    it('only hosts publish; templates lock the envelope', async () => {
       await api()
         .post('/proposals')
         .set('X-User-Id', ANDREA)
-        .send({ title: 'Users cannot pitch', sceneTag: 'Coffee' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Users cannot pitch',
+          timeSlot: 'ANYTIME',
+        })
         .expect(403);
 
-      // No registration-declared scene list anymore: what a host offers
-      // is whatever they actually pitch. Omitting the budget lands on the
-      // scene's middle platform tier.
-      const barPitch = await api()
-        .post('/proposals')
-        .set('X-User-Id', BIANCA)
-        .send({ title: 'Rooftop crawl', sceneTag: 'Bar' })
-        .expect(201);
-      expect(barPitch.body.budgetMinor).toBe(35000);
-
-      // Whoever launches the activity prices it: the host picks a
-      // platform tier; made-up prices are rejected.
+      // A pitch carries no price and no concrete time: just the template
+      // and an availability window, which must be a known one.
       await api()
         .post('/proposals')
         .set('X-User-Id', BIANCA)
         .send({
-          title: 'Free pricing is not a thing',
-          sceneTag: 'Coffee',
-          budgetMinor: 99,
+          templateId: STEAK_TEMPLATE,
+          title: 'Missing window',
         })
         .expect(400);
+      await api()
+        .post('/proposals')
+        .set('X-User-Id', BIANCA)
+        .send({
+          templateId: STEAK_TEMPLATE,
+          title: 'Made-up window',
+          timeSlot: 'MIDNIGHT',
+        })
+        .expect(400);
+      await api()
+        .post('/proposals')
+        .set('X-User-Id', BIANCA)
+        .send({
+          templateId: 'template-anything-goes',
+          title: 'Off-template pitch',
+          timeSlot: 'ANYTIME',
+        })
+        .expect(404);
       const created = await api()
         .post('/proposals')
         .set('X-User-Id', BIANCA)
         .send({
-          title: 'Morning filter tasting in Salcedo',
-          sceneTag: 'Coffee',
-          budgetMinor: 25000,
+          templateId: BBQ_TEMPLATE,
+          title: 'BBQ night on High Street',
+          timeSlot: 'EVENING',
         })
         .expect(201);
       expect(created.body.host.id).toBe(BIANCA);
-      expect(created.body.budgetMinor).toBe(25000);
+      expect(created.body.timeSlot).toBe('EVENING');
 
       // The fresh pitch leads the feed.
       const feed = await api()
@@ -1661,7 +2064,7 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(feed.body[0].id).toBe(created.body.id);
-      expect(feed.body[0].title).toBe('Morning filter tasting in Salcedo');
+      expect(feed.body[0].title).toBe('BBQ night on High Street');
     });
   });
 
@@ -1736,7 +2139,6 @@ describe('Meeto API (e2e)', () => {
       await api()
         .post(`/posts/${userMoment.body.id}/applications`)
         .set('X-User-Id', NOEL)
-        .send({ ...PLAN_CARD, proposal: 'Not applicable' })
         .expect(409);
     });
   });
@@ -1776,7 +2178,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           platformFeeRateBp: 1500,
           defaultFeeMinor: 60000,
-          sceneBudgetTiers: { Coffee: [70000], Dinner: [100000] },
+          sceneBudgetTiers: { Dinner: [70000] },
         })
         .expect(200);
 
@@ -1788,14 +2190,17 @@ describe('Meeto API (e2e)', () => {
       const post = await api()
         .post('/posts')
         .set('X-User-Id', PAOLO)
-        .send({ sceneTag: 'Coffee', title: 'Coffee uptown' })
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'KBBQ uptown',
+          scheduledAt: MEET_AT,
+        })
         .expect(201);
       expect(post.body.feeMinor).toBe(70000);
 
       const application = await api()
         .post(`/posts/${post.body.id}/applications`)
         .set('X-User-Id', LIZA)
-        .send(PLAN_CARD)
         .expect(201);
       const order = await api()
         .post(`/posts/${post.body.id}/selection`)
@@ -1881,6 +2286,694 @@ describe('Meeto API (e2e)', () => {
         where: { id: post!.proposalId },
       });
       expect(proposal!.status).toBe('OPEN');
+    });
+  });
+
+  describe('security hardening: cross-user access and input abuse', () => {
+    let outsiderProofOrderId: string;
+
+    it('outsiders cannot read, cancel or start another pair\'s order', async () => {
+      // A fresh deal between Paolo (payer) and Liza (earner)...
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', PAOLO)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          title: 'Privacy perimeter test',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const application = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', LIZA)
+        .expect(201);
+      const selection = await api()
+        .post(`/posts/${post.body.id}/selection`)
+        .set('X-User-Id', PAOLO)
+        .send({ applicationId: application.body.id })
+        .expect(201);
+      outsiderProofOrderId = selection.body.id as string;
+      await api()
+        .post(`/orders/${outsiderProofOrderId}/payment`)
+        .set('X-User-Id', PAOLO)
+        .expect(201);
+
+      // ...is a wall to everyone else, host or user, on every verb.
+      for (const outsider of [KAT, ANDREA]) {
+        await api()
+          .get(`/orders/${outsiderProofOrderId}`)
+          .set('X-User-Id', outsider)
+          .expect(403);
+        await api()
+          .post(`/orders/${outsiderProofOrderId}/cancel`)
+          .set('X-User-Id', outsider)
+          .expect(403);
+        await api()
+          .post(`/orders/${outsiderProofOrderId}/start`)
+          .set('X-User-Id', outsider)
+          .send({ code: '0000' })
+          .expect(403);
+      }
+      // Nonexistent orders are 404, not information leaks.
+      await api()
+        .get('/orders/no-such-order')
+        .set('X-User-Id', PAOLO)
+        .expect(404);
+    });
+
+    it('selection is owner-only and rejects applications from other posts', async () => {
+      // A second open post with its own candidate.
+      const otherPost = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Cross-reference guard',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const foreignApplication = await api()
+        .post(`/posts/${otherPost.body.id}/applications`)
+        .set('X-User-Id', KAT)
+        .expect(201);
+
+      // A non-owner cannot select on someone else's post.
+      await api()
+        .post(`/posts/${otherPost.body.id}/selection`)
+        .set('X-User-Id', ANDREA)
+        .send({ applicationId: foreignApplication.body.id })
+        .expect(403);
+
+      // The owner cannot smuggle in an application belonging to a
+      // different post.
+      const ownPost = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          title: 'Cross-reference guard second post',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      await api()
+        .post(`/posts/${ownPost.body.id}/selection`)
+        .set('X-User-Id', MIGUEL)
+        .send({ applicationId: foreignApplication.body.id })
+        .expect(404);
+    });
+
+    it('public surfaces never leak phone numbers or birth dates', async () => {
+      const hall = await api()
+        .get('/posts?view=requests')
+        .set('X-User-Id', JAMES)
+        .expect(200);
+      expect(hall.body.length).toBeGreaterThan(0);
+      for (const post of hall.body) {
+        expect(post.author.phone).toBeUndefined();
+        expect(post.author.birthDate).toBeUndefined();
+      }
+      const hosts = await api()
+        .get('/hosts')
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      for (const card of hosts.body) {
+        expect(card.user.phone).toBeUndefined();
+        expect(card.user.birthDate).toBeUndefined();
+      }
+      // Another user's profile view: same trim.
+      const profile = await api()
+        .get(`/users/${BIANCA}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(profile.body.phone).toBeUndefined();
+      expect(profile.body.birthDate).toBeUndefined();
+    });
+
+    it('profile updates cannot smuggle privileged fields', async () => {
+      const before = await api()
+        .get('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      // The whitelist pipe strips unknown fields; role and verification
+      // are not in the DTO, so they survive untouched.
+      const res = await api()
+        .patch('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          name: 'Miguel',
+          role: 'ADMIN',
+          isVerified: false,
+          phone: '+639990000000',
+          id: 'user-999',
+        })
+        .expect(200);
+      expect(res.body.role).toBe(before.body.role);
+      expect(res.body.isVerified).toBe(before.body.isVerified);
+      expect(res.body.id).toBe(MIGUEL);
+      const row = await prisma.user.findUnique({ where: { id: MIGUEL } });
+      expect(row!.role).toBe('USER');
+      expect(row!.phone).not.toBe('+639990000000');
+    });
+
+    it('rejects blanking the display name and out-of-range body stats', async () => {
+      await api()
+        .patch('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .send({ name: '   ' })
+        .expect(400);
+      await api()
+        .patch('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .send({ heightCm: 300 })
+        .expect(400);
+      await api()
+        .patch('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .send({ weightKg: 10 })
+        .expect(400);
+      // The account is intact afterwards.
+      const me = await api()
+        .get('/users/me')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      expect((me.body.name as string).length).toBeGreaterThan(0);
+    });
+
+    it('expense policy accepts only the known values and defaults to TREAT', async () => {
+      const defaulted = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Expense default check',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      expect(defaulted.body.expensePolicy).toBe('TREAT');
+
+      const explicit = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Expense explicit AA',
+          scheduledAt: MEET_AT,
+          expensePolicy: 'AA',
+        })
+        .expect(201);
+      expect(explicit.body.expensePolicy).toBe('AA');
+
+      await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Expense junk value',
+          scheduledAt: MEET_AT,
+          expensePolicy: 'WHATEVER',
+        })
+        .expect(400);
+
+      // Keep the hall tidy for the remaining assertions.
+      await api()
+        .delete(`/posts/${defaulted.body.id}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      await api()
+        .delete(`/posts/${explicit.body.id}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+    });
+
+    it('rejects oversized or empty content payloads', async () => {
+      // Order chat: empty and over-limit messages bounce.
+      await api()
+        .post(`/orders/${outsiderProofOrderId}/messages`)
+        .set('X-User-Id', PAOLO)
+        .send({ text: '' })
+        .expect(400);
+      await api()
+        .post(`/orders/${outsiderProofOrderId}/messages`)
+        .set('X-User-Id', PAOLO)
+        .send({ text: 'x'.repeat(2001) })
+        .expect(400);
+      // Moments: text over 600 chars bounces.
+      await api()
+        .post('/posts/moments')
+        .set('X-User-Id', ANDREA)
+        .send({
+          text: 'x'.repeat(601),
+          images: ['/uploads/x.jpg'],
+          venue: 'Somewhere',
+        })
+        .expect(400);
+      // Meet code must be exactly 4 characters.
+      await api()
+        .post(`/orders/${outsiderProofOrderId}/start`)
+        .set('X-User-Id', LIZA)
+        .send({ code: '123' })
+        .expect(400);
+    });
+
+    it('rejects zero and negative withdrawals', async () => {
+      await api()
+        .post('/wallet/withdrawals')
+        .set('X-User-Id', JAMES)
+        .send({ amountMinor: 0 })
+        .expect(400);
+      await api()
+        .post('/wallet/withdrawals')
+        .set('X-User-Id', JAMES)
+        .send({ amountMinor: -5000 })
+        .expect(400);
+      await api()
+        .post('/wallet/withdrawals')
+        .set('X-User-Id', JAMES)
+        .send({ amountMinor: 10.5 })
+        .expect(400);
+    });
+  });
+
+  describe('concurrency, idempotency and upload abuse', () => {
+    /** The ACTIVE order produced by the double-payment race, reused to
+     *  race the meet-code start below. */
+    let racedOrderId: string;
+
+    it('concurrent double payment escrows the fee exactly once', async () => {
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Double payment race',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const application = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', KAT)
+        .expect(201);
+      const selection = await api()
+        .post(`/posts/${post.body.id}/selection`)
+        .set('X-User-Id', ANDREA)
+        .send({ applicationId: application.body.id })
+        .expect(201);
+      racedOrderId = selection.body.id as string;
+
+      // Two simultaneous payment submissions (double tap / two tabs).
+      const [first, second] = await Promise.all([
+        api().post(`/orders/${racedOrderId}/payment`).set('X-User-Id', ANDREA),
+        api().post(`/orders/${racedOrderId}/payment`).set('X-User-Id', ANDREA),
+      ]);
+
+      // Exactly one submission wins however the race lands...
+      expect(
+        [first.status, second.status].filter((s) => s === 201),
+      ).toHaveLength(1);
+      // ...and the books hold exactly one charge and one escrow entry.
+      expect(
+        await prisma.payment.count({ where: { orderId: racedOrderId } }),
+      ).toBe(1);
+      expect(
+        await prisma.ledgerEntry.count({
+          where: { orderId: racedOrderId, entryType: 'ESCROW_IN' },
+        }),
+      ).toBe(1);
+    });
+
+    it('racing two selections on one post creates exactly one order', async () => {
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          title: 'Selection race',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const firstCandidate = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', LIZA)
+        .expect(201);
+      const secondCandidate = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', NOEL)
+        .expect(201);
+
+      // The poster double-fires on two different candidates at once.
+      const [first, second] = await Promise.all([
+        api()
+          .post(`/posts/${post.body.id}/selection`)
+          .set('X-User-Id', MIGUEL)
+          .send({ applicationId: firstCandidate.body.id }),
+        api()
+          .post(`/posts/${post.body.id}/selection`)
+          .set('X-User-Id', MIGUEL)
+          .send({ applicationId: secondCandidate.body.id }),
+      ]);
+
+      expect(
+        [first.status, second.status].filter((s) => s === 201),
+      ).toHaveLength(1);
+      // One order, one selected candidate: no double booking.
+      expect(
+        await prisma.order.count({ where: { postId: post.body.id } }),
+      ).toBe(1);
+      expect(
+        await prisma.application.count({
+          where: { postId: post.body.id, status: 'SELECTED' },
+        }),
+      ).toBe(1);
+    });
+
+    it('the meet code starts the service clock exactly once', async () => {
+      const payerView = await api()
+        .get(`/orders/${racedOrderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      const code = payerView.body.meetCode as string;
+      expect(code).toMatch(/^\d{4}$/);
+
+      const [first, second] = await Promise.all([
+        api()
+          .post(`/orders/${racedOrderId}/start`)
+          .set('X-User-Id', KAT)
+          .send({ code }),
+        api()
+          .post(`/orders/${racedOrderId}/start`)
+          .set('X-User-Id', KAT)
+          .send({ code }),
+      ]);
+
+      expect(
+        [first.status, second.status].filter((s) => s === 201),
+      ).toHaveLength(1);
+      const row = await prisma.order.findUnique({
+        where: { id: racedOrderId },
+      });
+      expect(row!.startedAt).not.toBeNull();
+    });
+
+    it('uploads demand auth, an image mime, and never trust the client filename', async () => {
+      const fakeImage = Buffer.from('not really a png but small');
+
+      // No session: no storage.
+      await api()
+        .post('/uploads')
+        .attach('file', fakeImage, {
+          filename: 'x.png',
+          contentType: 'image/png',
+        })
+        .expect(401);
+
+      // A non-image mime is refused outright.
+      await api()
+        .post('/uploads')
+        .set('X-User-Id', ANDREA)
+        .attach('file', fakeImage, {
+          filename: 'x.png',
+          contentType: 'text/plain',
+        })
+        .expect(400);
+
+      // An .html name with an image mime must NOT be stored as .html:
+      // the extension comes from the mime, killing the stored-XSS vector.
+      const smuggled = await api()
+        .post('/uploads')
+        .set('X-User-Id', ANDREA)
+        .attach('file', fakeImage, {
+          filename: 'evil.html',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      expect(smuggled.body.url).toMatch(/^\/uploads\/[0-9a-f-]{36}\.png$/);
+
+      // Path traversal in the name is neutralised by the server-chosen name.
+      const traversal = await api()
+        .post('/uploads')
+        .set('X-User-Id', ANDREA)
+        .attach('file', fakeImage, {
+          filename: '../../evil.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      expect(traversal.body.url).toMatch(/^\/uploads\/[0-9a-f-]{36}\.png$/);
+
+      // Over the 8 MB cap: payload too large.
+      const oversized = Buffer.alloc(8 * 1024 * 1024 + 1);
+      await api()
+        .post('/uploads')
+        .set('X-User-Id', ANDREA)
+        .attach('file', oversized, {
+          filename: 'big.png',
+          contentType: 'image/png',
+        })
+        .expect(413);
+    });
+  });
+
+  describe('ops console: bans, takedowns, reports, force refunds', () => {
+    it('hides every admin endpoint from ordinary accounts', async () => {
+      await api().get('/admin/users?q=x').set('X-User-Id', ANDREA).expect(403);
+      await api()
+        .post(`/admin/users/${MIGUEL}/ban`)
+        .set('X-User-Id', KAT)
+        .expect(403);
+      await api().get('/admin/reports').set('X-User-Id', MIGUEL).expect(403);
+    });
+
+    it('finds accounts by phone or name', async () => {
+      const byPhone = await api()
+        .get('/admin/users?q=%2B639170000102')
+        .set('X-User-Id', ADMIN)
+        .expect(200);
+      expect(byPhone.body.map((u: { id: string }) => u.id)).toContain(PAOLO);
+    });
+
+    it('a ban locks the account instantly and pulls its open inventory', async () => {
+      // PAOLO (USER) has an open post; JAMES (HOST) is applied to it.
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', PAOLO)
+        .send({
+          templateId: STEAK_TEMPLATE,
+          title: 'Ban cascade fixture',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', JAMES)
+        .expect(201);
+
+      // Banning the applicant releases their pending application...
+      await api()
+        .post(`/admin/users/${JAMES}/ban`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+      const jamesBlocked = await api()
+        .get('/posts')
+        .set('X-User-Id', JAMES)
+        .expect(403);
+      expect(JSON.stringify(jamesBlocked.body)).toContain('ACCOUNT_BANNED');
+      expect(
+        await prisma.application.count({
+          where: { postId: post.body.id, status: 'APPLIED' },
+        }),
+      ).toBe(0);
+
+      // ...and an unban restores access on the very next request.
+      await api()
+        .post(`/admin/users/${JAMES}/unban`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+      await api().get('/posts').set('X-User-Id', JAMES).expect(200);
+
+      // Banning the author takes the open post off the market.
+      await api()
+        .post(`/admin/users/${PAOLO}/ban`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+      const row = await prisma.post.findUnique({
+        where: { id: post.body.id },
+      });
+      expect(row!.status).toBe('CANCELLED');
+      await api().get('/posts').set('X-User-Id', PAOLO).expect(403);
+
+      // Leave PAOLO usable for anything that follows.
+      await api()
+        .post(`/admin/users/${PAOLO}/unban`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+    });
+
+    it('refuses to ban an admin account', async () => {
+      await api()
+        .post(`/admin/users/${ADMIN}/ban`)
+        .set('X-User-Id', ADMIN)
+        .expect(403);
+    });
+
+    it('lets the admin delete anyone open post; strangers still cannot', async () => {
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          templateId: BBQ_TEMPLATE,
+          title: 'Takedown fixture',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+
+      // A random user is still shut out of someone else's post.
+      await api()
+        .delete(`/posts/${post.body.id}`)
+        .set('X-User-Id', ANDREA)
+        .expect(403);
+
+      await api()
+        .delete(`/posts/${post.body.id}`)
+        .set('X-User-Id', ADMIN)
+        .expect(200);
+      const row = await prisma.post.findUnique({
+        where: { id: post.body.id },
+      });
+      expect(row!.status).toBe('CANCELLED');
+    });
+
+    it('an open report freezes settlement until ops resolves it', async () => {
+      // A started order whose clock has fully run out...
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', ANDREA)
+        .send({
+          templateId: HOTPOT_TEMPLATE,
+          title: 'Frozen settlement fixture',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const application = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', LIZA)
+        .expect(201);
+      const selection = await api()
+        .post(`/posts/${post.body.id}/selection`)
+        .set('X-User-Id', ANDREA)
+        .send({ applicationId: application.body.id })
+        .expect(201);
+      const orderId = selection.body.id as string;
+      await api()
+        .post(`/orders/${orderId}/payment`)
+        .set('X-User-Id', ANDREA)
+        .expect(201);
+      const payerView = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      await api()
+        .post(`/orders/${orderId}/start`)
+        .set('X-User-Id', LIZA)
+        .send({ code: payerView.body.meetCode })
+        .expect(201);
+
+      // ...but the payer reported it before the clock expired.
+      await api()
+        .post(`/orders/${orderId}/report`)
+        .set('X-User-Id', ANDREA)
+        .send({ reason: 'Host behaved inappropriately during the meetup' })
+        .expect(201);
+      // A blank reason is never a report.
+      await api()
+        .post(`/orders/${orderId}/report`)
+        .set('X-User-Id', ANDREA)
+        .send({ reason: '   ' })
+        .expect(400);
+
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { startedAt: new Date(Date.now() - 150 * 60 * 1000) },
+      });
+
+      // The lazy settlement clock reads the order... and holds.
+      const frozen = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(frozen.body.status).toBe('ACTIVE');
+
+      // Resolving the report lets the next read settle normally.
+      const reports = await api()
+        .get('/admin/reports')
+        .set('X-User-Id', ADMIN)
+        .expect(200);
+      const mine = reports.body.find(
+        (r: { orderId: string }) => r.orderId === orderId,
+      );
+      expect(mine.status).toBe('OPEN');
+      expect(mine.reported.id).toBe(LIZA);
+      await api()
+        .post(`/admin/reports/${mine.id}/resolve`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+      const settled = await api()
+        .get(`/orders/${orderId}`)
+        .set('X-User-Id', ANDREA)
+        .expect(200);
+      expect(settled.body.status).toBe('COMPLETED');
+    });
+
+    it('force-refunds an active order in full, exactly once', async () => {
+      const post = await api()
+        .post('/posts')
+        .set('X-User-Id', MIGUEL)
+        .send({
+          templateId: STEAK_TEMPLATE,
+          title: 'Force refund fixture',
+          scheduledAt: MEET_AT,
+        })
+        .expect(201);
+      const application = await api()
+        .post(`/posts/${post.body.id}/applications`)
+        .set('X-User-Id', NOEL)
+        .expect(201);
+      const selection = await api()
+        .post(`/posts/${post.body.id}/selection`)
+        .set('X-User-Id', MIGUEL)
+        .send({ applicationId: application.body.id })
+        .expect(201);
+      const orderId = selection.body.id as string;
+      await api()
+        .post(`/orders/${orderId}/payment`)
+        .set('X-User-Id', MIGUEL)
+        .expect(201);
+
+      const refunded = await api()
+        .post(`/admin/orders/${orderId}/refund`)
+        .set('X-User-Id', ADMIN)
+        .expect(201);
+      expect(refunded.body.status).toBe('CANCELLED');
+      // The meet code is never disclosed through the admin view.
+      expect(refunded.body.meetCode).toBe('');
+
+      // Money: charge marked refunded, escrow zeroed out by the refund entry.
+      const payment = await prisma.payment.findFirst({ where: { orderId } });
+      expect(payment!.status).toBe('REFUNDED');
+      const escrowSum = await prisma.ledgerEntry.aggregate({
+        where: { orderId, account: 'PLATFORM_ESCROW' },
+        _sum: { amountMinor: true },
+      });
+      expect(escrowSum._sum.amountMinor).toBe(0);
+      // The disputed post does NOT quietly reopen on the market.
+      const row = await prisma.post.findUnique({
+        where: { id: post.body.id },
+      });
+      expect(row!.status).toBe('CANCELLED');
+
+      // A second refund attempt finds nothing active to claim.
+      await api()
+        .post(`/admin/orders/${orderId}/refund`)
+        .set('X-User-Id', ADMIN)
+        .expect(409);
     });
   });
 });

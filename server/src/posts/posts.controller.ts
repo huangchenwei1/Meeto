@@ -12,13 +12,16 @@ import type { User } from '@prisma/client';
 import { CurrentUser, AuthGuard } from '../common/auth.guard.js';
 import type { OrderDto } from '../orders/order.mapper.js';
 import {
-  ApplyDto,
   CreateMomentDto,
   CreatePostDto,
   SelectionDto,
 } from './posts.dto.js';
 import { PostsService } from './posts.service.js';
-import type { ApplicationDto, PostDto } from './posts.service.js';
+import type {
+  ApplicationDto,
+  PostDto,
+  SignupNoticeDto,
+} from './posts.service.js';
 import {
   ACTIVITY_TEMPLATES,
   type ActivityTemplate,
@@ -79,6 +82,14 @@ export class PostsController {
     return this.postsService.remove(user, id);
   }
 
+  /// Pending sign-ups on the caller's open posts and pitches, newest
+  /// first. Backs the hall's unread pill. Declared before ':id' so the
+  /// literal path wins the route match.
+  @Get('signups/notice')
+  signupNotices(@CurrentUser() user: User): Promise<SignupNoticeDto[]> {
+    return this.postsService.listSignupNotices(user);
+  }
+
   @Get(':id')
   getOne(
     @CurrentUser() user: User,
@@ -99,9 +110,8 @@ export class PostsController {
   apply(
     @CurrentUser() user: User,
     @Param('id') id: string,
-    @Body() input: ApplyDto,
   ): Promise<ApplicationDto> {
-    return this.postsService.apply(user, id, input);
+    return this.postsService.apply(user, id);
   }
 
   @Post(':id/selection')

@@ -115,6 +115,10 @@ export class UsersController {
     @CurrentUser() user: User,
     @Body() dto: UpdateProfileDto,
   ): Promise<OwnProfileView> {
+    // The display name can be edited but never blanked.
+    if (dto.name !== undefined && dto.name.trim().length === 0) {
+      throw new BadRequestException('NAME_REQUIRED');
+    }
     let birthDate: Date | undefined;
     if (dto.birthDate !== undefined) {
       // The birth date backs the 18+ gate: it can be set once during

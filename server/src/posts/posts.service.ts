@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -7,6 +8,7 @@ import {
 import type { Application, Post, User } from '@prisma/client';
 import {
   ApplicationStatus,
+  InvitationStatus,
   OrderStatus,
   PostOrigin,
   PostStatus,
@@ -19,22 +21,19 @@ import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ApplyDto, CreatePostDto } from './posts.dto.js';
+import {
+  ACTIVITY_DURATION_MINUTES,
+  findTemplate,
+  isWithinMeetingHours,
+} from './activity-templates.js';
+import { CreatePostDto } from './posts.dto.js';
 
 type PostWithAuthor = Post & { author: User };
 type ApplicationSlice = {
   applicantId: string;
   status: string;
-  proposal: string;
   applicant: User;
 };
-
-export interface ApplicantPreview {
-  avatarUrl: string;
-  /// First characters of the host's pitch, truncated server-side so the
-  /// full text never leaves the owner-only candidate endpoint.
-  proposalTeaser: string;
-}
 
 export interface PostDto {
   id: string;
@@ -45,25 +44,31 @@ export interface PostDto {
   title: string;
   description: string;
   detail: string;
-  /// Fuzzy availability window identifier (e.g. TONIGHT); empty if unset.
-  timeSlot: string;
-  /// Rough district picked at publish time; empty if unset.
+  /// The platform template the post launched from; empty on moments.
+  templateId: string;
+  /// The concrete meeting time picked at publish; null on moments.
+  scheduledAt: Date | null;
+  /// District snapshot from the template; empty if unset.
   area: string;
+  /// Partner venue resolved from the template, e.g. "Glorietta Mall".
+  venueName: string;
+  /// Exact meeting point resolved from the template.
+  meetingPoint: string;
+  /// Display label for the suggested duration, e.g. "建议 2–3 小时".
+  durationLabel: string;
   /// Venue name on MOMENT recaps (empty on demand posts).
   venue: string;
   imageUrl: string;
   images: string[];
   applicantCount: number;
-  /// Avatar URLs of the pending candidates (capped). Served to HOST
-  /// callers only: hosts may gauge competition but never see rival
-  /// pitches; the client renders these blurred.
+  /// Avatar URLs of the pending candidates (capped). Served to non-owner
+  /// callers so they can gauge interest; no names or pitches leave the
+  /// owner-only candidate endpoint.
   applicantAvatars: string[];
-  /// Candidate previews served to USER callers (non-owner): a clear
-  /// avatar plus the first few characters of the pitch. No names or
-  /// ids — teasing the service, not exposing the pool.
-  applicantPreviews: ApplicantPreview[];
   status: string;
   feeMinor: number;
+  /// Who covers on-site expenses: TREAT (publisher treats) | AA.
+  expensePolicy: string;
   hasApplied: boolean;
   /// The host whose plan was approved; null while the post is still open.
   /// Drives the community card's "host accepted" attribution line.
@@ -76,13 +81,17 @@ export interface ApplicationDto {
   postId: string;
   applicant: PublicUser;
   status: string;
-  /// The host's one-line plan pitch written at sign-up.
-  proposal: string;
-  /// The structured plan card delivered at sign-up: venue...
-  planPlace: string;
-  planDurationMinutes: number;
-  /// ...and time. Selection approves this plan.
-  planAt: Date | null;
+  createdAt: Date;
+}
+
+/// One pending sign-up on something the caller published: a candidate on
+/// their demand post (APPLICATION) or an inviter on their pitch
+/// (INVITATION). targetId opens the surface where the caller acts on it.
+export interface SignupNoticeDto {
+  id: string;
+  kind: 'APPLICATION' | 'INVITATION';
+  targetId: string;
+  actor: PublicUser;
   createdAt: Date;
 }
 
@@ -99,23 +108,36 @@ export class PostsService {
     if (author.role === Role.host) {
       throw new ForbiddenException('Hosts cannot post activity requests');
     }
+    // Template-only publishing: the platform fixes the whole activity
+    // envelope (scene, cover, district, meeting point); the author only
+    // brings words and a meeting time.
+    const template = findTemplate(input.templateId);
+    if (!template) {
+      throw new NotFoundException('TEMPLATE_NOT_FOUND');
+    }
+    // Hosts work 09:00-22:00 Manila time; the activity must fit inside.
+    const meetAt = new Date(input.scheduledAt);
+    if (!isWithinMeetingHours(meetAt)) {
+      throw new BadRequestException('MEET_TIME_OUT_OF_HOURS');
+    }
     // The poster picks a platform-defined budget tier (middle tier when
     // unspecified); the snapshot keeps later repricing away from this post.
     const feeMinor = await this.pricingService.resolveBudget(
-      input.sceneTag,
+      template.sceneTag,
       input.budgetMinor,
     );
     const post = await this.prisma.post.create({
       data: {
         authorId: author.id,
-        sceneTag: input.sceneTag,
+        sceneTag: template.sceneTag,
         title: input.title,
         description: input.description ?? '',
-        detail: input.detail ?? '',
-        timeSlot: input.timeSlot ?? '',
-        area: input.area ?? '',
-        imageUrl: input.imageUrl ?? '',
+        templateId: template.id,
+        scheduledAt: meetAt,
+        area: template.area,
+        imageUrl: template.imageUrl,
         feeMinor,
+        expensePolicy: input.expensePolicy ?? 'TREAT',
       },
       include: { author: true },
     });
@@ -217,7 +239,8 @@ export class PostsService {
   /// and its lifecycle, so the post can no longer be deleted.
   async remove(caller: User, postId: string): Promise<PostDto> {
     const post = await this.findPostOrThrow(postId);
-    if (post.authorId !== caller.id) {
+    // The author retracts their own post; ADMIN takes down anyone's.
+    if (post.authorId !== caller.id && caller.role !== Role.admin) {
       throw new ForbiddenException('Only the author can delete a post');
     }
     if (post.status !== PostStatus.open) {
@@ -239,14 +262,12 @@ export class PostsService {
     return this.toDto(updated, []);
   }
 
-  /// Free sign-up into the candidate pool. Host accounts only (any gender):
-  /// the marketplace sells activity hosting, not dates. The sign-up carries
-  /// the structured plan card (place + time): selection approves the plan.
-  async apply(
-    caller: User,
-    postId: string,
-    input: ApplyDto,
-  ): Promise<ApplicationDto> {
+  /// Free one-tap sign-up into the candidate pool. Host accounts only
+  /// (any gender): the marketplace sells activity hosting, not dates.
+  /// The sign-up carries nothing — venue, meeting point, time and
+  /// duration are all fixed by the template and the post, so selection
+  /// is purely about the person.
+  async apply(caller: User, postId: string): Promise<ApplicationDto> {
     assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can sign up for activities');
@@ -271,14 +292,60 @@ export class PostsService {
       data: {
         postId,
         applicantId: caller.id,
-        proposal: input.proposal,
-        planPlace: input.place,
-        planAt: new Date(input.scheduledAt),
-        planDurationMinutes: input.durationMinutes,
       },
       include: { applicant: true },
     });
     return PostsService.toApplicationDto(application);
+  }
+
+  /// Pending sign-ups across everything the caller published: candidates
+  /// queued on their open demand posts plus invitations queued on their
+  /// open pitches. Feeds the hall's Moments-style unread pill — the
+  /// client diffs against a locally stored last-seen timestamp, so the
+  /// server stays stateless (no notifications table).
+  async listSignupNotices(caller: User): Promise<SignupNoticeDto[]> {
+    const [applications, invitations] = await Promise.all([
+      this.prisma.application.findMany({
+        where: {
+          status: ApplicationStatus.applied,
+          post: { authorId: caller.id, status: PostStatus.open },
+        },
+        include: { applicant: true },
+      }),
+      this.prisma.invitation.findMany({
+        where: { hostId: caller.id, status: InvitationStatus.pending },
+        include: { from: true },
+      }),
+    ]);
+    // Guard against invites whose proposal already closed: PENDING rows
+    // on a non-open pitch are stale, not actionable.
+    const proposalIds = [...new Set(invitations.map((i) => i.proposalId))];
+    const openProposals = await this.prisma.proposal.findMany({
+      where: { id: { in: proposalIds }, status: PostStatus.open },
+      select: { id: true },
+    });
+    const openIds = new Set(openProposals.map((p) => p.id));
+    const notices: SignupNoticeDto[] = [
+      ...applications.map((a) => ({
+        id: a.id,
+        kind: 'APPLICATION' as const,
+        targetId: a.postId,
+        actor: toPublicUser(a.applicant),
+        createdAt: a.createdAt,
+      })),
+      ...invitations
+        .filter((i) => openIds.has(i.proposalId))
+        .map((i) => ({
+          id: i.id,
+          kind: 'INVITATION' as const,
+          targetId: i.proposalId,
+          actor: toPublicUser(i.from),
+          createdAt: i.createdAt,
+        })),
+    ];
+    return notices.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
   async listApplications(
@@ -329,18 +396,31 @@ export class PostsService {
     const earner = application.applicant;
     const split = await this.pricingService.splitFee(post.feeMinor);
 
+    // The plan is the template's meeting point plus the post's meeting
+    // time: locked at publish, never negotiated. The order is born with
+    // the plan confirmed, so chat opens the moment the payment lands.
+    const template = findTemplate(post.templateId);
+    const planPlace = template?.meetingPoint ?? '';
+    const planAt = post.scheduledAt;
+
     const order = await this.prisma.$transaction(async (tx) => {
-      await tx.application.update({
-        where: { id: applicationId },
-        data: { status: ApplicationStatus.selected },
-      });
-      await tx.post.update({
-        where: { id: postId },
+      // Atomic claim: flipping OPEN -> PENDING_PAYMENT is the mutex that
+      // defeats two racing selections — the loser matches zero rows and
+      // the whole transaction rolls back.
+      const claimed = await tx.post.updateMany({
+        where: { id: postId, status: PostStatus.open },
         data: { status: PostStatus.pendingPayment },
       });
-      // Selecting the candidate approves the plan card delivered at
-      // sign-up: the order starts with the plan proposed and confirmed, so
-      // chat opens the moment the payment lands.
+      if (claimed.count === 0) {
+        throw new ConflictException('Post is not open for selection');
+      }
+      const picked = await tx.application.updateMany({
+        where: { id: applicationId, status: ApplicationStatus.applied },
+        data: { status: ApplicationStatus.selected },
+      });
+      if (picked.count === 0) {
+        throw new ConflictException('Candidate is no longer available');
+      }
       const planApproved = new Date();
       const created = await tx.order.create({
         data: {
@@ -352,13 +432,11 @@ export class PostsService {
           commissionMinor: split.commissionMinor,
           netMinor: split.netMinor,
           meetCode: generateMeetCode(),
-          ...(application.planPlace !== '' && application.planAt !== null
+          ...(planPlace !== '' && planAt !== null
             ? {
-                planPlace: application.planPlace,
-                planAt: application.planAt,
-                planDurationMinutes: application.planDurationMinutes,
-                // The sign-up pitch doubles as the itinerary.
-                planNote: application.proposal,
+                planPlace,
+                planAt,
+                planDurationMinutes: ACTIVITY_DURATION_MINUTES,
                 planProposedAt: planApproved,
                 planConfirmedAt: planApproved,
               }
@@ -366,8 +444,8 @@ export class PostsService {
         },
         include: { payer: true, earner: true, post: true },
       });
-      if (application.planPlace !== '' && application.planAt !== null) {
-        // The approved plan card opens the conversation as its first
+      if (planPlace !== '' && planAt !== null) {
+        // The locked plan card opens the conversation as its first
         // message, visible as soon as the payment unlocks the chat.
         await tx.message.create({
           data: {
@@ -375,10 +453,10 @@ export class PostsService {
             senderId: earner.id,
             kind: 'PLAN',
             text: JSON.stringify({
-              place: application.planPlace,
-              scheduledAt: application.planAt.toISOString(),
-              durationMinutes: application.planDurationMinutes,
-              note: application.proposal,
+              place: planPlace,
+              scheduledAt: planAt.toISOString(),
+              durationMinutes: ACTIVITY_DURATION_MINUTES,
+              note: '',
             }),
           },
         });
@@ -409,15 +487,13 @@ export class PostsService {
     const selected = applications.find(
       (a) => a.status === ApplicationStatus.selected,
     );
-    // Candidate visibility is trimmed by viewer role: the owner gets the
-    // full pool elsewhere, hosts get anonymous avatars (competition
-    // gauge), users get avatar + pitch teaser (service showcase).
+    // Candidate visibility: the owner gets the full pool elsewhere;
+    // everyone else only sees anonymous avatars (interest gauge).
     const isOwner = callerId === post.authorId;
     const pending = applications.filter(
       (a) => a.status !== ApplicationStatus.released,
     );
-    const forHost = !isOwner && caller?.role === Role.host;
-    const forUser = !isOwner && !!caller && caller.role !== Role.host;
+    const template = findTemplate(post.templateId);
     return {
       id: post.id,
       author: toPublicUser(post.author),
@@ -426,32 +502,26 @@ export class PostsService {
       title: post.title,
       description: post.description,
       detail: post.detail,
-      timeSlot: post.timeSlot,
+      templateId: post.templateId,
+      scheduledAt: post.scheduledAt,
       area: post.area,
+      venueName: template?.venueName ?? '',
+      meetingPoint: template?.meetingPoint ?? '',
+      durationLabel: template?.durationLabel ?? '',
       venue: post.venue,
       imageUrl: post.imageUrl,
       images: PostsService.parseImages(post.imagesJson),
       applicantCount: pending.length,
-      applicantAvatars: forHost
+      applicantAvatars: !isOwner
         ? pending.slice(0, 5).map((a) => a.applicant.avatarUrl)
-        : [],
-      applicantPreviews: forUser
-        ? pending.slice(0, 5).map((a) => ({
-            avatarUrl: a.applicant.avatarUrl,
-            proposalTeaser: PostsService.teaser(a.proposal),
-          }))
         : [],
       status: post.status,
       feeMinor: post.feeMinor,
+      expensePolicy: post.expensePolicy,
       hasApplied: applications.some((a) => a.applicantId === callerId),
       selectedHost: selected ? toPublicUser(selected.applicant) : null,
       createdAt: post.createdAt,
     };
-  }
-
-  private static teaser(proposal: string): string {
-    const trimmed = proposal.trim();
-    return trimmed.length <= 12 ? trimmed : `${trimmed.slice(0, 12)}\u2026`;
   }
 
   private static parseImages(json: string): string[] {
@@ -473,10 +543,6 @@ export class PostsService {
       postId: application.postId,
       applicant: toPublicUser(application.applicant),
       status: application.status,
-      proposal: application.proposal,
-      planPlace: application.planPlace,
-      planAt: application.planAt,
-      planDurationMinutes: application.planDurationMinutes,
       createdAt: application.createdAt,
     };
   }

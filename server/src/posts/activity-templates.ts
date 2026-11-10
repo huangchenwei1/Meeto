@@ -1,102 +1,143 @@
-/// Curated activity templates shown on the "hot activities" shelf — the
-/// only publish entry: picking one prefills the composer (users post a
-/// request, hosts post a pitch), which keeps post quality anchored and
-/// removes the blank-input friction. Operations-owned content: identifiers
-/// stay English, display copy is whatever the market speaks. For now this
-/// is a hand-picked Wuhan list standing in for the future ops console.
-/// The budget is not stored here — it is the platform scene fee, resolved
-/// from pricing at display time.
+/// Curated activity templates — the ONLY publish entry: picking one
+/// prefills the composer (users post a request, hosts post a pitch).
+/// The platform controls the full activity envelope: scene, cover,
+/// district, partner venue and the exact meeting point. Publishers only
+/// bring their own words (title + description) and pick a meeting time.
+/// Operations-owned content: identifiers stay English, display copy is
+/// whatever the market speaks. Hand-picked Manila list standing in for
+/// the future ops console. The budget is not stored here — it is the
+/// platform scene fee, resolved from pricing at display time.
+
+/// Every activity runs on one platform-standard duration: the settlement
+/// clock and all "about X hours" copy derive from this single value, so
+/// users never pick (or dispute) a duration.
+export const ACTIVITY_DURATION_MINUTES = 120;
+
+/// Host working window, Manila local time (UTC+8, no DST). A safety rule
+/// as much as an ops rule: hosts are on the clock 09:00-22:00, so an
+/// activity must start at opening or later and END by closing - with the
+/// standard duration the latest start is 19:00. The composer only offers
+/// slots inside this window; this guard is the server-side backstop.
+export const MANILA_UTC_OFFSET_HOURS = 8;
+export const MEETING_OPEN_HOUR = 9;
+export const MEETING_CLOSE_HOUR = 22;
+
+export function isWithinMeetingHours(at: Date): boolean {
+  const manila = new Date(
+    at.getTime() + MANILA_UTC_OFFSET_HOURS * 3600 * 1000,
+  );
+  const minutesOfDay = manila.getUTCHours() * 60 + manila.getUTCMinutes();
+  const openMinutes = MEETING_OPEN_HOUR * 60;
+  const lastStartMinutes =
+    MEETING_CLOSE_HOUR * 60 - ACTIVITY_DURATION_MINUTES;
+  return minutesOfDay >= openMinutes && minutesOfDay <= lastStartMinutes;
+}
+
+/// A host pitch advertises availability, not a scheduled event: the host
+/// declares one of these rough windows and the INVITER picks the concrete
+/// start time inside it (and inside working hours). Ranges are Manila
+/// local START times, inclusive.
+export const PROPOSAL_TIME_SLOTS: Record<
+  string,
+  { startHour: number; endHour: number }
+> = {
+  ANYTIME: {
+    startHour: MEETING_OPEN_HOUR,
+    endHour: MEETING_CLOSE_HOUR - ACTIVITY_DURATION_MINUTES / 60,
+  },
+  NOON: { startHour: 11, endHour: 14 },
+  EVENING: {
+    startHour: 17,
+    endHour: MEETING_CLOSE_HOUR - ACTIVITY_DURATION_MINUTES / 60,
+  },
+};
+
+export function isWithinProposalSlot(slot: string, at: Date): boolean {
+  const window = PROPOSAL_TIME_SLOTS[slot];
+  if (!window) return false;
+  const manila = new Date(
+    at.getTime() + MANILA_UTC_OFFSET_HOURS * 3600 * 1000,
+  );
+  const minutesOfDay = manila.getUTCHours() * 60 + manila.getUTCMinutes();
+  return (
+    minutesOfDay >= window.startHour * 60 &&
+    minutesOfDay <= window.endHour * 60
+  );
+}
+
 export interface ActivityTemplate {
   id: string;
   sceneTag: string;
   title: string;
   description: string;
   imageUrl: string;
-  /// Display label for the rough duration, e.g. "约 2 小时".
+  /// Display label for the suggested duration, e.g. "建议 2–3 小时".
+  /// Display-only: settlement always uses ACTIVITY_DURATION_MINUTES.
   durationLabel: string;
-  /// Display label for the venue type, e.g. "咖啡馆".
-  venueLabel: string;
-  /// Rough city area the activity anchors to (e.g. "黎黄陂路"); matches
-  /// the composer's area chips so launching prefills the post location.
+  /// Partner venue the activity anchors to, e.g. "Glorietta Mall".
+  venueName: string;
+  /// The exact meeting point inside the venue; becomes the order's plan
+  /// place verbatim, so both sides always know where to stand.
+  meetingPoint: string;
+  /// City district for card display and filtering, e.g. "Makati".
   area: string;
 }
 
 export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
   {
-    id: 'template-lihuangpi-road-coffee',
-    sceneTag: 'Coffee',
-    title: '黎黄陂路街角咖啡散步',
-    description: '老租界的红砖路，一杯手冲边走边喝，武汉最松弛的两小时',
-    imageUrl:
-      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2 小时',
-    venueLabel: '街区漫步',
-    area: '黎黄陂路',
-  },
-  {
-    id: 'template-tanhualin-bookshop-cafe',
-    sceneTag: 'Coffee',
-    title: '昙华林书店里的隐藏咖啡馆',
-    description: '藏在书架后面的吧台，豆子好，人少安静',
-    imageUrl:
-      'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 1.5 小时',
-    venueLabel: '咖啡馆',
-    area: '昙华林',
-  },
-  {
-    id: 'template-wansongyuan-crayfish-dinner',
+    id: 'template-japanese-dinner-date',
     sceneTag: 'Dinner',
-    title: '万松园油焖大虾宵夜局',
-    description: '老牌虾店加生烫牛肉，一个人不敢点满桌，两个人刚好',
+    title: '日式美食约会',
+    description:
+      '在 Little Tokyo 正门碰面，挑一家日料店：寿司、烧鸟或拉面都好。',
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2 小时',
-    venueLabel: '大排档',
-    area: '万松园',
+    venueName: 'Little Tokyo',
+    meetingPoint: 'Little Tokyo 正门',
+    area: 'Makati',
   },
   {
-    id: 'template-jianghan-road-omakase',
+    id: 'template-korean-bbq-date',
     sceneTag: 'Dinner',
-    title: '江汉路板前日料',
-    description: '12 座的板前，当天最新鲜的交给主厨安排',
+    title: '韩式烤肉约会',
+    description:
+      '在 High Street 主入口碰面，一起吃韩式烤肉，饭后沿步行街散步。',
     imageUrl:
-      'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&h=800&q=80',
+      'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&h=800&q=80',
     durationLabel: '约 2 小时',
-    venueLabel: '日料店',
-    area: '江汉路',
+    venueName: 'Bonifacio High Street',
+    meetingPoint: 'Bonifacio High Street 主入口',
+    area: 'BGC, Taguig',
   },
   {
-    id: 'template-jiangtan-riverside-bars',
-    sceneTag: 'Bar',
-    title: '江滩夜景酒吧巡礼',
-    description: '从精酿到调酒，三家风格不同的小店，看着长江微醺收尾',
+    id: 'template-chinese-hotpot-date',
+    sceneTag: 'Dinner',
+    title: '中式火锅约会',
+    description:
+      '在 Mall of Asia 海底捞门口碰面，吃火锅聊天，轻松不冷场。',
     imageUrl:
-      'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 3 小时',
-    venueLabel: '酒吧',
-    area: '汉口江滩',
+      'https://images.unsplash.com/photo-1541529086526-db283c563270?auto=format&fit=crop&w=800&h=800&q=80',
+    durationLabel: '约 2 小时',
+    venueName: 'Mall of Asia',
+    meetingPoint: 'Mall of Asia 海底捞门口',
+    area: 'Pasay',
   },
   {
-    id: 'template-chuhehanjie-movie-dessert',
-    sceneTag: 'Movie',
-    title: '楚河汉街影院夜 + 散场甜品',
-    description: '新片加散场后的甜品店复盘，不用自己做任何决定',
+    id: 'template-western-steak-date',
+    sceneTag: 'Dinner',
+    title: '西式牛排约会',
+    description:
+      '在 Glorietta Mall 主入口碰面，选一家牛排馆，适合安静聊天。',
     imageUrl:
-      'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 3 小时',
-    venueLabel: '影院',
-    area: '楚河汉街',
-  },
-  {
-    id: 'template-donghu-lakeside-tea',
-    sceneTag: 'Tea',
-    title: '东湖边的下午茶',
-    description: '听涛绿道走一圈，末站是湖边安静的茶室',
-    imageUrl:
-      'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2.5 小时',
-    venueLabel: '茶室',
-    area: '东湖',
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&h=800&q=80',
+    durationLabel: '约 2 小时',
+    venueName: 'Glorietta Mall',
+    meetingPoint: 'Glorietta Mall 主入口',
+    area: 'Makati',
   },
 ];
+
+export function findTemplate(id: string): ActivityTemplate | undefined {
+  return ACTIVITY_TEMPLATES.find((t) => t.id === id);
+}

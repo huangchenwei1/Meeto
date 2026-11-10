@@ -34,6 +34,22 @@ export type Role = (typeof Role)[keyof typeof Role];
 /// Roles selectable at registration (ADMIN is never self-service).
 export const RegistrableRoles = [Role.user, Role.host] as const;
 
+// Account standing. BANNED accounts fail every authenticated request at
+// the guard, so a ban takes effect on the victim's very next tap.
+export const UserStatus = {
+  active: 'ACTIVE',
+  banned: 'BANNED',
+} as const;
+export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
+
+// In-room safety reports: OPEN holds the order's settlement until ops
+// resolves it one way or the other.
+export const ReportStatus = {
+  open: 'OPEN',
+  resolved: 'RESOLVED',
+} as const;
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
+
 export const PostOrigin = {
   feed: 'FEED',
   direct: 'DIRECT',

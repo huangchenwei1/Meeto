@@ -1,13 +1,10 @@
-build/
-.dart_tool/
-.idea/
-*.iml
-ios/Pods/
-ios/.symlinks/
 server/node_modules/
 server/dist/
 server/prisma/dev.db
+server/prisma/test.db
+server/uploads/
+web/node_modules/
+web/dist/
 *.log
 .DS_Store
 tsconfig.build.tsbuildinfo
-server/uploads/

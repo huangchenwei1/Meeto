@@ -1,19 +1,23 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma, User } from '@prisma/client';
+import type { Message, Prisma, User } from '@prisma/client';
 import {
   ApplicationStatus,
   LedgerAccount,
   LedgerEntryType,
   OrderStatus,
   PaymentStatus,
+  PostOrigin,
   PostStatus,
+  ReportStatus,
 } from '../common/enums.js';
+import { generateMeetCode } from '../common/meet-code.util.js';
 import {
   cancelWindowMs,
   forfeitAfterMs,
@@ -23,10 +27,53 @@ import {
 import { LedgerService } from '../ledger/ledger.service.js';
 import { PAYMENT_PROVIDER } from '../payments/payment.provider.js';
 import type { PaymentProvider } from '../payments/payment.provider.js';
+import {
+  ACTIVITY_DURATION_MINUTES,
+  findTemplate,
+  isWithinMeetingHours,
+} from '../posts/activity-templates.js';
+import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PublicUser, toPublicUser } from '../common/user.mapper.js';
 import { assertVerified } from '../common/verification.util.js';
 import { toMessageDto, toOrderDto } from './order.mapper.js';
 import type { OrderDto, OrderWithParties } from './order.mapper.js';
+
+/// One row of the contact-style conversation list: the partner, the room
+/// to open, and a preview of the latest message across ALL shared deals.
+export interface ConversationDto {
+  peer: PublicUser;
+  /// The order whose room this conversation opens into: the live deal
+  /// when one exists, otherwise the latest settled one.
+  roomOrderId: string;
+  /// True when a deal with this partner is currently running.
+  hasLiveOrder: boolean;
+  /// Preview of the newest message across the shared orders; kind lets
+  /// clients label card messages instead of dumping their JSON.
+  lastMessageKind: string;
+  lastMessageText: string;
+  lastMessageAt: Date | null;
+  /// Messages from the partner past the caller's read cursor, summed
+  /// across all shared orders. Badges the row and the Messages tab.
+  unreadCount: number;
+  /// Sort anchor: last message time, or the room's creation time.
+  sortedAt: Date;
+}
+
+/// The JSON payload carried in a REQUEST message's [text]: a rebooking
+/// card the payer sends to the host inside an existing conversation.
+/// Snapshotted at send time; responding mutates only [status]/[orderId].
+interface ActivityRequestPayload {
+  templateId: string;
+  title: string;
+  meetingPoint: string;
+  scheduledAt: string;
+  budgetMinor: number;
+  note: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  /// The order created from this request, set on acceptance.
+  orderId: string;
+}
 
 /// Server-authoritative order state machine.
 ///
@@ -53,6 +100,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    private readonly pricingService: PricingService,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
   ) {}
@@ -106,6 +154,88 @@ export class OrdersService {
     return toOrderDto(await this.maybeSettle(order), caller.id);
   }
 
+  /// The contact-style conversation list: the caller's deals grouped by
+  /// the OTHER person, newest activity first. One row per partner — the
+  /// relationship, not the order, is the unit — because settled chats
+  /// stay open and rebooking happens inside them. Dead deals (cancelled /
+  /// forfeited) carry no conversation and are excluded; unlike the order
+  /// board there is no expiry: partners do not time out.
+  async listConversations(caller: User): Promise<ConversationDto[]> {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        OR: [{ payerId: caller.id }, { earnerId: caller.id }],
+        status: { in: [OrderStatus.active, OrderStatus.completed] },
+      },
+      include: { payer: true, earner: true, post: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    // Run the lazy money clock, then regroup on fresh statuses.
+    const settled = await Promise.all(
+      orders.map((order) => this.maybeSettle(order)),
+    );
+    const byPeer = new Map<string, OrderWithParties[]>();
+    for (const order of settled) {
+      if (
+        order.status !== OrderStatus.active &&
+        order.status !== OrderStatus.completed
+      ) {
+        continue;
+      }
+      const peerId =
+        order.payerId === caller.id ? order.earnerId : order.payerId;
+      const group = byPeer.get(peerId);
+      if (group) {
+        group.push(order);
+      } else {
+        byPeer.set(peerId, [order]);
+      }
+    }
+    const conversations = await Promise.all(
+      [...byPeer.values()].map(async (group) => {
+        // The row opens into the live deal's room when one exists,
+        // otherwise the latest settled one (groups keep newest-first).
+        const room =
+          group.find((o) => o.status === OrderStatus.active) ?? group[0];
+        const peer = room.payerId === caller.id ? room.earner : room.payer;
+        const lastMessage = await this.prisma.message.findFirst({
+          where: { orderId: { in: group.map((o) => o.id) } },
+          orderBy: { createdAt: 'desc' },
+        });
+        // Unread = the partner's messages past my per-order read cursor,
+        // summed across every order we share.
+        const unreadCounts = await Promise.all(
+          group.map((order) => {
+            const lastReadAt =
+              order.payerId === caller.id
+                ? order.payerLastReadAt
+                : order.earnerLastReadAt;
+            return this.prisma.message.count({
+              where: {
+                orderId: order.id,
+                senderId: { not: caller.id },
+                ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+              },
+            });
+          }),
+        );
+        return {
+          peer: toPublicUser(peer),
+          roomOrderId: room.id,
+          hasLiveOrder: room.status === OrderStatus.active,
+          lastMessageKind: lastMessage?.kind ?? '',
+          lastMessageText: lastMessage?.text ?? '',
+          lastMessageAt: lastMessage?.createdAt ?? null,
+          unreadCount: unreadCounts.reduce((sum, n) => sum + n, 0),
+          sortedAt: lastMessage?.createdAt ?? room.createdAt,
+        };
+      }),
+    );
+    conversations.sort(
+      (a, b) => b.sortedAt.getTime() - a.sortedAt.getTime(),
+    );
+    return conversations;
+  }
+
   async listAll(status?: string): Promise<OrderDto[]> {
     const orders = await this.prisma.order.findMany({
       where: status ? { status } : undefined,
@@ -135,6 +265,16 @@ export class OrdersService {
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Atomic claim: AWAITING_PAYMENT -> ACTIVE is the mutex. A racing
+      // double submission loses here, the transaction rolls back, and
+      // the escrow is never double-booked.
+      const claimed = await tx.order.updateMany({
+        where: { id: order.id, status: OrderStatus.awaitingPayment },
+        data: { status: OrderStatus.active, paidAt: new Date() },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Order is not awaiting payment');
+      }
       await tx.payment.create({
         data: {
           orderId: order.id,
@@ -155,9 +295,8 @@ export class OrdersService {
         data: { status: PostStatus.matched },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.matched);
-      return tx.order.update({
+      return tx.order.findUniqueOrThrow({
         where: { id: order.id },
-        data: { status: OrderStatus.active, paidAt: new Date() },
         include: { payer: true, earner: true, post: true },
       });
     });
@@ -182,9 +321,17 @@ export class OrdersService {
     if (code !== order.meetCode) {
       throw new ConflictException('WRONG_MEET_CODE');
     }
-    const updated = await this.prisma.order.update({
-      where: { id: order.id },
+    // Conditional write: only the first correct submission may set the
+    // clock, so a racing double tap cannot restart it.
+    const claimed = await this.prisma.order.updateMany({
+      where: { id: order.id, status: OrderStatus.active, startedAt: null },
       data: { startedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException('ALREADY_STARTED');
+    }
+    const updated = await this.prisma.order.findUniqueOrThrow({
+      where: { id: order.id },
       include: { payer: true, earner: true, post: true },
     });
     return toOrderDto(updated, caller.id);
@@ -206,6 +353,15 @@ export class OrdersService {
         : order;
     }
     if (order.status !== OrderStatus.active) {
+      return order;
+    }
+    // An OPEN safety report freezes the money clock both ways (settle
+    // and forfeit) — the community guidelines promise settlement holds
+    // during review. Ops resolves the report; the next read settles.
+    const heldByReport = await this.prisma.report.count({
+      where: { orderId: order.id, status: ReportStatus.open },
+    });
+    if (heldByReport > 0) {
       return order;
     }
     if (order.startedAt !== null) {
@@ -379,24 +535,82 @@ export class OrdersService {
     return toOrderDto(updated, caller.id);
   }
 
+  /// A participant files an in-room safety report. While it stays OPEN
+  /// the order's automatic settlement is frozen (see maybeSettle), so
+  /// ops can still refund a disputed deal.
+  async report(
+    caller: User,
+    orderId: string,
+    reason: string,
+  ): Promise<{ id: string }> {
+    const trimmed = reason.trim();
+    if (trimmed.length === 0) {
+      throw new BadRequestException('A report needs a reason');
+    }
+    const order = await this.findParticipantOrderOrThrow(caller, orderId);
+    const report = await this.prisma.report.create({
+      data: { orderId: order.id, reporterId: caller.id, reason: trimmed },
+    });
+    return { id: report.id };
+  }
+
+  /// Ops-only dispute resolution: force-refund an ACTIVE order in full,
+  /// ignoring the cancel window and the started flag. The post does NOT
+  /// reopen (a disputed deal should not quietly go back on the market);
+  /// pending candidates are released so nobody stays stuck "selected".
+  async adminRefund(orderId: string): Promise<OrderDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payer: true, earner: true, post: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Atomic claim, same pattern as cancel/pay: only one resolution
+      // can land on an active order.
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: OrderStatus.active },
+        data: { status: OrderStatus.cancelled },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Only active orders can be refunded');
+      }
+      await tx.payment.updateMany({
+        where: { orderId, status: PaymentStatus.succeeded },
+        data: { status: PaymentStatus.refunded },
+      });
+      await this.ledgerService.postEntries(tx, [
+        {
+          account: LedgerAccount.platformEscrow,
+          entryType: LedgerEntryType.escrowRefund,
+          amountMinor: -order.feeMinor,
+          orderId: order.id,
+        },
+      ]);
+      await tx.application.updateMany({
+        where: { postId: order.postId, status: ApplicationStatus.selected },
+        data: { status: ApplicationStatus.released },
+      });
+      await tx.post.update({
+        where: { id: order.postId },
+        data: { status: PostStatus.cancelled },
+      });
+      await OrdersService.syncProposal(tx, order, PostStatus.cancelled);
+      return tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { payer: true, earner: true, post: true },
+      });
+    });
+    await this.paymentProvider.refund(order.id, order.feeMinor);
+    // No caller perspective: the admin view never exposes the meet code.
+    return toOrderDto(updated, '');
+  }
+
   /// Sends an order-scoped chat message (participants only).
   async sendMessage(caller: User, orderId: string, text: string) {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
-    // The paywall: no contact channel of any kind before the fee is
-    // escrowed (same rule as phone disclosure).
-    if (order.status === OrderStatus.awaitingPayment) {
-      throw new ConflictException('PAYMENT_REQUIRED');
-    }
-    // The conversation lives and dies with the activity: once the order
-    // settles or cancels, the thread turns read-only (history stays
-    // listable for both sides and for dispute reviews).
-    if (
-      order.status === OrderStatus.completed ||
-      order.status === OrderStatus.cancelled ||
-      order.status === OrderStatus.forfeited
-    ) {
-      throw new ConflictException('CHAT_CLOSED');
-    }
+    this.assertChatWritable(order);
     // Escrowed money IS the anti-bypass mechanism: once paid, both sides
     // chat freely while the activity is live.
     const message = await this.prisma.message.create({
@@ -405,10 +619,223 @@ export class OrdersService {
     return toMessageDto(message);
   }
 
+  /// Chat write-gate. The paywall: no contact channel of any kind before
+  /// the fee is escrowed (same rule as phone disclosure). A COMPLETED
+  /// conversation stays open — the relationship outlives the activity, and
+  /// rebooking a known host happens right here. Only dead deals
+  /// (cancelled / forfeited) turn read-only.
+  private assertChatWritable(order: OrderWithParties): void {
+    if (order.status === OrderStatus.awaitingPayment) {
+      throw new ConflictException('PAYMENT_REQUIRED');
+    }
+    if (
+      order.status === OrderStatus.cancelled ||
+      order.status === OrderStatus.forfeited
+    ) {
+      throw new ConflictException('CHAT_CLOSED');
+    }
+  }
+
+  /// The payer sends an activity-request card into an existing (live or
+  /// settled) conversation: the rebooking path for people who already met.
+  /// Template-only like every activity; the payer brings the concrete time
+  /// and the price tier, exactly as on a proposal invitation. One pending
+  /// card per conversation.
+  async sendActivityRequest(
+    caller: User,
+    orderId: string,
+    templateId: string,
+    scheduledAt: string,
+    budgetMinor: number | undefined,
+    note: string,
+  ) {
+    assertVerified(caller);
+    const order = await this.findParticipantOrderOrThrow(caller, orderId);
+    this.assertChatWritable(order);
+    if (order.payerId !== caller.id) {
+      throw new ForbiddenException('Only the payer sends activity requests');
+    }
+    const template = findTemplate(templateId);
+    if (!template) {
+      throw new NotFoundException('TEMPLATE_NOT_FOUND');
+    }
+    const meetAt = new Date(scheduledAt);
+    if (!isWithinMeetingHours(meetAt)) {
+      throw new BadRequestException('MEET_TIME_OUT_OF_HOURS');
+    }
+    if ((await this.findPendingRequest(order.id)) !== null) {
+      throw new ConflictException('REQUEST_ALREADY_PENDING');
+    }
+    const budget = await this.pricingService.resolveBudget(
+      template.sceneTag,
+      budgetMinor,
+    );
+    const payload: ActivityRequestPayload = {
+      templateId: template.id,
+      title: template.title,
+      meetingPoint: template.meetingPoint,
+      scheduledAt: meetAt.toISOString(),
+      budgetMinor: budget,
+      note,
+      status: 'PENDING',
+      orderId: '',
+    };
+    const message = await this.prisma.message.create({
+      data: {
+        orderId: order.id,
+        senderId: caller.id,
+        kind: 'REQUEST',
+        text: JSON.stringify(payload),
+      },
+    });
+    return toMessageDto(message);
+  }
+
+  /// The host answers an activity-request card. Declining just marks the
+  /// card; accepting creates the whole new deal in one transaction — a
+  /// direct post, a selected application and an order awaiting the
+  /// requester's payment — mirroring proposal selection, with the plan
+  /// locked to the card's terms.
+  async respondActivityRequest(
+    caller: User,
+    orderId: string,
+    messageId: string,
+    accept: boolean,
+  ) {
+    const order = await this.findParticipantOrderOrThrow(caller, orderId);
+    if (order.earnerId !== caller.id) {
+      throw new ForbiddenException('Only the host answers activity requests');
+    }
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+    if (
+      !message ||
+      message.orderId !== order.id ||
+      message.kind !== 'REQUEST'
+    ) {
+      throw new NotFoundException('Request not found in this conversation');
+    }
+    const payload = JSON.parse(message.text) as ActivityRequestPayload;
+    if (payload.status !== 'PENDING') {
+      throw new ConflictException('REQUEST_NOT_PENDING');
+    }
+
+    if (!accept) {
+      const updated = await this.prisma.message.update({
+        where: { id: message.id },
+        data: {
+          text: JSON.stringify({ ...payload, status: 'DECLINED' }),
+        },
+      });
+      return toMessageDto(updated);
+    }
+
+    assertVerified(caller);
+    const planAt = new Date(payload.scheduledAt);
+    // A card whose meeting time already passed cannot form a deal.
+    if (planAt.getTime() <= Date.now()) {
+      throw new ConflictException('REQUEST_EXPIRED');
+    }
+    const template = findTemplate(payload.templateId);
+    const split = await this.pricingService.splitFee(payload.budgetMinor);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const post = await tx.post.create({
+        data: {
+          authorId: order.payerId,
+          sceneTag: template?.sceneTag ?? order.post.sceneTag,
+          title: payload.title,
+          description: payload.note,
+          templateId: payload.templateId,
+          scheduledAt: planAt,
+          area: template?.area ?? '',
+          imageUrl: template?.imageUrl ?? '',
+          status: PostStatus.pendingPayment,
+          origin: PostOrigin.direct,
+          feeMinor: split.feeMinor,
+        },
+      });
+      await tx.application.create({
+        data: {
+          postId: post.id,
+          applicantId: caller.id,
+          status: ApplicationStatus.selected,
+        },
+      });
+      const planApproved = new Date();
+      const created = await tx.order.create({
+        data: {
+          postId: post.id,
+          payerId: order.payerId,
+          earnerId: caller.id,
+          status: OrderStatus.awaitingPayment,
+          feeMinor: split.feeMinor,
+          commissionMinor: split.commissionMinor,
+          netMinor: split.netMinor,
+          meetCode: generateMeetCode(),
+          planPlace: payload.meetingPoint,
+          planAt,
+          planDurationMinutes: ACTIVITY_DURATION_MINUTES,
+          planProposedAt: planApproved,
+          planConfirmedAt: planApproved,
+        },
+      });
+      // The locked plan card opens the new conversation as its first
+      // message, visible as soon as the payment unlocks the chat.
+      await tx.message.create({
+        data: {
+          orderId: created.id,
+          senderId: caller.id,
+          kind: 'PLAN',
+          text: JSON.stringify({
+            place: payload.meetingPoint,
+            scheduledAt: planAt.toISOString(),
+            durationMinutes: ACTIVITY_DURATION_MINUTES,
+            note: '',
+          }),
+        },
+      });
+      return tx.message.update({
+        where: { id: message.id },
+        data: {
+          text: JSON.stringify({
+            ...payload,
+            status: 'ACCEPTED',
+            orderId: created.id,
+          }),
+        },
+      });
+    });
+    return toMessageDto(updated);
+  }
+
+  /// The conversation's open activity-request card, if any.
+  private async findPendingRequest(orderId: string): Promise<Message | null> {
+    const requests = await this.prisma.message.findMany({
+      where: { orderId, kind: 'REQUEST' },
+    });
+    return (
+      requests.find((m) => {
+        const payload = JSON.parse(m.text) as ActivityRequestPayload;
+        return payload.status === 'PENDING';
+      }) ?? null
+    );
+  }
+
   /// Lists messages oldest-first; pass afterId to fetch only newer ones
   /// (clients poll with the last seen id).
   async listMessages(caller: User, orderId: string, afterId?: string) {
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
+    // Reading the room advances the caller's read cursor: everything the
+    // other side sent up to now stops counting as unread. Polling clients
+    // keep the cursor fresh for free.
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data:
+        order.payerId === caller.id
+          ? { payerLastReadAt: new Date() }
+          : { earnerLastReadAt: new Date() },
+    });
     let afterCreatedAt: Date | undefined;
     if (afterId) {
       const anchor = await this.prisma.message.findUnique({

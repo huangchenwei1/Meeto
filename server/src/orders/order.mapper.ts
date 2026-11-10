@@ -57,6 +57,9 @@ export interface OrderDto {
   cancellableUntil: Date | null;
   /// Set when the order closed (settled or forfeited).
   completedAt: Date | null;
+  /// Whether the viewer ever opened this order's chat room (their read
+  /// cursor is set). Drives the "new partner, go say hi" nudge.
+  viewerEnteredRoom: boolean;
   createdAt: Date;
 }
 
@@ -106,6 +109,12 @@ export function toOrderDto(
       ? new Date(order.paidAt!.getTime() + cancelWindowMs())
       : null,
     completedAt: order.completedAt,
+    viewerEnteredRoom:
+      viewerId === order.payerId
+        ? order.payerLastReadAt !== null
+        : viewerId === order.earnerId
+          ? order.earnerLastReadAt !== null
+          : false,
     createdAt: order.createdAt,
   };
 }

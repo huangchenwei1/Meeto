@@ -9,7 +9,7 @@ import {
 import type { User } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthService } from '../auth/auth.service.js';
-import { Role } from './enums.js';
+import { Role, UserStatus } from './enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface AuthedRequest extends Request {
@@ -36,6 +36,7 @@ export class AuthGuard implements CanActivate {
     const header = request.header('authorization');
     if (header?.startsWith('Bearer ')) {
       request.user = await this.auth.resolveAccessToken(header.slice(7));
+      AuthGuard.assertNotBanned(request.user);
       return true;
     }
 
@@ -47,11 +48,20 @@ export class AuthGuard implements CanActivate {
       if (!user) {
         throw new UnauthorizedException('Unknown user');
       }
+      AuthGuard.assertNotBanned(user);
       request.user = user;
       return true;
     }
 
     throw new UnauthorizedException('Missing credentials');
+  }
+
+  /// A ban needs no token expiry: every authenticated request re-checks
+  /// the account standing, so the ban lands on the very next tap.
+  private static assertNotBanned(user: User): void {
+    if (user.status === UserStatus.banned) {
+      throw new ForbiddenException('ACCOUNT_BANNED');
+    }
   }
 }
 

@@ -10,7 +10,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { join } from 'node:path';
 import { diskStorage } from 'multer';
 import { AuthGuard } from '../common/auth.guard.js';
 
@@ -20,12 +20,15 @@ import { AuthGuard } from '../common/auth.guard.js';
 /// root-relative URLs so a host/CDN change never rewrites data.
 export const UPLOADS_DIR = join(process.cwd(), 'uploads');
 
-const ALLOWED_MIME = new Set<string>([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-]);
+/// The stored extension is derived from the declared image mime, never
+/// from the client-supplied filename: a file named "evil.html" would
+/// otherwise be stored and statically served as HTML (stored XSS).
+const MIME_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/heic': '.heic',
+};
 
 @Controller('uploads')
 @UseGuards(AuthGuard)
@@ -41,12 +44,12 @@ export class UploadsController {
           cb(null, UPLOADS_DIR);
         },
         filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${extname(file.originalname) || '.jpg'}`);
+          cb(null, `${randomUUID()}${MIME_EXT[file.mimetype] ?? '.jpg'}`);
         },
       }),
       limits: { fileSize: 8 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
-        cb(null, ALLOWED_MIME.has(file.mimetype));
+        cb(null, file.mimetype in MIME_EXT);
       },
     }),
   )

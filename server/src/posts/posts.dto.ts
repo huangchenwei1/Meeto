@@ -1,23 +1,24 @@
-import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsIn,
   IsInt,
   IsISO8601,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
   Min,
 } from 'class-validator';
 
 export class CreatePostDto {
+  /// The platform activity template this post launches from — the only
+  /// publish path. Scene, cover, district and meeting point all resolve
+  /// server-side from the template.
   @IsString()
   @IsNotEmpty()
-  sceneTag!: string;
+  templateId!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -27,24 +28,10 @@ export class CreatePostDto {
   @IsString()
   description?: string;
 
-  @IsOptional()
-  @IsString()
-  detail?: string;
-
-  @IsOptional()
-  @IsString()
-  imageUrl?: string;
-
-  /// Fuzzy availability window identifier, e.g. TONIGHT or WEEKEND.
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  timeSlot?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  area?: string;
+  /// The concrete meeting time. Duration is the platform standard, so
+  /// this fully schedules the activity.
+  @IsISO8601()
+  scheduledAt!: string;
 
   /// Activity budget tier pick (minor units). Must be one of the platform
   /// tiers for the scene; omitted -> the middle tier.
@@ -52,6 +39,12 @@ export class CreatePostDto {
   @IsInt()
   @Min(0)
   budgetMinor?: number;
+
+  /// Who covers on-site expenses: TREAT (the publisher treats, default)
+  /// or AA (everyone pays their own).
+  @IsOptional()
+  @IsIn(['TREAT', 'AA'])
+  expensePolicy?: 'TREAT' | 'AA';
 }
 
 export class CreateMomentDto {
@@ -82,28 +75,3 @@ export class SelectionDto {
   applicationId!: string;
 }
 
-export class ApplyDto {
-  /// The host's one-line plan pitch; required so selection is always a
-  /// choice between concrete plans.
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(200)
-  proposal!: string;
-
-  /// The plan card rides on the sign-up: concrete venue...
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
-  place!: string;
-
-  /// ...and concrete time. Selecting the candidate approves this plan, so
-  /// the paid order starts with chat open and the plan already locked.
-  @IsISO8601()
-  scheduledAt!: string;
-
-  /// How long the activity runs, in minutes.
-  @IsInt()
-  @Min(30)
-  @Max(720)
-  durationMinutes!: number;
-}

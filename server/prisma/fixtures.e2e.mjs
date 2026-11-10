@@ -2,71 +2,98 @@ import { PrismaClient } from '@prisma/client';
 
 // E2E-only hall fixtures: demo demand posts, host pitches, candidate
 // applications and the in-progress escrow order. The dev database stays
-// clean (seed.mjs seeds only pricing, the user cast and community
-// moments); the e2e suite layers these on top of a fresh test.db.
+// clean (seed.mjs seeds only pricing and the user cast); the e2e suite
+// layers these on top of a fresh test.db.
+//
+// Template-only world: every post/pitch launches from one of the curated
+// Manila templates (see src/posts/activity-templates.ts). The template
+// fixes scene, cover, district and meeting point; the publisher brings
+// words and a concrete meeting time. Budgets must be valid platform
+// tiers for the template's scene.
 const prisma = new PrismaClient();
 
-// Demand posts: rough activity intents from the USER side. Only a fuzzy
-// time slot and a rough district at publish time — the selected host
-// still proposes the concrete plan (exact time and venue) after matching.
 const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000);
+const daysAhead = (d) => new Date(Date.now() + d * 24 * 3600 * 1000);
+
+// Mirror of the curated templates (id -> envelope snapshot used below).
+// Every template is a Dinner-scene date; budgets below are Dinner tiers.
+const TEMPLATES = {
+  japanese: {
+    templateId: 'template-japanese-dinner-date',
+    sceneTag: 'Dinner',
+    area: 'Makati',
+    imageUrl:
+      'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
+  },
+  koreanBbq: {
+    templateId: 'template-korean-bbq-date',
+    sceneTag: 'Dinner',
+    area: 'BGC, Taguig',
+    imageUrl:
+      'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&h=800&q=80',
+  },
+  hotpot: {
+    templateId: 'template-chinese-hotpot-date',
+    sceneTag: 'Dinner',
+    area: 'Pasay',
+    imageUrl:
+      'https://images.unsplash.com/photo-1541529086526-db283c563270?auto=format&fit=crop&w=800&h=800&q=80',
+  },
+  steak: {
+    templateId: 'template-western-steak-date',
+    sceneTag: 'Dinner',
+    area: 'Makati',
+    imageUrl:
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&h=800&q=80',
+  },
+};
 
 const POSTS = [
   {
     id: 'post-001',
     authorId: 'user-101',
     type: 'DEMAND',
-    sceneTag: 'Coffee',
-    timeSlot: 'WEEKEND',
-    area: 'Makati',
-    title: 'Show me a cafe worth leaving BGC for',
-    description: 'Want a relaxed coffee afternoon, you pick the place',
+    ...TEMPLATES.koreanBbq,
+    scheduledAt: daysAhead(2),
+    title: 'KBBQ night with zero decisions by me',
+    description: 'You handle the grill and the conversation pacing',
     detail:
-      'I have been in Manila three months and only know the chain cafes ' +
-      'near my office. Looking for a host who knows the specialty coffee ' +
-      'scene and can plan a relaxed afternoon: the place, the order, the ' +
-      'conversation. Time is flexible this week.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 150000,
+      'I have been in Manila three months and only know the chain places ' +
+      'near my office. Looking for a host who can make a High Street ' +
+      'KBBQ evening feel effortless. Weekend works best.',
+    feeMinor: 100000,
     createdAt: hoursAgo(1),
   },
   {
     id: 'post-002',
     authorId: 'user-102',
     type: 'DEMAND',
-    sceneTag: 'Dinner',
-    timeSlot: 'TONIGHT',
-    area: 'BGC',
-    title: 'Plan me a Japanese dinner I cannot find on my own',
-    description: 'Good sushi, good conversation, you handle the plan',
+    ...TEMPLATES.steak,
+    scheduledAt: daysAhead(3),
+    title: 'Steak dinner then a lazy mall walk',
+    description: 'Good food, good conversation, you handle the pacing',
     detail:
       'I eat out a lot but keep going back to the same two places. Want a ' +
-      'host who can plan a proper Japanese dinner — somewhere I would ' +
-      'never find alone. Weeknights after 7 work best. Meal is on me.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 400000,
+      'host who makes the evening easy: dinner first, then a slow walk ' +
+      'through the mall. Weeknights after 7 work best.',
+    feeMinor: 150000,
     createdAt: hoursAgo(3),
   },
   {
-    // Seeded as an in-progress activity: Liza's plan is selected and the
-    // escrow order is ACTIVE, so the community wall shows attribution.
+    // Seeded as an in-progress activity: Liza is selected and the escrow
+    // order is ACTIVE, so attribution lines have real content.
     id: 'post-003',
     authorId: 'user-103',
     type: 'DEMAND',
-    sceneTag: 'Movie',
-    timeSlot: 'WEEKEND',
-    area: 'Ortigas',
+    ...TEMPLATES.hotpot,
+    scheduledAt: daysAhead(1),
     status: 'MATCHED',
-    title: 'Movie night with an actual plan',
-    description: 'Pick the film, the cinema and the after-talk spot',
+    title: 'Hotpot night with an actual plan',
+    description: 'You order, I just show up and talk',
     detail:
-      'I love movies but hate deciding. Looking for a host to plan the ' +
-      'whole evening: which film, which cinema, and where we talk about ' +
-      'it after. Saturday afternoon preferred. Tickets and snacks on me.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
+      'I love hotpot but hate deciding. Looking for a host to make the ' +
+      'whole evening effortless: the broth, the sides, the pacing. ' +
+      'Saturday evening preferred.',
     feeMinor: 250000,
     createdAt: hoursAgo(24),
   },
@@ -74,133 +101,90 @@ const POSTS = [
     id: 'post-004',
     authorId: 'user-100',
     type: 'DEMAND',
-    sceneTag: 'Tea',
-    timeSlot: 'TODAY_AFTERNOON',
-    area: 'Salcedo Village',
-    title: 'Slow Sunday: dessert cafe and no agenda',
-    description: 'Need someone to plan a lazy tea afternoon',
+    ...TEMPLATES.japanese,
+    scheduledAt: daysAhead(5),
+    title: 'Slow Sunday: sushi and no agenda',
+    description: 'Need someone to make a lazy evening feel planned',
     detail:
-      'Work ate my whole month. I want one slow Sunday afternoon: good ' +
-      'fruit tea, good cake, zero decisions made by me. Host plans ' +
-      'everything, I just show up. Desserts are on me.',
-    imageUrl:
-      'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-    feeMinor: 180000,
+      'Work ate my whole month. I want one easy Japanese dinner: good ' +
+      'sushi, easy conversation, zero decisions made by me. Host handles ' +
+      'the vibe, I just show up.',
+    feeMinor: 100000,
     createdAt: hoursAgo(48),
   },
 ];
 
-// Hosts already pitching on the open posts, so candidate pools and the
-// host directory's recent-proposal lines have real content.
+// Hosts already signed up on the open posts, so candidate pools have real
+// content. Applications carry nothing: the activity is fixed by the
+// template and the post; selection is purely about the person.
 const APPLICATIONS = [
-  {
-    id: 'app-001',
-    postId: 'post-001',
-    applicantId: 'host-204',
-    proposal:
-      'Single Origin in Salcedo, Saturday 3pm — quiet upstairs seats and ' +
-      'the best hand brew flight in Makati',
-  },
-  {
-    id: 'app-002',
-    postId: 'post-001',
-    applicantId: 'host-201',
-    proposal:
-      'Hidden cafe inside a Legazpi bookshop, Sunday 2pm — great beans, ' +
-      'even better people-watching',
-  },
-  {
-    id: 'app-003',
-    postId: 'post-002',
-    applicantId: 'host-202',
-    proposal:
-      'Omakase counter in Little Tokyo, Thursday 7:30pm — 12 seats, I ' +
-      'know when the uni arrives fresh',
-  },
+  { id: 'app-001', postId: 'post-001', applicantId: 'host-204' },
+  { id: 'app-002', postId: 'post-001', applicantId: 'host-201' },
+  { id: 'app-003', postId: 'post-002', applicantId: 'host-202' },
   {
     id: 'app-004',
     postId: 'post-003',
     applicantId: 'host-203',
     status: 'SELECTED',
-    proposal:
-      'Director\u2019s cut screening at Power Plant, Saturday 4pm, then ' +
-      'milk tea next door for the debrief',
   },
 ];
 
-// Supply-side activity pitches from hosts: the user home feed. Loose on
-// purpose (no time/place) — the concrete plan comes after matching.
+// Supply-side activity pitches from hosts: the user home feed. A pitch is
+// a service shelf listing — template + the host's rough availability
+// window; inviters bring the concrete time and the price tier.
 const PROPOSALS = [
   {
     id: 'proposal-001',
     hostId: 'host-205',
-    sceneTag: 'Bar',
-    budgetMinor: 350000,
-    area: 'Poblacion',
-    imageUrl:
-      'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=800&h=800&q=80',
-    title: '周五晚 Poblacion 天台酒吧，带你喝懂本地精酿',
-    description: '认识几家本地精酿厂牌，从酒单讲到酿法，微醺收尾',
+    ...TEMPLATES.steak,
+    timeSlot: 'EVENING',
+    title: '周五晚 Glorietta 牛排局，餐厅我来选',
+    description: '先吃一顿好的，再慢慢逛，节奏交给我',
     createdAt: hoursAgo(2),
   },
   {
     id: 'proposal-002',
     hostId: 'host-201',
-    sceneTag: 'Coffee',
-    budgetMinor: 150000,
-    area: 'Legazpi Village',
-    imageUrl:
-      'https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=800&h=800&q=80',
-    title: '去 Legazpi 书店里的隐藏咖啡馆，坐一个安静的下午',
-    description: '书店里的隐藏咖啡吧台，豆子好，人少安静，适合聊天',
+    ...TEMPLATES.koreanBbq,
+    timeSlot: 'ANYTIME',
+    title: 'High Street 烤肉局，烤肉我来动手',
+    description: '烤肉我来翻，你只管吃，饭后沿步行街慢慢走',
     createdAt: hoursAgo(5),
   },
   {
     id: 'proposal-003',
     hostId: 'host-202',
-    sceneTag: 'Dinner',
-    budgetMinor: 400000,
-    area: 'Little Tokyo',
-    imageUrl:
-      'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    title: '小东京 12 座板前日料，我知道海胆哪天最新鲜',
-    description: '板前只有 12 个座位，主厨是老朋友，当天最新鲜的交给他',
+    ...TEMPLATES.japanese,
+    timeSlot: 'NOON',
+    title: 'Little Tokyo 我最认的一家日料，带你去',
+    description: '菜我来点，你只管聊天，饭后街区走走',
     createdAt: hoursAgo(9),
   },
   {
     id: 'proposal-004',
     hostId: 'host-203',
-    sceneTag: 'Movie',
-    budgetMinor: 250000,
-    area: 'Rockwell',
-    imageUrl:
-      'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&h=800&q=80',
-    title: '去看一场导演剪辑版，散场后找家甜品店聊到打烊',
-    description: '选片选座我来，散场后的甜品店也订好，只管来',
+    ...TEMPLATES.hotpot,
+    timeSlot: 'EVENING',
+    title: '海底捞火锅局，锅底蘸料我来配',
+    description: '点单交给我，你只管吃和聊天',
     createdAt: hoursAgo(20),
   },
   {
     id: 'proposal-005',
     hostId: 'host-204',
-    sceneTag: 'Coffee',
-    budgetMinor: 150000,
-    area: 'Salcedo Village',
-    imageUrl:
-      'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&h=800&q=80',
-    title: 'Salcedo 周末市集 + 手冲豆单盲品，咖啡入门局',
-    description: '从浅烘到深烘盲品四支豆子，喝完你就有自己的答案了',
+    ...TEMPLATES.koreanBbq,
+    timeSlot: 'ANYTIME',
+    title: 'BGC 周末烤肉局，顺便带你逛 High Street',
+    description: '从烤肉聊到街区，走完 High Street 你就懂了',
     createdAt: hoursAgo(30),
   },
   {
     id: 'proposal-006',
     hostId: 'host-203',
-    sceneTag: 'Tea',
-    budgetMinor: 180000,
-    area: 'Ayala Triangle',
-    imageUrl:
-      'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=800&h=800&q=80',
-    title: '下班后的奶茶散步局，沿 Ayala Triangle 走到天黑',
-    description: '一杯奶茶的时间，沿着绿道慢慢走，把一周的班味散掉',
+    ...TEMPLATES.japanese,
+    timeSlot: 'EVENING',
+    title: '下班后的日料小馆，适合工作日晚上',
+    description: '人少安静，适合慢慢吃慢慢聊',
     createdAt: hoursAgo(44),
   },
 ];
@@ -216,6 +200,9 @@ const ORDERS = [
     feeMinor: 250000,
     commissionMinor: 25000,
     netMinor: 225000,
+    planPlace: 'Mall of Asia 海底捞门口',
+    planAt: daysAhead(1),
+    planDurationMinutes: 120,
   },
 ];
 
