@@ -6,7 +6,7 @@ export function formatMoney(amount: number): string {
   return `${sign}₱${Math.abs(amount).toLocaleString('en-US')}`;
 }
 
-/** Relative time, e.g. 刚刚 / 5 分钟前 / 3 小时前 / 2 天前. */
+/** Relative time, e.g. "Ngayon lang" / "5 min ang nakalipas". */
 export function relativeTime(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -19,9 +19,15 @@ export function relativeTime(date: Date): string {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** "3月8日 14:30" style local date-time. */
+/** Filipino month abbreviations, indexed by Date.getMonth(). */
+const MONTH_LABELS = [
+  'Ene', 'Peb', 'Mar', 'Abr', 'May', 'Hun',
+  'Hul', 'Ago', 'Set', 'Okt', 'Nob', 'Dis',
+];
+
+/** "Mar 8, 14:30" style local date-time. */
 export function formatDateTime(date: Date): string {
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /** "14:30" local time. */

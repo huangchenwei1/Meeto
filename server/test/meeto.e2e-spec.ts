@@ -29,8 +29,8 @@ const TEST_DB_URL = 'file:./test.db';
 const STEAK_TEMPLATE = 'template-western-steak-date';
 const BBQ_TEMPLATE = 'template-korean-bbq-date';
 const HOTPOT_TEMPLATE = 'template-chinese-hotpot-date';
-const STEAK_MEETING_POINT = 'Glorietta Mall 主入口';
-const HOTPOT_MEETING_POINT = 'Mall of Asia 海底捞门口';
+const STEAK_MEETING_POINT = 'Glorietta Mall main entrance';
+const HOTPOT_MEETING_POINT = 'Mall of Asia Haidilao entrance';
 
 // Every activity runs the platform-standard duration.
 const UNIFORM_DURATION_MINUTES = 120;
@@ -733,7 +733,7 @@ describe('Meeto API (e2e)', () => {
         })
         .expect(200);
       // Age is derived from the seeded birth date (24 at seed time).
-      expect(res.body.meta).toMatch(/^\u5973 \u00b7 \d{2}$/);
+      expect(res.body.meta).toMatch(/^Babae \u00b7 \d{2}$/);
       expect(res.body.country).toBe('Philippines');
       expect(res.body.city).toBe('Makati');
       expect(res.body.heightCm).toBe(160);

@@ -5,7 +5,7 @@
 ## 跑起来
 
 ```bash
-cd server && npm install && npx prisma db push && node prisma/seed.mjs && npm run start   # :3000
+cd server && npm install && npx prisma db push && node prisma/seed.mjs && node prisma/fixtures.e2e.mjs && npm run start   # :3000
 cd web && npm install && npm run dev                                                       # :5173
 ```
 

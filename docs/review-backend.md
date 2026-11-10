@@ -6,7 +6,7 @@ NestJS + Prisma（SQLite）单体（`server/`，:3000，无全局路由前缀）
 
 ```bash
 cd server && npm install
-npx prisma db push && node prisma/seed.mjs   # 开发库 + 种子
+npx prisma db push && node prisma/seed.mjs && node prisma/fixtures.e2e.mjs   # 开发库 + 种子 + 大厅演示数据
 npm run start                                 # :3000
 npm run test:e2e                              # 81 条端到端测试（vitest + supertest，独立 test.db 每次重建）
 ```

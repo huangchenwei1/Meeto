@@ -101,10 +101,10 @@ onMounted(() => {
 onUnmounted(() => window.clearInterval(unreadTimer));
 
 const tabs = [
-  { name: 'hall', label: strings.tabHall, icon: 'compass' },
-  { name: 'chats', label: strings.tabChats, icon: 'chat' },
-  { name: 'activities', label: strings.tabMyActivities, icon: 'calendar' },
-  { name: 'me', label: strings.tabMe, icon: 'user' },
+  { name: 'hall', icon: 'compass' },
+  { name: 'chats', icon: 'chat' },
+  { name: 'activities', icon: 'calendar' },
+  { name: 'me', icon: 'user' },
 ] as const;
 </script>
 
@@ -134,7 +134,7 @@ const tabs = [
         <span class="icon-wrap">
           <svg
             v-if="tab.icon === 'compass'"
-            viewBox="0 0 24 24" width="22" height="22" fill="none"
+            viewBox="0 0 24 24" width="24" height="24" fill="none"
             stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
           >
             <circle cx="12" cy="12" r="9" />
@@ -142,14 +142,14 @@ const tabs = [
           </svg>
           <svg
             v-else-if="tab.icon === 'chat'"
-            viewBox="0 0 24 24" width="22" height="22" fill="none"
+            viewBox="0 0 24 24" width="24" height="24" fill="none"
             stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
           >
             <path d="M21 12a8 8 0 0 1-8 8H4l1.6-3.2A8 8 0 1 1 21 12z" />
           </svg>
           <svg
             v-else-if="tab.icon === 'calendar'"
-            viewBox="0 0 24 24" width="22" height="22" fill="none"
+            viewBox="0 0 24 24" width="24" height="24" fill="none"
             stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
           >
             <rect x="3" y="5" width="18" height="16" rx="3" />
@@ -157,7 +157,7 @@ const tabs = [
           </svg>
           <svg
             v-else
-            viewBox="0 0 24 24" width="22" height="22" fill="none"
+            viewBox="0 0 24 24" width="24" height="24" fill="none"
             stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"
           >
             <circle cx="12" cy="8" r="4" />
@@ -176,7 +176,6 @@ const tabs = [
             {{ unreadChatCount }}
           </span>
         </span>
-        <span class="label">{{ tab.label }}</span>
       </RouterLink>
     </nav>
   </div>
@@ -274,17 +273,13 @@ const tabs = [
 .tab-item {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
   color: var(--color-text-hint);
-  font-size: 11px;
 }
 
 .tab-item.active {
   color: var(--color-accent);
-  font-weight: 600;
 }
 
 .icon-wrap {
@@ -309,7 +304,4 @@ const tabs = [
   justify-content: center;
 }
 
-.label {
-  line-height: 1;
-}
 </style>

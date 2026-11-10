@@ -87,53 +87,53 @@ export const ACTIVITY_TEMPLATES: ActivityTemplate[] = [
   {
     id: 'template-japanese-dinner-date',
     sceneTag: 'Dinner',
-    title: '日式美食约会',
+    title: 'Japanese food date',
     description:
-      '在 Little Tokyo 正门碰面，挑一家日料店：寿司、烧鸟或拉面都好。',
+      'Magkita sa main entrance ng Little Tokyo at pumili ng kainan: sushi, yakitori o ramen.',
     imageUrl:
       'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2 小时',
+    durationLabel: 'mga 2 oras',
     venueName: 'Little Tokyo',
-    meetingPoint: 'Little Tokyo 正门',
+    meetingPoint: 'Little Tokyo main entrance',
     area: 'Makati',
   },
   {
     id: 'template-korean-bbq-date',
     sceneTag: 'Dinner',
-    title: '韩式烤肉约会',
+    title: 'Korean BBQ date',
     description:
-      '在 High Street 主入口碰面，一起吃韩式烤肉，饭后沿步行街散步。',
+      'Magkita sa main entrance ng High Street, kumain ng Korean BBQ, tapos maglakad sa strip.',
     imageUrl:
       'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2 小时',
+    durationLabel: 'mga 2 oras',
     venueName: 'Bonifacio High Street',
-    meetingPoint: 'Bonifacio High Street 主入口',
+    meetingPoint: 'Bonifacio High Street main entrance',
     area: 'BGC, Taguig',
   },
   {
     id: 'template-chinese-hotpot-date',
     sceneTag: 'Dinner',
-    title: '中式火锅约会',
+    title: 'Hotpot date',
     description:
-      '在 Mall of Asia 海底捞门口碰面，吃火锅聊天，轻松不冷场。',
+      'Magkita sa Haidilao sa Mall of Asia; kain ng hotpot at relaxed na kuwentuhan.',
     imageUrl:
       'https://images.unsplash.com/photo-1541529086526-db283c563270?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2 小时',
+    durationLabel: 'mga 2 oras',
     venueName: 'Mall of Asia',
-    meetingPoint: 'Mall of Asia 海底捞门口',
+    meetingPoint: 'Mall of Asia Haidilao entrance',
     area: 'Pasay',
   },
   {
     id: 'template-western-steak-date',
     sceneTag: 'Dinner',
-    title: '西式牛排约会',
+    title: 'Steak date',
     description:
-      '在 Glorietta Mall 主入口碰面，选一家牛排馆，适合安静聊天。',
+      'Magkita sa main entrance ng Glorietta at pumili ng steakhouse — bagay sa tahimik na usapan.',
     imageUrl:
       'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&h=800&q=80',
-    durationLabel: '约 2 小时',
+    durationLabel: 'mga 2 oras',
     venueName: 'Glorietta Mall',
-    meetingPoint: 'Glorietta Mall 主入口',
+    meetingPoint: 'Glorietta Mall main entrance',
     area: 'Makati',
   },
 ];
