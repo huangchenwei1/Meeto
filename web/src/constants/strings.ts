@@ -23,8 +23,6 @@ const SCENE_LABELS: Record<string, string> = {
 };
 
 export const strings = {
-  appName: 'Meeto',
-
   sceneLabel: (tag: string) => SCENE_LABELS[tag] ?? tag,
 
   // Login
@@ -82,7 +80,6 @@ export const strings = {
   myOrderGuestLine: (name: string) => `${name} · 发起人`,
   myOrderCreatedAt: (time: string) => `结伴时间 ${time}`,
   chatLockedNote: '服务费托管后解锁聊天',
-  deletePostCta: '删除帖子',
   deletePostConfirmTitle: '删除这条帖子？',
   deletePostConfirmBody: '已报名的候选人会被释放，操作不可撤销。',
   deletePostYes: '删除',
@@ -97,10 +94,8 @@ export const strings = {
   dealNoticeMore: (count: number) => `还有 ${count} 件`,
 
   // Community guidelines
-  bannerEyebrow: '社区',
   bannerTitle: '真实见面，安全第一',
   bannerSub: '每位 Meeto 用户都同意遵守的规则',
-  bannerCta: '查看规则',
   guidelinesTitle: '社区公约',
   guidelinesIntro:
     'Meeto 是为真实活动预约真实陪伴的地方。这些规则让每次见面都安全、真诚、值得赴约。',
@@ -142,11 +137,9 @@ export const strings = {
   candidatesTitle: '候选人',
   candidatesEmpty: '还没有人报名 — 通常几分钟内就会有人来',
   approveCta: '选 TA',
-  escrowSub: 'Meeto 托管至活动完成 · 取消全额退款',
 
   // Publish
   publishTitle: '发布活动',
-  composerSceneLabel: '活动类型',
   hostingFeeLabel: '陪伴服务费',
   expenseLabel: '活动经费',
   expenseTreat: '我请客',
@@ -164,13 +157,11 @@ export const strings = {
   budgetRuleExpenses: '现场餐饮等消费不包含在内，活动时参与者各自支付',
   budgetRuleRelease: '全款由 Meeto 托管，活动结束后发放给搭子；取消全额退款',
   serviceFeeNoteUser: '这笔费用是陪伴搭子的服务费，不含现场消费',
-  serviceFeeNoteHost: '这是你陪伴服务的报酬，现场消费由对方请客',
   publishFieldTitle: '标题',
   publishFieldDesc: '描述',
   publishFieldDescHint: '说说你想做什么、期待什么样的同伴',
   publishPhTitle: '例如：去新开的咖啡馆坐坐',
   publishPhDesc: '例如：城里新开了家咖啡馆，想找个轻松愉快的伴一起去……',
-  publishTipPayNote: '选定陪伴搭子时支付的服务费 · 由 Meeto 托管',
   publishSubmit: '发布',
   hotActivitiesTab: '热门活动',
   templateLaunchCta: '发起',
@@ -182,7 +173,6 @@ export const strings = {
 
   // User profile
   profileTitle: '个人主页',
-  profileReviews: '评价',
   profileActivityPosts: '发布的活动',
   profileDatesCompleted: '完成的活动',
   profileAboutTitle: '关于我',
@@ -198,11 +188,7 @@ export const strings = {
   // Chats / order room
   statusCompleted: '已完成',
   messageInputHint: '输入消息...',
-  peerPhoneLabel: '电话',
   phoneCopied: '电话号码已复制',
-  orderDetailsCta: '详情',
-  orderFeeLabel: '陪伴服务费',
-  orderPayoutLabel: '搭子所得',
   meetCodeLabel: '见面密码',
   meetCodeHintPayer: '见面时把密码告诉搭子，对方输入后活动开始',
   meetCodeInputHint: '输入对方的 4 位见面密码',
@@ -224,7 +210,6 @@ export const strings = {
   cancelConfirmNo: '返回',
   cancelledSnack: '已取消，费用全额原路退回',
   forfeitedNote: '无人开始活动，这次约定已作废',
-  statusForfeited: '已作废',
   planCardTitle: '活动计划',
   planConfirmedBadge: '已确认',
   forfeitedBadge: '已作废',
@@ -249,21 +234,15 @@ export const strings = {
   // Live orders / my activities
   myActivitiesEmpty: '还没有活动 — 去发布或报名一个吧',
   myOrderChatCta: '进入聊天',
-  activityMinePostLabel: '我发布的活动',
-  activityAppliedLabel: '我报名的活动',
-  activityProposalLabel: '我的提案',
   activityPostedAt: (time: string) => `发布时间 ${time}`,
   activityInvites: (count: number) => `收到 ${count} 个邀约`,
   statusAwaitingPayment: '待支付',
   myOrderPayCta: '去支付',
-  statusPendingDate: '计划待定',
   statusActive: '进行中',
   statusCancelled: '已取消',
-  waitingForPayment: '等待对方支付服务费',
   settledEarnerNote: (net: string) => `活动完成 · ${net} 已结算到你的钱包`,
   settledPayerNote: (fee: string) => `活动完成 · ${fee} 已从托管结算`,
   cancelledNote: '计划已取消 · 已全额退款',
-  escrowHeldNote: (amount: string) => `${amount} 由 Meeto 托管中`,
 
   // Profile setup wizard
   setupStepRoleTitle: '你想怎么使用 Meeto？',
@@ -316,7 +295,6 @@ export const strings = {
   editNameLabel: '昵称',
   editLocationLabel: '所在地',
   editNotSet: '未设置',
-  sheetDone: '完成',
   setupUploadFailed: '上传失败，请重试',
   setupAvatarRequired: '请先添加主页照片',
   verifyGoSetAvatar: '去设置照片',
@@ -380,8 +358,6 @@ export const strings = {
   verifiedStatus: '已认证',
   notVerifiedStatus: '未认证',
 
-  publishPickTime: '选择日期和时间',
-
   // Gig hall (host-side actions on demand posts)
   gigAppliedBadge: '已报名',
   gigPitchCta: '去报名',
@@ -402,25 +378,12 @@ export const strings = {
   proposalComposerTitle: '发布活动提案',
   proposalTitleHint: '想陪大家去做什么？比如：去听一场 live',
   proposalDescHint: '例如：店里安静、豆子好，适合慢慢聊……',
-  proposalAreaLabel: '活动区域（选填）',
-  proposalPublishCta: '发布',
-  proposalPostedSnack: '提案已发布',
   proposalTimeSlotLabel: '可约时段',
   proposalTimeSlotName: (slot: string) =>
     PROPOSAL_SLOT_LABELS[slot] ?? PROPOSAL_SLOT_LABELS.ANYTIME,
   proposalTimeSlotHint:
     '只需选一个大致时段，具体见面时间和价格档由报名的用户选择',
 
-  cityAreas: [
-    '江汉路',
-    '黎黄陂路',
-    '昙华林',
-    '万松园',
-    '楚河汉街',
-    '汉口江滩',
-    '东湖',
-    '光谷',
-  ],
   hostCompletedLabel: (count: number) => `${count} 次陪伴`,
   hostNewLabel: '新人搭子',
   hostInviteCta: '邀请',
@@ -451,7 +414,6 @@ export const strings = {
   withdrawSubmitted: '提现申请已提交',
   menuMyPosts: '我的帖子',
   menuVerification: '认证中心',
-  menuSettings: '设置',
   menuLogout: '退出登录',
   menuEditProfile: '编辑资料',
   myPostsEmpty: '还没有帖子',
