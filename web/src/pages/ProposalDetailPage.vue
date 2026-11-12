@@ -12,12 +12,10 @@ import {
 import AppAvatar from '@/components/AppAvatar.vue';
 import MeetTimePicker from '@/components/MeetTimePicker.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import VerifiedBadge from '@/components/VerifiedBadge.vue';
 import { PROPOSAL_SLOT_WINDOWS } from '@/constants/proposalSlots';
 import { strings } from '@/constants/strings';
 import { usePricingStore } from '@/stores/pricing';
 import { useSessionStore } from '@/stores/session';
-import { confirmDialog } from '@/utils/confirm';
 import { formatDateTime, formatMoney } from '@/utils/format';
 import { showToast } from '@/utils/toast';
 import type { InvitationRecord, ProposalCard } from '@/types/models';
@@ -117,16 +115,6 @@ async function sendInvite(): Promise<void> {
     proposal.value = { ...proposal.value, hasInvited: true };
     void load();
   } catch (error) {
-    if (error instanceof ApiError && error.verificationRequired) {
-      const go = await confirmDialog({
-        title: strings.verifyDialogTitle,
-        body: strings.verifyDialogBody,
-        yesLabel: strings.verifyNow,
-        noLabel: strings.verifyLater,
-      });
-      if (go) await router.push('/verification');
-      return;
-    }
     if (error instanceof ApiError && error.body.includes('INVITE_ALREADY_PENDING')) {
       showToast(strings.inviteAlreadyPendingSnack);
     } else if (error instanceof ApiError && error.body.includes('PROPOSAL_NOT_OPEN')) {
@@ -184,7 +172,6 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
           <div class="host-text">
             <span class="host-name">
               {{ proposal.hostName }}
-              <VerifiedBadge v-if="proposal.hostIsVerified" />
             </span>
             <span class="host-meta">{{ hostMetaLine(proposal) }}</span>
           </div>
@@ -259,7 +246,6 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
             <div class="invite-main">
               <span class="invite-name">
                 {{ invitation.fromName }}
-                <VerifiedBadge v-if="invitation.fromVerified" />
               </span>
               <span class="invite-meta">{{ invitation.fromMeta }}</span>
               <!-- Each inviter brings their own deal terms. -->

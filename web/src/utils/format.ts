@@ -1,9 +1,10 @@
 import { strings } from '@/constants/strings';
 
-/** Formats 1400 as ₱1,400. */
+/** Formats 2000 as "2,000 tokens". */
 export function formatMoney(amount: number): string {
   const sign = amount < 0 ? '-' : '';
-  return `${sign}₱${Math.abs(amount).toLocaleString('en-US')}`;
+  const value = Math.abs(amount).toLocaleString('en-US');
+  return `${sign}${value} tokens`;
 }
 
 /** Relative time, e.g. "Ngayon lang" / "5 min ang nakalipas". */

@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router';
 
 import { fetchConversations } from '@/api/orders';
 import AppAvatar from '@/components/AppAvatar.vue';
-import VerifiedBadge from '@/components/VerifiedBadge.vue';
 import { strings } from '@/constants/strings';
 import { unreadChatCount } from '@/stores/badge';
 import { relativeTime } from '@/utils/format';
@@ -83,10 +82,7 @@ function openRoom(c: ConversationItem): void {
         <AppAvatar :url="c.peerAvatarUrl" :name="c.peerName" :size="48" />
         <div class="row-main">
           <div class="row-top">
-            <span class="row-name">
-              {{ c.peerName }}
-              <VerifiedBadge v-if="c.peerVerified" />
-            </span>
+            <span class="row-name">{{ c.peerName }}</span>
             <span v-if="c.lastMessageAt" class="row-time">
               {{ relativeTime(c.lastMessageAt) }}
             </span>

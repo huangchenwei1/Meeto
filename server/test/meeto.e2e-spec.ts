@@ -90,7 +90,7 @@ describe('Meeto API (e2e)', () => {
     const res = await api().get('/config/pricing').expect(200);
     expect(res.body.platformFeeRateBp).toBe(1000);
     expect(res.body.sceneBudgetTiers.Dinner).toEqual([
-      100000, 150000, 250000,
+      200000, 300000, 400000,
     ]);
   });
 
@@ -219,15 +219,13 @@ describe('Meeto API (e2e)', () => {
     });
   });
 
-  describe('verification: mock KYC gates contact-creating actions', () => {
-    const PHONE = '+639175559876';
-    let bearer: string;
-
-    it('blocks an unverified new user from posting and applying', async () => {
-      await api().post('/auth/otp/request').send({ phone: PHONE }).expect(201);
+  describe('posting does not require real-person verification', () => {
+    it('lets a new user post without a verification step', async () => {
+      const phone = '+639175559876';
+      await api().post('/auth/otp/request').send({ phone }).expect(201);
       const verifyRes = await api()
         .post('/auth/otp/verify')
-        .send({ phone: PHONE, code: '123456' })
+        .send({ phone, code: '123456' })
         .expect(201);
       const registerRes = await api()
         .post('/auth/register')
@@ -238,63 +236,16 @@ describe('Meeto API (e2e)', () => {
           role: 'USER',
         })
         .expect(201);
-      bearer = registerRes.body.accessToken as string;
-      expect(registerRes.body.user.isVerified).toBe(false);
-
-      const postRes = await api()
-        .post('/posts')
-        .set('Authorization', `Bearer ${bearer}`)
-        .send({
-          templateId: BBQ_TEMPLATE,
-          title: 'Blocked',
-          scheduledAt: MEET_AT,
-        })
-        .expect(403);
-      expect(postRes.body.message).toBe('VERIFICATION_REQUIRED');
-    });
-
-    it('requires a profile photo before verification can run', async () => {
-      // The liveness selfie is matched against the avatar, so verification
-      // without an avatar is rejected.
-      const res = await api()
-        .post('/verification')
-        .set('Authorization', `Bearer ${bearer}`)
-        .send({ selfieUrl: '/uploads/selfie.jpg' })
-        .expect(409);
-      expect(res.body.message).toBe('AVATAR_REQUIRED');
-    });
-
-    it('approves instantly via the mock provider, then actions work', async () => {
-      await api()
-        .patch('/users/me')
-        .set('Authorization', `Bearer ${bearer}`)
-        .send({ avatarUrl: '/uploads/carlos.jpg' })
-        .expect(200);
-
-      const res = await api()
-        .post('/verification')
-        .set('Authorization', `Bearer ${bearer}`)
-        .send({ selfieUrl: '/uploads/selfie.jpg' })
-        .expect(201);
-      expect(res.body.isVerified).toBe(true);
 
       await api()
         .post('/posts')
-        .set('Authorization', `Bearer ${bearer}`)
+        .set('Authorization', `Bearer ${registerRes.body.accessToken}`)
         .send({
           templateId: BBQ_TEMPLATE,
-          title: 'Now allowed',
+          title: 'No verification needed',
           scheduledAt: MEET_AT,
         })
         .expect(201);
-    });
-
-    it('seeded demo users are pre-verified', async () => {
-      const res = await api()
-        .get('/users/me')
-        .set('X-User-Id', ANDREA)
-        .expect(200);
-      expect(res.body.isVerified).toBe(true);
     });
   });
 
@@ -423,10 +374,10 @@ describe('Meeto API (e2e)', () => {
           templateId: STEAK_TEMPLATE,
           title: 'Dinner on the starter tier',
           scheduledAt: MEET_AT,
-          budgetMinor: 100000,
+          budgetMinor: 200000,
         })
         .expect(201);
-      expect(low.body.feeMinor).toBe(100000);
+      expect(low.body.feeMinor).toBe(200000);
 
       // An amount outside the scene's tier list is rejected: the platform
       // prices, the poster only picks.
@@ -834,7 +785,7 @@ describe('Meeto API (e2e)', () => {
         .expect(201);
       postId = res.body.id;
       // No explicit tier pick -> the middle Dinner tier.
-      expect(res.body.feeMinor).toBe(150000);
+      expect(res.body.feeMinor).toBe(300000);
       expect(res.body.status).toBe('OPEN');
       // The post is fully scheduled at publish: template meeting point
       // plus the picked time.
@@ -897,9 +848,9 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(JAMES);
       // 10% commission, exact remainder to the earner.
-      expect(res.body.feeMinor).toBe(150000);
-      expect(res.body.commissionMinor).toBe(15000);
-      expect(res.body.netMinor).toBe(135000);
+      expect(res.body.feeMinor).toBe(300000);
+      expect(res.body.commissionMinor).toBe(30000);
+      expect(res.body.netMinor).toBe(270000);
 
       const post = await api()
         .get(`/posts/${postId}`)
@@ -944,7 +895,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_ESCROW', orderId },
         _sum: { amountMinor: true },
       });
-      expect(escrow._sum.amountMinor).toBe(150000);
+      expect(escrow._sum.amountMinor).toBe(300000);
     });
 
     it('selection locked the template plan; no plan flow in chat', async () => {
@@ -1136,7 +1087,7 @@ describe('Meeto API (e2e)', () => {
         where: { account: 'PLATFORM_REVENUE', orderId },
         _sum: { amountMinor: true },
       });
-      expect(revenue._sum.amountMinor).toBe(15000);
+      expect(revenue._sum.amountMinor).toBe(30000);
     });
 
     it('the earner wallet reflects net income and supports withdrawal', async () => {
@@ -1144,8 +1095,8 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(wallet.body.balanceMinor).toBe(135000);
-      expect(wallet.body.monthIncomeMinor).toBe(135000);
+      expect(wallet.body.balanceMinor).toBe(270000);
+      expect(wallet.body.monthIncomeMinor).toBe(270000);
 
       await api()
         .post('/wallet/withdrawals')
@@ -1156,13 +1107,13 @@ describe('Meeto API (e2e)', () => {
         .get('/wallet')
         .set('X-User-Id', JAMES)
         .expect(200);
-      expect(after.body.balanceMinor).toBe(130000);
+      expect(after.body.balanceMinor).toBe(265000);
 
       // Overdraft rejected.
       await api()
         .post('/wallet/withdrawals')
         .set('X-User-Id', JAMES)
-        .send({ amountMinor: 140000 })
+        .send({ amountMinor: 280000 })
         .expect(409);
     });
 
@@ -1216,7 +1167,7 @@ describe('Meeto API (e2e)', () => {
         .send({
           templateId: HOTPOT_TEMPLATE,
           scheduledAt: MEET_AT,
-          budgetMinor: 250000,
+          budgetMinor: 400000,
           note: 'Same crew, spicier pot',
         })
         .expect(201);
@@ -1227,7 +1178,7 @@ describe('Meeto API (e2e)', () => {
         meetingPoint: string;
       };
       expect(payload.status).toBe('PENDING');
-      expect(payload.budgetMinor).toBe(250000);
+      expect(payload.budgetMinor).toBe(400000);
       expect(payload.meetingPoint).toBe(HOTPOT_MEETING_POINT);
 
       // One open card per conversation.
@@ -1270,7 +1221,7 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .expect(200);
       expect(newOrder.body.status).toBe('AWAITING_PAYMENT');
-      expect(newOrder.body.feeMinor).toBe(250000);
+      expect(newOrder.body.feeMinor).toBe(400000);
       expect(newOrder.body.payer.id).toBe(ANDREA);
       expect(newOrder.body.earner.id).toBe(JAMES);
       expect(newOrder.body.planPlace).toBe(HOTPOT_MEETING_POINT);
@@ -1792,7 +1743,7 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', ANDREA)
         .send({
           scheduledAt: MEET_AT,
-          budgetMinor: 250000,
+          budgetMinor: 400000,
           note: 'Friday works for me, pick the quiet rooftops',
         })
         .expect(201);
@@ -1801,7 +1752,7 @@ describe('Meeto API (e2e)', () => {
       expect(first.body.from.id).toBe(ANDREA);
       expect(first.body.proposalId).toBe(proposalId);
       expect(first.body.scheduledAt).toBe(MEET_AT);
-      expect(first.body.budgetMinor).toBe(250000);
+      expect(first.body.budgetMinor).toBe(400000);
 
       // Off-tier pricing is rejected: the platform prices, the inviter
       // only picks.
@@ -1827,7 +1778,7 @@ describe('Meeto API (e2e)', () => {
         .send({ scheduledAt: MEET_AT, note: 'Any Friday after 9pm' })
         .expect(201);
       miguelInviteId = second.body.id;
-      expect(second.body.budgetMinor).toBe(150000);
+      expect(second.body.budgetMinor).toBe(300000);
 
       // Hosts cannot invite; a dead proposal id is a 404.
       await api()
@@ -1894,7 +1845,7 @@ describe('Meeto API (e2e)', () => {
       expect(res.body.status).toBe('AWAITING_PAYMENT');
       expect(res.body.payer.id).toBe(ANDREA);
       expect(res.body.earner.id).toBe(NOEL);
-      expect(res.body.feeMinor).toBe(250000); // the tier Andrea picked
+      expect(res.body.feeMinor).toBe(400000); // the tier Andrea picked
       // The plan is the template's meeting point plus the time the
       // INVITER picked: the order is born with the plan confirmed,
       // nothing left to negotiate in chat.

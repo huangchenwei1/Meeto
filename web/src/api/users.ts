@@ -108,11 +108,6 @@ export async function fetchRawMe(): Promise<Json> {
   return (await api.get('/users/me')) as Json;
 }
 
-/** Real-person verification: submit the liveness selfie for matching. */
-export async function submitVerification(selfieUrl: string): Promise<void> {
-  await api.post('/verification', { selfieUrl });
-}
-
 export async function fetchWallet(): Promise<WalletSummary> {
   const json = (await api.get('/wallet')) as Json;
   return {

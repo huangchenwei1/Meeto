@@ -3,17 +3,18 @@ import { defineStore } from 'pinia';
 import { api, minorToMajor } from '@/api/client';
 import type { PricingConfig } from '@/types/models';
 
-/** Fallback used until the server config has loaded (whole pesos). */
+/** Fallback used until the server config has loaded (whole tokens). */
+const TOKEN_TIERS = [2000, 3000, 4000];
 const DEFAULTS: PricingConfig = {
   platformFeeRate: 0.1,
   sceneBudgetTiers: {
-    Coffee: [500, 800, 1200],
-    Tea: [500, 800, 1200],
-    Movie: [800, 1200, 1800],
-    Bar: [1200, 1800, 2500],
-    Dinner: [1000, 1500, 2500],
+    Coffee: [...TOKEN_TIERS],
+    Tea: [...TOKEN_TIERS],
+    Movie: [...TOKEN_TIERS],
+    Bar: [...TOKEN_TIERS],
+    Dinner: [...TOKEN_TIERS],
   },
-  defaultFee: 1000,
+  defaultFee: 3000,
 };
 
 export const usePricingStore = defineStore('pricing', {
@@ -27,7 +28,7 @@ export const usePricingStore = defineStore('pricing', {
     async load() {
       try {
         // Server units are basis points / minor units; the UI renders
-        // rate fractions / whole pesos, so map at this boundary.
+        // rate fractions / whole tokens, so map at this boundary.
         const json = (await api.get('/config/pricing')) as {
           platformFeeRateBp: number;
           defaultFeeMinor: number;

@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
-import { ApiError } from '@/api/client';
 import { fetchWallet, fetchWithdrawals, requestWithdrawal } from '@/api/users';
 import PageHeader from '@/components/PageHeader.vue';
 import { strings } from '@/constants/strings';
-import { confirmDialog } from '@/utils/confirm';
 import { formatMoney } from '@/utils/format';
 import { showToast } from '@/utils/toast';
 import type { WalletSummary, WithdrawalRecord } from '@/types/models';
-
-const router = useRouter();
 
 const wallet = ref<WalletSummary | null>(null);
 const withdrawals = ref<WithdrawalRecord[]>([]);
@@ -42,18 +37,8 @@ async function submitWithdraw(): Promise<void> {
     await requestWithdrawal(amount);
     showToast(strings.withdrawSubmitted);
     await load();
-  } catch (error) {
-    if (error instanceof ApiError && error.verificationRequired) {
-      const go = await confirmDialog({
-        title: strings.verifyDialogTitle,
-        body: strings.verifyDialogBody,
-        yesLabel: strings.verifyNow,
-        noLabel: strings.verifyLater,
-      });
-      if (go) void router.push('/verification');
-    } else {
-      showToast(strings.withdrawFailed);
-    }
+  } catch {
+    showToast(strings.withdrawFailed);
   } finally {
     busy.value = false;
   }
@@ -126,7 +111,6 @@ function formatDate(date: Date): string {
             {{ strings.withdrawSheetSub(formatMoney(wallet!.withdrawable)) }}
           </p>
           <div class="amount-row">
-            <span class="currency">₱</span>
             <input
               v-model="amountInput"
               class="text-field amount-field"
@@ -134,6 +118,7 @@ function formatDate(date: Date): string {
               autofocus
               @keyup.enter="submitWithdraw"
             />
+            <span class="currency">tokens</span>
           </div>
           <button class="btn-primary sheet-cta" @click="submitWithdraw">
             {{ strings.withdraw }}
@@ -298,8 +283,9 @@ function formatDate(date: Date): string {
 }
 
 .currency {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .amount-field {

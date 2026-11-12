@@ -1,4 +1,4 @@
-// Domain models. All money fields are whole pesos (converted from server
+// Domain models. All money fields are whole tokens (converted from server
 // minor units at the API boundary).
 
 export interface PostAuthor {
@@ -56,7 +56,7 @@ export interface ActivityPost {
   images: string[];
   author: PostAuthor;
   createdAt: Date;
-  /** Platform-set service fee (whole pesos) for this scene. */
+  /** Platform-set price (whole tokens) for this scene. */
   budgetAmount: number;
   /** Who covers on-site expenses: TREAT (publisher treats) | AA. */
   expensePolicy: 'TREAT' | 'AA';

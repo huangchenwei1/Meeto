@@ -1,3 +1,4 @@
+import { INTRO_SEEN_KEY } from '@/constants/guest';
 import { useSessionStore } from '@/stores/session';
 
 /** Base URL of the Meeto API; dev uses the Vite proxy at /api. */
@@ -11,15 +12,6 @@ export class ApiError extends Error {
     public readonly body: string,
   ) {
     super(`ApiError(${statusCode}): ${body}`);
-  }
-
-  /**
-   * True when the server refused the action because the caller has not
-   * completed real-person verification; the UI should open the
-   * verification flow.
-   */
-  get verificationRequired(): boolean {
-    return this.statusCode === 403 && this.body.includes('VERIFICATION_REQUIRED');
   }
 }
 
@@ -87,16 +79,18 @@ async function request(
       return request(method, path, options, true);
     }
     // The refresh token is dead too: the session is over. A hard
-    // redirect to login beats leaving the page stuck on dead requests.
+    // redirect lets the guard pick the story splash or the plain boot.
     session.clear();
-    window.location.assign('/login');
+    sessionStorage.removeItem(INTRO_SEEN_KEY);
+    window.location.assign('/');
   }
   if (response.status === 403) {
     const text = await response.text();
     // A banned account is signed out on the spot, whatever it tapped.
     if (text.includes('ACCOUNT_BANNED')) {
       session.clear();
-      window.location.assign('/login');
+      sessionStorage.removeItem(INTRO_SEEN_KEY);
+      window.location.assign('/');
     }
     throw new ApiError(response.status, text);
   }
@@ -136,12 +130,12 @@ export async function uploadImage(file: File): Promise<string> {
   return json.url;
 }
 
-/** Converts server minor units (centavos) to the whole pesos the UI renders. */
+/** Converts server minor units to the whole tokens the UI renders. */
 export function minorToMajor(minor: number): number {
   return Math.round(minor / 100);
 }
 
-/** Whole pesos -> server minor units (centavos). */
+/** Whole tokens -> server minor units. */
 export function majorToMinor(major: number): number {
   return major * 100;
 }

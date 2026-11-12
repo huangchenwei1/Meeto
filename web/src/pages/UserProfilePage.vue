@@ -5,7 +5,6 @@ import { useRoute } from 'vue-router';
 import { fetchUserDetail } from '@/api/users';
 import AppAvatar from '@/components/AppAvatar.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import VerifiedBadge from '@/components/VerifiedBadge.vue';
 import { strings } from '@/constants/strings';
 import type { UserDetail } from '@/types/models';
 
@@ -83,7 +82,6 @@ const BASIC_ICONS: Record<string, string> = {
         <AppAvatar :size="76" :url="user.avatarUrl" :name="user.name" />
         <div class="name-row">
           <span class="name">{{ user.name }}</span>
-          <VerifiedBadge v-if="user.isVerified" />
         </div>
         <p class="meta-line">{{ metaLine }}</p>
       </section>

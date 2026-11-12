@@ -13,7 +13,6 @@ import {
   LedgerEntryType,
   WithdrawalStatus,
 } from '../common/enums.js';
-import { assertVerified } from '../common/verification.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LedgerService } from './ledger.service.js';
 import { WithdrawalInputDto } from './wallet.dto.js';
@@ -68,7 +67,6 @@ export class WalletController {
     @CurrentUser() user: User,
     @Body() input: WithdrawalInputDto,
   ): Promise<WithdrawalDto> {
-    assertVerified(user);
     const withdrawal = await this.prisma.$transaction(async (tx) => {
       // Balance check and debit in one transaction. PRODUCTION: run at
       // SERIALIZABLE isolation (Postgres) to rule out concurrent overdrafts.

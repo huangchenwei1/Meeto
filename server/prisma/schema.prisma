@@ -5,7 +5,7 @@
 // regenerate migrations. String status fields map to Postgres enums at that
 // point (Prisma enums are not supported on SQLite).
 //
-// MONEY: all amounts are integer minor units (centavos, PHP).
+// MONEY: all amounts are integer minor units. 100 minor units = 1 token.
 // RATES: basis points (1000 = 10%).
 
 generator client {

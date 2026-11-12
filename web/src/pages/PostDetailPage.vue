@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ApiError } from '@/api/client';
 import { findByPostId } from '@/api/orders';
 import {
   deletePost,
@@ -13,7 +12,6 @@ import {
 } from '@/api/posts';
 import AppAvatar from '@/components/AppAvatar.vue';
 import PageHeader from '@/components/PageHeader.vue';
-import VerifiedBadge from '@/components/VerifiedBadge.vue';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
 import { confirmDialog } from '@/utils/confirm';
@@ -74,19 +72,9 @@ async function submitSignup(): Promise<void> {
   try {
     post.value = await signUp(postId);
     showToast(strings.candidateSignedUpSnack);
-  } catch (error) {
+  } catch {
     signedUp.value = false;
-    if (error instanceof ApiError && error.verificationRequired) {
-      const go = await confirmDialog({
-        title: strings.verifyDialogTitle,
-        body: strings.verifyDialogBody,
-        yesLabel: strings.verifyNow,
-        noLabel: strings.verifyLater,
-      });
-      if (go) await router.push('/verification');
-    } else {
-      showToast(strings.errorGeneric);
-    }
+    showToast(strings.errorGeneric);
   } finally {
     signingUp.value = false;
   }
@@ -166,7 +154,6 @@ async function onDelete(): Promise<void> {
           <div class="author-text">
             <span class="author-name">
               {{ strings.postAuthorLine(post.author.name) }}
-              <VerifiedBadge v-if="post.author.isVerified" />
             </span>
             <span v-if="post.author.meta" class="author-meta">{{ post.author.meta }}</span>
           </div>
@@ -223,7 +210,6 @@ async function onDelete(): Promise<void> {
             <div class="candidate-main">
               <span class="candidate-name">
                 {{ c.author.name }}
-                <VerifiedBadge v-if="c.author.isVerified" />
               </span>
               <span class="candidate-meta">{{ c.author.meta }}</span>
             </div>

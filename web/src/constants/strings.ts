@@ -24,6 +24,19 @@ const SCENE_LABELS: Record<string, string> = {
 export const strings = {
   sceneLabel: (tag: string) => SCENE_LABELS[tag] ?? tag,
 
+  // Splash
+  splashBrand: 'MEETO',
+  splashLines: [
+    'May mga gabing hindi dapat mag-isa.',
+    'May upuang nakalaan sa harap mo.',
+    'Sine, hapunan, o lakad sa siyudad.',
+    'Hindi mo kailangang ipaliwanag kung bakit.',
+    'May maglalaan ng oras na ito para sa iyo.',
+  ],
+  splashEnterCta: 'Pumasok sa gabing ito',
+  splashEntering: 'Binubuksan ang pinto',
+  splashEnterFailed: 'Hindi nakapasok, subukan ulit',
+
   // Login
   loginTagline: 'MEET · PLAN · EARN',
   loginSignInTitle: 'Mag-login gamit ang numero mo',
@@ -56,8 +69,6 @@ export const strings = {
   msgPreviewPlan: '[Plano]',
   msgPreviewRequest: '[Imbitasyon]',
   chatLiveBadge: 'Ongoing ang activity',
-
-  verifiedLabel: 'Verified',
 
   // Escrow payment page
   paymentTitle: 'Kumpirmahin ang bayad',
@@ -101,7 +112,7 @@ export const strings = {
   guidelinesRules: [
     [
       'Maging totoo',
-      'Ikaw mismo ang dapat nasa photo. Dadaan sa verification ang bawat account; ban ang pagpapanggap.',
+      'Ikaw mismo ang dapat nasa photo. Ban ang pagpapanggap.',
     ],
     [
       'Magrespetuhan',
@@ -309,7 +320,7 @@ export const strings = {
   setupStepBioSub: 'Malaking tulong sa match ang maikling intro',
   setupStepPhotosTitle: 'Mag-upload ng photos',
   setupStepPhotosSub:
-    'Isang main photo at hanggang 3 pa. Ang main photo rin ang gagamitin sa verification.',
+    'Isang main photo at hanggang 3 pa.',
   setupMainPhotoBadge: 'Main',
   setupCountryLabel: 'Bansa',
   setupCityLabel: 'Lungsod',
@@ -328,7 +339,6 @@ export const strings = {
   editNotSet: 'Wala pa',
   setupUploadFailed: 'Hindi na-upload, subukan ulit',
   setupAvatarRequired: 'Maglagay muna ng main photo',
-  verifyGoSetAvatar: 'Maglagay ng photo',
 
   countryCities: [
     [
@@ -368,34 +378,6 @@ export const strings = {
     'Gym', 'Hiking', 'Games', 'Photography', 'Pagbabasa', 'Nightlife',
     'Shopping',
   ],
-
-  // Real-person verification
-  verifyTitle: 'Verification',
-  verifySub:
-    'Kumuha ng mabilis na selfie para itugma sa profile photo mo. Mas ligtas ang meetup kapag verified, at mabubuksan ang pag-post, pag-apply at pagbabayad.',
-  verifyYourPhoto: 'Profile photo mo',
-  verifyStart: 'Simulan',
-  verifySuccess: 'Verified ka na',
-  verifyNoAvatar:
-    'Maglagay muna ng profile photo; dito itutugma ang selfie mo',
-  verifyDialogTitle: 'Kailangan ng verification',
-  verifyDialogBody:
-    'Kailangan ng verification para dito; isang minuto lang.',
-  verifyNow: 'I-verify ngayon',
-  verifyLater: 'Mamaya na',
-  livenessWarnTitle: 'Babala sa flash',
-  livenessWarnBody:
-    "Magfa-flash ang screen ng iba't ibang kulay habang nagche-check. Mag-ingat kung sensitive ka sa ilaw.",
-  livenessGuide: 'Itapat ang mukha sa loob ng oval, tapos magsimula',
-  livenessStart: 'Simulan ang check',
-  livenessStepHold: 'Panatilihin ang mukha sa frame',
-  livenessStepBlink: 'Kumurap',
-  livenessStepTurn: 'Dahan-dahang lumingon pakaliwa at pakanan',
-  livenessUploading: 'Itinutugma…',
-  livenessCameraError:
-    'Hindi mabuksan ang camera; lumipat sa photo upload',
-  verifiedStatus: 'Verified',
-  notVerifiedStatus: 'Hindi pa verified',
 
   // Gig hall (host-side actions on demand posts)
   gigAppliedBadge: 'Naka-apply',
@@ -458,7 +440,6 @@ export const strings = {
   withdraw: 'Mag-withdraw',
   withdrawSubmitted: 'Naisumite ang withdrawal',
   menuMyPosts: 'Mga post ko',
-  menuVerification: 'Verification',
   menuLogout: 'Mag-logout',
   menuEditProfile: 'I-edit ang profile',
   myPostsEmpty: 'Wala pang post',

@@ -16,7 +16,6 @@ import {
   Role,
 } from '../common/enums.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
-import { assertVerified } from '../common/verification.util.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
 import { PricingService } from '../pricing/pricing.service.js';
@@ -103,7 +102,6 @@ export class PostsService {
   ) {}
 
   async create(author: User, input: CreatePostDto): Promise<PostDto> {
-    assertVerified(author);
     // Activity requests come from the user side; hosts supply the plans.
     if (author.role === Role.host) {
       throw new ForbiddenException('Hosts cannot post activity requests');
@@ -152,7 +150,6 @@ export class PostsService {
     images: string[],
     venue: string,
   ): Promise<PostDto> {
-    assertVerified(author);
     const post = await this.prisma.post.create({
       data: {
         authorId: author.id,
@@ -268,7 +265,6 @@ export class PostsService {
   /// duration are all fixed by the template and the post, so selection
   /// is purely about the person.
   async apply(caller: User, postId: string): Promise<ApplicationDto> {
-    assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can sign up for activities');
     }

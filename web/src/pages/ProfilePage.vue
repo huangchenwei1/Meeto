@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 
 import { fetchCurrentUser, fetchWallet } from '@/api/users';
 import AppAvatar from '@/components/AppAvatar.vue';
-import VerifiedBadge from '@/components/VerifiedBadge.vue';
+import { INTRO_SEEN_KEY } from '@/constants/guest';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
 import { formatMoney } from '@/utils/format';
@@ -28,7 +28,8 @@ onActivated(() => void load());
 
 function logout(): void {
   session.clear();
-  void router.replace('/login');
+  sessionStorage.removeItem(INTRO_SEEN_KEY);
+  void router.replace('/');
 }
 </script>
 
@@ -46,7 +47,6 @@ function logout(): void {
         <div class="profile-text">
           <div class="name-row">
             <span class="name">{{ user.name }}</span>
-            <VerifiedBadge v-if="user.isVerified" />
           </div>
           <p class="id-line">{{ user.idLine }}</p>
         </div>
@@ -88,17 +88,6 @@ function logout(): void {
         <button class="menu-item" @click="router.push('/my-posts')">
           <span class="menu-icon">📝</span>
           <span class="menu-label">{{ strings.menuMyPosts }}</span>
-          <span class="menu-arrow">›</span>
-        </button>
-        <button
-          class="menu-item"
-          @click="user.isVerified ? undefined : router.push('/verification')"
-        >
-          <span class="menu-icon">🛡️</span>
-          <span class="menu-label">{{ strings.menuVerification }}</span>
-          <span class="menu-hint">
-            {{ user.isVerified ? strings.verifiedStatus : strings.notVerifiedStatus }}
-          </span>
           <span class="menu-arrow">›</span>
         </button>
         <button class="menu-item" @click="router.push('/guidelines')">

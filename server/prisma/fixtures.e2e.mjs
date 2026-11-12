@@ -61,7 +61,7 @@ const POSTS = [
       'I have been in Manila three months and only know the chain places ' +
       'near my office. Looking for a host who can make a High Street ' +
       'KBBQ evening feel effortless. Weekend works best.',
-    feeMinor: 100000,
+    feeMinor: 200000,
     createdAt: hoursAgo(1),
   },
   {
@@ -76,7 +76,7 @@ const POSTS = [
       'I eat out a lot but keep going back to the same two places. Want a ' +
       'host who makes the evening easy: dinner first, then a slow walk ' +
       'through the mall. Weeknights after 7 work best.',
-    feeMinor: 150000,
+    feeMinor: 300000,
     createdAt: hoursAgo(3),
   },
   {
@@ -94,7 +94,7 @@ const POSTS = [
       'I love hotpot but hate deciding. Looking for a host to make the ' +
       'whole evening effortless: the broth, the sides, the pacing. ' +
       'Saturday evening preferred.',
-    feeMinor: 250000,
+    feeMinor: 400000,
     createdAt: hoursAgo(24),
   },
   {
@@ -109,7 +109,7 @@ const POSTS = [
       'Work ate my whole month. I want one easy Japanese dinner: good ' +
       'sushi, easy conversation, zero decisions made by me. Host handles ' +
       'the vibe, I just show up.',
-    feeMinor: 100000,
+    feeMinor: 200000,
     createdAt: hoursAgo(48),
   },
 ];
@@ -197,9 +197,9 @@ const ORDERS = [
     payerId: 'user-103',
     earnerId: 'host-203',
     status: 'ACTIVE',
-    feeMinor: 250000,
-    commissionMinor: 25000,
-    netMinor: 225000,
+    feeMinor: 400000,
+    commissionMinor: 40000,
+    netMinor: 360000,
     planPlace: 'Mall of Asia Haidilao entrance',
     planAt: daysAhead(1),
     planDurationMinutes: 120,
@@ -208,7 +208,11 @@ const ORDERS = [
 
 async function main() {
   for (const post of POSTS) {
-    await prisma.post.upsert({ where: { id: post.id }, update: {}, create: post });
+    await prisma.post.upsert({
+      where: { id: post.id },
+      update: { feeMinor: post.feeMinor },
+      create: post,
+    });
   }
   for (const application of APPLICATIONS) {
     await prisma.application.upsert({
@@ -225,7 +229,15 @@ async function main() {
     });
   }
   for (const order of ORDERS) {
-    await prisma.order.upsert({ where: { id: order.id }, update: {}, create: order });
+    await prisma.order.upsert({
+      where: { id: order.id },
+      update: {
+        feeMinor: order.feeMinor,
+        commissionMinor: order.commissionMinor,
+        netMinor: order.netMinor,
+      },
+      create: order,
+    });
   }
   console.log('E2E hall fixtures loaded');
 }

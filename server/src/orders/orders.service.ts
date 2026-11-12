@@ -35,7 +35,6 @@ import {
 import { PricingService } from '../pricing/pricing.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
-import { assertVerified } from '../common/verification.util.js';
 import { toMessageDto, toOrderDto } from './order.mapper.js';
 import type { OrderDto, OrderWithParties } from './order.mapper.js';
 
@@ -247,7 +246,6 @@ export class OrdersService {
 
   /// Payer escrows the match fee through the payment channel.
   async pay(caller: User, orderId: string): Promise<OrderDto> {
-    assertVerified(caller);
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
     if (order.payerId !== caller.id) {
       throw new ForbiddenException('Only the payer can pay this order');
@@ -649,7 +647,6 @@ export class OrdersService {
     budgetMinor: number | undefined,
     note: string,
   ) {
-    assertVerified(caller);
     const order = await this.findParticipantOrderOrThrow(caller, orderId);
     this.assertChatWritable(order);
     if (order.payerId !== caller.id) {
@@ -731,7 +728,6 @@ export class OrdersService {
       return toMessageDto(updated);
     }
 
-    assertVerified(caller);
     const planAt = new Date(payload.scheduledAt);
     // A card whose meeting time already passed cannot form a deal.
     if (planAt.getTime() <= Date.now()) {

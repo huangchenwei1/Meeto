@@ -15,7 +15,6 @@ import {
   Role,
 } from '../common/enums.js';
 import { PublicUser, toPublicUser } from '../common/user.mapper.js';
-import { assertVerified } from '../common/verification.util.js';
 import { OrderDto, toOrderDto } from '../orders/order.mapper.js';
 import { generateMeetCode } from '../common/meet-code.util.js';
 import {
@@ -96,8 +95,8 @@ export class HostsService {
     private readonly pricingService: PricingService,
   ) {}
 
-  /// Host directory, best credentials first. [gender] is a viewer
-  /// preference filter, same semantics as the feed filter.
+  /// Host directory. [gender] is a viewer preference filter, same
+  /// semantics as the feed filter.
   async directory(gender?: string): Promise<HostCardDto[]> {
     const hosts = await this.prisma.user.findMany({
       where: {
@@ -107,11 +106,7 @@ export class HostsService {
       orderBy: { createdAt: 'asc' },
     });
     const cards = await Promise.all(hosts.map((h) => this.toHostCard(h)));
-    cards.sort(
-      (a, b) =>
-        Number(b.user.isVerified) - Number(a.user.isVerified) ||
-        b.completedActivities - a.completedActivities,
-    );
+    cards.sort((a, b) => b.completedActivities - a.completedActivities);
     return cards;
   }
 
@@ -134,7 +129,6 @@ export class HostsService {
     description: string,
     timeSlot: string,
   ): Promise<ProposalDto> {
-    assertVerified(caller);
     if (caller.role !== Role.host) {
       throw new ForbiddenException('Only hosts can publish proposals');
     }
@@ -248,7 +242,6 @@ export class HostsService {
     budgetMinor: number | undefined,
     note: string,
   ): Promise<InvitationDto> {
-    assertVerified(caller);
     if (caller.role === Role.host) {
       throw new ForbiddenException('Hosts cannot invite other hosts');
     }
@@ -326,7 +319,6 @@ export class HostsService {
     proposalId: string,
     invitationId: string,
   ): Promise<OrderDto> {
-    assertVerified(caller);
     const proposal = await this.findProposalOrThrow(proposalId);
     if (proposal.hostId !== caller.id) {
       throw new ForbiddenException('Only the host can select an inviter');

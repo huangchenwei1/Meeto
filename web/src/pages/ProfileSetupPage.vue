@@ -6,6 +6,7 @@ import { register } from '@/api/auth';
 import { resolveMediaUrl, uploadImage } from '@/api/client';
 import { fetchRawMe, updateProfile } from '@/api/users';
 import PageHeader from '@/components/PageHeader.vue';
+import { DEFAULT_GENDER, DEFAULT_ROLE, markProfileReady } from '@/constants/guest';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
 import { showToast } from '@/utils/toast';
@@ -15,21 +16,20 @@ const MIN_HEIGHT = 140;
 const MAX_HEIGHT = 210;
 const MIN_WEIGHT = 35;
 const MAX_WEIGHT = 120;
-const STEP_COUNT = 10;
+const STEP_COUNT = 8;
 
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
 
 const isEditing = computed(() => route.query.mode === 'edit');
+const isResuming = computed(() => route.query.resume === '1');
 const registrationToken = (route.query.registrationToken as string) ?? '';
 
 const step = ref(0);
 const busy = ref(false);
 const registered = ref(false);
 
-const role = ref<string | null>(null);
-const gender = ref<string | null>(null);
 const name = ref('');
 const maxYear = new Date().getFullYear() - 18;
 const years = Array.from({ length: 63 }, (_, i) => maxYear - i);
@@ -62,31 +62,34 @@ const citiesForCountry = computed(() => {
 
 const isLastStep = computed(() => step.value === STEP_COUNT - 1);
 /** Height/weight, location, work, interests and bio are skippable. */
-const canSkip = computed(() => step.value >= 4 && step.value <= 8);
+const canSkip = computed(() => step.value >= 2 && step.value <= 6);
 const canGoBack = computed(
-  () => step.value > 0 && !(registered.value && step.value <= 3),
+  () => step.value > 0 && !(registered.value && step.value <= 1),
 );
 
+function fillFromRaw(user: Record<string, unknown>): void {
+  const avatar = (user.avatarUrl as string) ?? '';
+  avatarUrl.value = avatar.length > 0 ? avatar : null;
+  name.value = (user.name as string) ?? '';
+  bio.value = (user.bio as string) ?? '';
+  heightCm.value = (user.heightCm as number) ?? null;
+  weightKg.value = (user.weightKg as number) ?? null;
+  country.value = ((user.country as string) ?? '') || null;
+  city.value = ((user.city as string) ?? '') || null;
+  education.value = ((user.education as string) ?? '') || null;
+  job.value = ((user.job as string) ?? '') || null;
+  tags.value = new Set((user.tags as string[]) ?? []);
+  photoUrls.value = [...((user.photos as string[]) ?? [])];
+}
+
 onMounted(async () => {
-  if (!isEditing.value) return;
+  if (!isEditing.value && !isResuming.value) return;
   registered.value = true;
   try {
-    const user = await fetchRawMe();
-    role.value = (user.role as string) ?? null;
-    const avatar = (user.avatarUrl as string) ?? '';
-    avatarUrl.value = avatar.length > 0 ? avatar : null;
-    name.value = (user.name as string) ?? '';
-    bio.value = (user.bio as string) ?? '';
-    heightCm.value = (user.heightCm as number) ?? null;
-    weightKg.value = (user.weightKg as number) ?? null;
-    country.value = ((user.country as string) ?? '') || null;
-    city.value = ((user.city as string) ?? '') || null;
-    education.value = ((user.education as string) ?? '') || null;
-    job.value = ((user.job as string) ?? '') || null;
-    tags.value = new Set((user.tags as string[]) ?? []);
-    photoUrls.value = [...((user.photos as string[]) ?? [])];
+    fillFromRaw(await fetchRawMe());
   } catch {
     // Keep the empty form; the user can still fill and save.
+    if (isResuming.value) name.value = session.user?.name ?? '';
   }
 });
 
@@ -170,8 +173,8 @@ function applySessionUser(user: Record<string, unknown>): void {
     name: user.name as string,
     avatarUrl: (user.avatarUrl as string) ?? '',
     meta: (user.meta as string) ?? '',
-    gender: (user.gender as string) ?? session.user?.gender ?? 'FEMALE',
-    role: (user.role as string) ?? session.user?.role ?? 'USER',
+    gender: (user.gender as string) ?? session.user?.gender ?? DEFAULT_GENDER,
+    role: (user.role as string) ?? session.user?.role ?? DEFAULT_ROLE,
   });
 }
 
@@ -181,8 +184,8 @@ async function doRegister(): Promise<boolean> {
     await register({
       registrationToken,
       name: name.value.trim(),
-      gender: gender.value!,
-      role: role.value!,
+      gender: DEFAULT_GENDER,
+      role: DEFAULT_ROLE,
     });
     registered.value = true;
     return true;
@@ -197,8 +200,6 @@ async function doRegister(): Promise<boolean> {
 /** Final submit of the registration wizard (edit mode saves per field). */
 async function save(): Promise<void> {
   if (!avatarUrl.value) {
-    // The avatar is mandatory: it is the reference photo real-person
-    // verification matches the liveness selfie against.
     showToast(strings.setupAvatarRequired);
     return;
   }
@@ -218,6 +219,7 @@ async function save(): Promise<void> {
   if (bio.value.trim().length > 0) body.bio = bio.value.trim();
   if (photoUrls.value.length > 0) body.photos = photoUrls.value;
   if (await patchProfile(body)) {
+    markProfileReady();
     await router.replace('/hall');
   }
 }
@@ -377,18 +379,16 @@ async function confirmSheet(): Promise<void> {
 async function next(): Promise<void> {
   switch (step.value) {
     case 0:
-      if (!role.value) return showToast(strings.roleRequiredHint);
-      break;
-    case 1:
-      if (!gender.value) return showToast(strings.genderRequiredHint);
-      break;
-    case 2:
       if (name.value.trim().length === 0) {
         return showToast(strings.nameRequiredHint);
       }
-      if (!registered.value && !(await doRegister())) return;
+      if (!registered.value) {
+        if (!(await doRegister())) return;
+      } else if (name.value.trim() !== (session.user?.name ?? '')) {
+        if (!(await patchProfile({ name: name.value.trim() }))) return;
+      }
       break;
-    case 4:
+    case 2:
       heightCm.value ??= 165;
       weightKg.value ??= 55;
       break;
@@ -401,8 +401,6 @@ async function next(): Promise<void> {
 }
 
 const stepMeta: Array<{ title: string; sub: string }> = [
-  { title: strings.setupStepRoleTitle, sub: strings.setupStepRoleSub },
-  { title: strings.setupStepGenderTitle, sub: strings.setupStepGenderSub },
   { title: strings.setupStepNameTitle, sub: strings.setupStepNameSub },
   { title: strings.setupStepBirthTitle, sub: strings.setupStepBirthSub },
   { title: strings.setupStepBodyTitle, sub: strings.setupStepBodySub },
@@ -600,55 +598,17 @@ const stepMeta: Array<{ title: string; sub: string }> = [
       <h2 class="step-title">{{ stepMeta[step].title }}</h2>
       <p class="step-sub">{{ stepMeta[step].sub }}</p>
 
-      <!-- Step 0: role -->
-      <div v-if="step === 0" class="card-options">
-        <button
-          class="option-card"
-          :class="{ selected: role === 'USER' }"
-          @click="role = 'USER'"
-        >
-          <span class="option-title">{{ strings.roleUserLabel }}</span>
-          <span class="option-sub">{{ strings.roleUserSub }}</span>
-        </button>
-        <button
-          class="option-card"
-          :class="{ selected: role === 'HOST' }"
-          @click="role = 'HOST'"
-        >
-          <span class="option-title">{{ strings.roleHostLabel }}</span>
-          <span class="option-sub">{{ strings.roleHostSub }}</span>
-        </button>
-      </div>
-
-      <!-- Step 1: gender -->
-      <div v-else-if="step === 1" class="card-options">
-        <button
-          class="option-card"
-          :class="{ selected: gender === 'FEMALE' }"
-          @click="gender = 'FEMALE'"
-        >
-          <span class="option-title">{{ strings.genderFemaleLabel }}</span>
-        </button>
-        <button
-          class="option-card"
-          :class="{ selected: gender === 'MALE' }"
-          @click="gender = 'MALE'"
-        >
-          <span class="option-title">{{ strings.genderMaleLabel }}</span>
-        </button>
-      </div>
-
-      <!-- Step 2: name -->
+      <!-- Step 0: name. Role and gender are fixed: USER + MALE. -->
       <input
-        v-else-if="step === 2"
+        v-if="step === 0"
         v-model="name"
         class="text-field name-field"
         maxlength="40"
         :placeholder="strings.setupNameHint"
       />
 
-      <!-- Step 3: birth -->
-      <div v-else-if="step === 3" class="select-row">
+      <!-- Step 1: birth -->
+      <div v-else-if="step === 1" class="select-row">
         <label class="select-col">
           <span class="field-label">{{ strings.setupBirthYearLabel }}</span>
           <select v-model.number="birthYear" class="text-field">
@@ -663,8 +623,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </label>
       </div>
 
-      <!-- Step 4: body -->
-      <div v-else-if="step === 4" class="select-row">
+      <!-- Step 2: body -->
+      <div v-else-if="step === 2" class="select-row">
         <label class="select-col">
           <span class="field-label">{{ strings.setupHeightLabel }}</span>
           <select v-model.number="heightCm" class="text-field">
@@ -681,8 +641,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </label>
       </div>
 
-      <!-- Step 5: location -->
-      <template v-else-if="step === 5">
+      <!-- Step 3: location -->
+      <template v-else-if="step === 3">
         <p class="field-label">{{ strings.setupCountryLabel }}</p>
         <div class="chip-wrap">
           <button
@@ -711,8 +671,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </template>
       </template>
 
-      <!-- Step 6: work -->
-      <template v-else-if="step === 6">
+      <!-- Step 4: work -->
+      <template v-else-if="step === 4">
         <p class="field-label">{{ strings.setupEducationLabel }}</p>
         <div class="chip-wrap">
           <button
@@ -739,8 +699,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </div>
       </template>
 
-      <!-- Step 7: tags -->
-      <div v-else-if="step === 7" class="chip-wrap">
+      <!-- Step 5: tags -->
+      <div v-else-if="step === 5" class="chip-wrap">
         <button
           v-for="tag in strings.setupTagOptions"
           :key="tag"
@@ -752,9 +712,9 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </button>
       </div>
 
-      <!-- Step 8: bio -->
+      <!-- Step 6: bio -->
       <textarea
-        v-else-if="step === 8"
+        v-else-if="step === 6"
         v-model="bio"
         class="text-field"
         rows="5"
@@ -762,8 +722,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         :placeholder="strings.setupBioHint"
       ></textarea>
 
-      <!-- Step 9: photos -->
-      <div v-else-if="step === 9" class="photo-grid">
+      <!-- Step 7: photos -->
+      <div v-else-if="step === 7" class="photo-grid">
         <button class="photo-tile" @click="pickAvatar">
           <img v-if="avatarUrl" :src="resolveMediaUrl(avatarUrl)" alt="" />
           <span v-else class="plus">+</span>

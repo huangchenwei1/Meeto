@@ -2,13 +2,11 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ApiError } from '@/api/client';
 import { cancel, getOrder, pay, peerOf } from '@/api/orders';
 import AppAvatar from '@/components/AppAvatar.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
-import { confirmDialog } from '@/utils/confirm';
 import { formatDateTime, formatMoney } from '@/utils/format';
 import { showToast } from '@/utils/toast';
 import type { LiveOrder } from '@/types/models';
@@ -55,19 +53,9 @@ async function doPay(): Promise<void> {
     const paid = await pay(orderId);
     showToast(strings.paymentDoneSnack);
     await router.replace(`/orders/${paid.id}`);
-  } catch (error) {
+  } catch {
     busy.value = false;
-    if (error instanceof ApiError && error.verificationRequired) {
-      const go = await confirmDialog({
-        title: strings.verifyDialogTitle,
-        body: strings.verifyDialogBody,
-        yesLabel: strings.verifyNow,
-        noLabel: strings.verifyLater,
-      });
-      if (go) await router.push('/verification');
-    } else {
-      showToast(strings.paymentFailedSnack);
-    }
+    showToast(strings.paymentFailedSnack);
   }
 }
 

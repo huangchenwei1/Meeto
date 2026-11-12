@@ -10,7 +10,6 @@ import { PricingModule } from './pricing/pricing.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
-import { VerificationModule } from './verification/verification.module.js';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { VerificationModule } from './verification/verification.module.js';
     LedgerModule,
     AdminModule,
     UploadsModule,
-    VerificationModule,
     PlacesModule,
   ],
 })

@@ -5,20 +5,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Platform-set activity budget tiers in PHP centavos: the price buys the
-// whole activity. The poster picks one tier per scene (defaulting to the
-// middle one); the host covers the activity costs (food, drinks, tickets)
-// out of it and keeps the remainder as hosting income, minus the platform
-// commission. Manila launch pricing.
+// Platform activity prices, in minor units (100 = 1 token). Every scene
+// uses the same three tiers. The poster picks one; the middle tier is
+// the default. The host covers the activity costs out of it and keeps
+// the remainder as hosting income, minus the platform commission.
+const TOKEN_TIERS = [200000, 300000, 400000];
 const PRICING = {
   platformFeeRateBp: 1000, // 10%
-  defaultFeeMinor: 100000, // PHP 1,000.00 — scenes without a tier list
+  defaultFeeMinor: 300000, // 3,000 tokens — scenes without a tier list
   sceneBudgetTiersJson: JSON.stringify({
-    Coffee: [50000, 80000, 120000],
-    Tea: [50000, 80000, 120000],
-    Movie: [80000, 120000, 180000],
-    Bar: [120000, 180000, 250000],
-    Dinner: [100000, 150000, 250000],
+    Coffee: TOKEN_TIERS,
+    Tea: TOKEN_TIERS,
+    Movie: TOKEN_TIERS,
+    Bar: TOKEN_TIERS,
+    Dinner: TOKEN_TIERS,
   }),
 };
 

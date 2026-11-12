@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { ApiError } from '@/api/client';
 import { createPost, fetchTemplates } from '@/api/posts';
 import { createProposal } from '@/api/proposals';
 import MeetTimePicker from '@/components/MeetTimePicker.vue';
@@ -11,7 +10,6 @@ import { PROPOSAL_SLOT_OPTIONS } from '@/constants/proposalSlots';
 import { strings } from '@/constants/strings';
 import { usePricingStore } from '@/stores/pricing';
 import { useSessionStore } from '@/stores/session';
-import { confirmDialog } from '@/utils/confirm';
 import { formatMoney } from '@/utils/format';
 import { showToast } from '@/utils/toast';
 import type { ActivityTemplate } from '@/types/models';
@@ -53,57 +51,6 @@ const template = ref<ActivityTemplate | null>(null);
 const templates = ref<ActivityTemplate[]>([]);
 const templatesLoaded = ref(false);
 
-/**
- * A filled-in form survives the verification detour: the draft is
- * stashed before leaving for /verification and restored (once) when
- * the publisher comes back, so nothing has to be retyped.
- */
-const DRAFT_KEY = 'meeto.composer.draft';
-
-function stashDraft(): void {
-  sessionStorage.setItem(
-    DRAFT_KEY,
-    JSON.stringify({
-      templateId: template.value?.id ?? null,
-      title: title.value,
-      description: description.value,
-      budget: budget.value,
-      meetAt: meetAt.value?.toISOString() ?? null,
-      timeSlot: timeSlot.value,
-    }),
-  );
-}
-
-function restoreDraft(): boolean {
-  const raw = sessionStorage.getItem(DRAFT_KEY);
-  if (!raw) return false;
-  sessionStorage.removeItem(DRAFT_KEY);
-  try {
-    const draft = JSON.parse(raw) as {
-      templateId: string | null;
-      title: string;
-      description: string;
-      budget: number;
-      meetAt: string | null;
-      timeSlot: string;
-    };
-    const found = templates.value.find((t) => t.id === draft.templateId);
-    if (!found) return false;
-    launch(found);
-    title.value = draft.title;
-    description.value = draft.description;
-    budget.value = draft.budget;
-    timeSlot.value = draft.timeSlot;
-    if (draft.meetAt) {
-      const when = new Date(draft.meetAt);
-      if (when.getTime() > Date.now()) meetAt.value = when;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function launch(t: ActivityTemplate): void {
   template.value = t;
   if (pricing.scenes.includes(t.sceneTag)) {
@@ -118,7 +65,6 @@ onMounted(async () => {
   } finally {
     templatesLoaded.value = true;
   }
-  if (restoreDraft()) return;
   const templateId = route.query.template;
   if (typeof templateId !== 'string' || templateId.length === 0) return;
   const found = templates.value.find((t) => t.id === templateId);
@@ -160,22 +106,9 @@ async function submit(): Promise<void> {
     }
     showToast(strings.publishSuccess);
     router.back();
-  } catch (error) {
+  } catch {
     submitting.value = false;
-    if (error instanceof ApiError && error.verificationRequired) {
-      const go = await confirmDialog({
-        title: strings.verifyDialogTitle,
-        body: strings.verifyDialogBody,
-        yesLabel: strings.verifyNow,
-        noLabel: strings.verifyLater,
-      });
-      if (go) {
-        stashDraft();
-        await router.push('/verification');
-      }
-    } else {
-      showToast(strings.errorGeneric);
-    }
+    showToast(strings.errorGeneric);
   }
 }
 </script>
