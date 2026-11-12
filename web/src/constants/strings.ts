@@ -36,6 +36,17 @@ export const strings = {
   loginPhoneRequiredHint: 'Ilagay ang numero mo',
   loginInvalidCode: 'Maling code, subukan ulit',
 
+  // Launch splash. Signed-out opens get the cinematic intro; a saved
+  // session gets the wordmark only.
+  splashWordmark: 'Meeto',
+  splashBrand: 'MEETO',
+  splashLines: [
+    'May kasama ka sa totoong lakad.',
+    'Mag-post ng activity, o kumita bilang kasama.',
+    'Hawak ng Meeto ang bayad hanggang matapos.',
+  ],
+  splashEnterCta: 'Pumasok',
+
   // Shared errors
   errorGeneric: 'May nangyaring mali, subukan ulit',
   errorNetwork: 'Problema sa network, subukan ulit',
@@ -101,7 +112,7 @@ export const strings = {
   guidelinesRules: [
     [
       'Maging totoo',
-      'Ikaw mismo ang dapat nasa photo. Dadaan sa verification ang bawat account; ban ang pagpapanggap.',
+      'Ikaw mismo ang dapat nasa photo. Ban ang pagpapanggap.',
     ],
     [
       'Magrespetuhan',
@@ -270,16 +281,7 @@ export const strings = {
     `Tapos na ang activity · ${fee} na-settle mula sa escrow`,
   cancelledNote: 'Nakansela ang plano · Na-refund nang buo',
 
-  // Profile setup wizard
-  setupStepRoleTitle: 'Paano mo gagamitin ang Meeto?',
-  setupStepRoleSub: 'Pumili ng role; hindi na ito mapapalitan.',
-  roleUserLabel: 'Mag-book ng activity',
-  roleUserSub:
-    'Mag-post ng gusto mong gawin o mag-aya ng kasama, at magbayad ng service fee',
-  roleHostLabel: 'Kumita bilang kasama',
-  roleHostSub:
-    'Maging kasama: mag-apply sa mga activity at kumita ng service fee',
-  roleRequiredHint: 'Pumili muna ng role',
+  // Profile setup wizard. Role is fixed to host for this version.
   setupStepGenderTitle: 'Ako ay...',
   setupStepGenderSub:
     'Lalabas sa profile mo at gagamitin sa filtering; hindi na mapapalitan.',
@@ -309,7 +311,7 @@ export const strings = {
   setupStepBioSub: 'Malaking tulong sa match ang maikling intro',
   setupStepPhotosTitle: 'Mag-upload ng photos',
   setupStepPhotosSub:
-    'Isang main photo at hanggang 3 pa. Ang main photo rin ang gagamitin sa verification.',
+    'Isang main photo at hanggang 3 pa.',
   setupMainPhotoBadge: 'Main',
   setupCountryLabel: 'Bansa',
   setupCityLabel: 'Lungsod',

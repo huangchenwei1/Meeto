@@ -48,8 +48,8 @@ async function submitCode(): Promise<void> {
     if (result.kind === 'loggedIn') {
       await router.replace('/hall');
     } else {
-      // New phone: the onboarding wizard collects role + gender + name and
-      // registers the account itself, then fills in the profile.
+      // New phone: the onboarding wizard collects gender + name and
+      // registers the account as a host, then fills in the profile.
       await router.replace({
         name: 'setup',
         query: { registrationToken: result.registrationToken },

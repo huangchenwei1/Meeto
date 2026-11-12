@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 import { fetchCurrentUser, fetchWallet } from '@/api/users';
 import AppAvatar from '@/components/AppAvatar.vue';
 import VerifiedBadge from '@/components/VerifiedBadge.vue';
+import { realPersonVerificationEnabled } from '@/constants/features';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
 import { formatMoney } from '@/utils/format';
@@ -91,6 +92,7 @@ function logout(): void {
           <span class="menu-arrow">›</span>
         </button>
         <button
+          v-if="realPersonVerificationEnabled"
           class="menu-item"
           @click="user.isVerified ? undefined : router.push('/verification')"
         >

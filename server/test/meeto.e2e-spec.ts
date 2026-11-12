@@ -7,6 +7,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { realPersonVerificationEnabled } from '../src/common/verification.util.js';
 
 // Seeded demo cast (see prisma/seed.mjs). USER accounts post and pay;
 // HOST accounts sign up to host and earn.
@@ -223,7 +224,7 @@ describe('Meeto API (e2e)', () => {
     const PHONE = '+639175559876';
     let bearer: string;
 
-    it('blocks an unverified new user from posting and applying', async () => {
+    it('gates posting on verification only while the feature is enabled', async () => {
       await api().post('/auth/otp/request').send({ phone: PHONE }).expect(201);
       const verifyRes = await api()
         .post('/auth/otp/verify')
@@ -248,9 +249,13 @@ describe('Meeto API (e2e)', () => {
           templateId: BBQ_TEMPLATE,
           title: 'Blocked',
           scheduledAt: MEET_AT,
-        })
-        .expect(403);
-      expect(postRes.body.message).toBe('VERIFICATION_REQUIRED');
+        });
+      if (realPersonVerificationEnabled) {
+        expect(postRes.status).toBe(403);
+        expect(postRes.body.message).toBe('VERIFICATION_REQUIRED');
+      } else {
+        expect(postRes.status).toBe(201);
+      }
     });
 
     it('requires a profile photo before verification can run', async () => {

@@ -15,7 +15,8 @@ const MIN_HEIGHT = 140;
 const MAX_HEIGHT = 210;
 const MIN_WEIGHT = 35;
 const MAX_WEIGHT = 120;
-const STEP_COUNT = 10;
+const STEP_COUNT = 9;
+const DEFAULT_ROLE = 'HOST';
 
 const route = useRoute();
 const router = useRouter();
@@ -28,7 +29,6 @@ const step = ref(0);
 const busy = ref(false);
 const registered = ref(false);
 
-const role = ref<string | null>(null);
 const gender = ref<string | null>(null);
 const name = ref('');
 const maxYear = new Date().getFullYear() - 18;
@@ -62,9 +62,9 @@ const citiesForCountry = computed(() => {
 
 const isLastStep = computed(() => step.value === STEP_COUNT - 1);
 /** Height/weight, location, work, interests and bio are skippable. */
-const canSkip = computed(() => step.value >= 4 && step.value <= 8);
+const canSkip = computed(() => step.value >= 3 && step.value <= 7);
 const canGoBack = computed(
-  () => step.value > 0 && !(registered.value && step.value <= 3),
+  () => step.value > 0 && !(registered.value && step.value <= 2),
 );
 
 onMounted(async () => {
@@ -72,7 +72,6 @@ onMounted(async () => {
   registered.value = true;
   try {
     const user = await fetchRawMe();
-    role.value = (user.role as string) ?? null;
     const avatar = (user.avatarUrl as string) ?? '';
     avatarUrl.value = avatar.length > 0 ? avatar : null;
     name.value = (user.name as string) ?? '';
@@ -182,7 +181,7 @@ async function doRegister(): Promise<boolean> {
       registrationToken,
       name: name.value.trim(),
       gender: gender.value!,
-      role: role.value!,
+      role: DEFAULT_ROLE,
     });
     registered.value = true;
     return true;
@@ -377,18 +376,15 @@ async function confirmSheet(): Promise<void> {
 async function next(): Promise<void> {
   switch (step.value) {
     case 0:
-      if (!role.value) return showToast(strings.roleRequiredHint);
-      break;
-    case 1:
       if (!gender.value) return showToast(strings.genderRequiredHint);
       break;
-    case 2:
+    case 1:
       if (name.value.trim().length === 0) {
         return showToast(strings.nameRequiredHint);
       }
       if (!registered.value && !(await doRegister())) return;
       break;
-    case 4:
+    case 3:
       heightCm.value ??= 165;
       weightKg.value ??= 55;
       break;
@@ -401,7 +397,6 @@ async function next(): Promise<void> {
 }
 
 const stepMeta: Array<{ title: string; sub: string }> = [
-  { title: strings.setupStepRoleTitle, sub: strings.setupStepRoleSub },
   { title: strings.setupStepGenderTitle, sub: strings.setupStepGenderSub },
   { title: strings.setupStepNameTitle, sub: strings.setupStepNameSub },
   { title: strings.setupStepBirthTitle, sub: strings.setupStepBirthSub },
@@ -600,28 +595,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
       <h2 class="step-title">{{ stepMeta[step].title }}</h2>
       <p class="step-sub">{{ stepMeta[step].sub }}</p>
 
-      <!-- Step 0: role -->
+      <!-- Step 0: gender -->
       <div v-if="step === 0" class="card-options">
-        <button
-          class="option-card"
-          :class="{ selected: role === 'USER' }"
-          @click="role = 'USER'"
-        >
-          <span class="option-title">{{ strings.roleUserLabel }}</span>
-          <span class="option-sub">{{ strings.roleUserSub }}</span>
-        </button>
-        <button
-          class="option-card"
-          :class="{ selected: role === 'HOST' }"
-          @click="role = 'HOST'"
-        >
-          <span class="option-title">{{ strings.roleHostLabel }}</span>
-          <span class="option-sub">{{ strings.roleHostSub }}</span>
-        </button>
-      </div>
-
-      <!-- Step 1: gender -->
-      <div v-else-if="step === 1" class="card-options">
         <button
           class="option-card"
           :class="{ selected: gender === 'FEMALE' }"
@@ -638,17 +613,17 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </button>
       </div>
 
-      <!-- Step 2: name -->
+      <!-- Step 1: name -->
       <input
-        v-else-if="step === 2"
+        v-else-if="step === 1"
         v-model="name"
         class="text-field name-field"
         maxlength="40"
         :placeholder="strings.setupNameHint"
       />
 
-      <!-- Step 3: birth -->
-      <div v-else-if="step === 3" class="select-row">
+      <!-- Step 2: birth -->
+      <div v-else-if="step === 2" class="select-row">
         <label class="select-col">
           <span class="field-label">{{ strings.setupBirthYearLabel }}</span>
           <select v-model.number="birthYear" class="text-field">
@@ -663,8 +638,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </label>
       </div>
 
-      <!-- Step 4: body -->
-      <div v-else-if="step === 4" class="select-row">
+      <!-- Step 3: body -->
+      <div v-else-if="step === 3" class="select-row">
         <label class="select-col">
           <span class="field-label">{{ strings.setupHeightLabel }}</span>
           <select v-model.number="heightCm" class="text-field">
@@ -681,8 +656,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </label>
       </div>
 
-      <!-- Step 5: location -->
-      <template v-else-if="step === 5">
+      <!-- Step 4: location -->
+      <template v-else-if="step === 4">
         <p class="field-label">{{ strings.setupCountryLabel }}</p>
         <div class="chip-wrap">
           <button
@@ -711,8 +686,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </template>
       </template>
 
-      <!-- Step 6: work -->
-      <template v-else-if="step === 6">
+      <!-- Step 5: work -->
+      <template v-else-if="step === 5">
         <p class="field-label">{{ strings.setupEducationLabel }}</p>
         <div class="chip-wrap">
           <button
@@ -739,8 +714,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </div>
       </template>
 
-      <!-- Step 7: tags -->
-      <div v-else-if="step === 7" class="chip-wrap">
+      <!-- Step 6: tags -->
+      <div v-else-if="step === 6" class="chip-wrap">
         <button
           v-for="tag in strings.setupTagOptions"
           :key="tag"
@@ -752,9 +727,9 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         </button>
       </div>
 
-      <!-- Step 8: bio -->
+      <!-- Step 7: bio -->
       <textarea
-        v-else-if="step === 8"
+        v-else-if="step === 7"
         v-model="bio"
         class="text-field"
         rows="5"
@@ -762,8 +737,8 @@ const stepMeta: Array<{ title: string; sub: string }> = [
         :placeholder="strings.setupBioHint"
       ></textarea>
 
-      <!-- Step 9: photos -->
-      <div v-else-if="step === 9" class="photo-grid">
+      <!-- Step 8: photos -->
+      <div v-else-if="step === 8" class="photo-grid">
         <button class="photo-tile" @click="pickAvatar">
           <img v-if="avatarUrl" :src="resolveMediaUrl(avatarUrl)" alt="" />
           <span v-else class="plus">+</span>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppAvatar from '@/components/AppAvatar.vue';
+import { realPersonVerificationEnabled } from '@/constants/features';
 import { relativeTime } from '@/utils/format';
 
 defineProps<{
@@ -30,7 +31,7 @@ defineEmits<{ tap: [] }>();
         <div class="name-row">
           <span class="name">{{ authorName }}</span>
           <svg
-            v-if="authorVerified"
+            v-if="realPersonVerificationEnabled && authorVerified"
             class="verify-icon"
             viewBox="0 0 24 24" width="14" height="14" fill="currentColor"
           >
