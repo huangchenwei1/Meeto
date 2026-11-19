@@ -252,8 +252,12 @@ model Order {
 
   // Settlement: the poster completes the activity single-sidedly, or the
   // escrow auto-settles once the confirmed plan time plus the grace delay
-  // has passed (lazy, on reads).
+  // has passed (lazy, on reads). Doubles as the closed-at stamp for
+  // cancelled orders (see cancel / expireUnpaid).
   completedAt     DateTime?
+  // Who pulled the plug on a CANCELLED order: a participant's user id,
+  // or empty for system closes (payment timeout, ops refund).
+  cancelledById   String    @default("")
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

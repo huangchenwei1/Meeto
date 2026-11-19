@@ -156,14 +156,22 @@ export class OrdersService {
   /// The contact-style conversation list: the caller's deals grouped by
   /// the OTHER person, newest activity first. One row per partner — the
   /// relationship, not the order, is the unit — because settled chats
-  /// stay open and rebooking happens inside them. Dead deals (cancelled /
-  /// forfeited) carry no conversation and are excluded; unlike the order
-  /// board there is no expiry: partners do not time out.
+  /// stay open and rebooking happens inside them. Paid-then-cancelled
+  /// deals keep their row too: the chat (with its system cancel line) IS
+  /// the record the other side gets. Only never-paid orders (no chat
+  /// ever existed) and forfeits stay out; unlike the order board there
+  /// is no expiry: partners do not time out.
   async listConversations(caller: User): Promise<ConversationDto[]> {
     const orders = await this.prisma.order.findMany({
       where: {
         OR: [{ payerId: caller.id }, { earnerId: caller.id }],
-        status: { in: [OrderStatus.active, OrderStatus.completed] },
+        status: {
+          in: [
+            OrderStatus.active,
+            OrderStatus.completed,
+            OrderStatus.cancelled,
+          ],
+        },
       },
       include: { payer: true, earner: true, post: true },
       orderBy: { createdAt: 'desc' },
@@ -172,12 +180,13 @@ export class OrdersService {
     const settled = await Promise.all(
       orders.map((order) => this.maybeSettle(order)),
     );
+    const conversational = (order: OrderWithParties): boolean =>
+      order.status === OrderStatus.active ||
+      order.status === OrderStatus.completed ||
+      (order.status === OrderStatus.cancelled && order.paidAt !== null);
     const byPeer = new Map<string, OrderWithParties[]>();
     for (const order of settled) {
-      if (
-        order.status !== OrderStatus.active &&
-        order.status !== OrderStatus.completed
-      ) {
+      if (!conversational(order)) {
         continue;
       }
       const peerId =
@@ -506,21 +515,43 @@ export class OrdersService {
           },
         ]);
       }
-      // Release the selected candidate and reopen the post.
+      // Release the selected candidate and reopen the post. A
+      // proposal-born deal reopens the PITCH instead: its private DIRECT
+      // post was only the order's vehicle and dies with the deal (left
+      // open it would haunt the inviter's board as a phantom post).
       await tx.application.updateMany({
         where: { postId: order.postId, status: ApplicationStatus.selected },
         data: { status: ApplicationStatus.released },
       });
+      const fromProposal = order.post.proposalId !== '';
       await tx.post.update({
         where: { id: order.postId },
-        data: { status: PostStatus.open },
+        data: {
+          status: fromProposal ? PostStatus.cancelled : PostStatus.open,
+        },
       });
-      // A proposal-born deal that falls through puts the pitch back on
-      // the market, exactly like a reopened demand post.
       await OrdersService.syncProposal(tx, order, PostStatus.open);
+      // A paid room had a live conversation: drop a system line into it
+      // so the other side finds out who called it off (this is also what
+      // bumps their unread badge — the promise in the cancel dialog).
+      // Unpaid deals never had a chat, so there is nobody to message.
+      if (wasEscrowed) {
+        await tx.message.create({
+          data: {
+            orderId: order.id,
+            senderId: caller.id,
+            kind: 'SYSTEM',
+            text: 'ORDER_CANCELLED',
+          },
+        });
+      }
       return tx.order.update({
         where: { id: order.id },
-        data: { status: OrderStatus.cancelled },
+        data: {
+          status: OrderStatus.cancelled,
+          completedAt: new Date(),
+          cancelledById: caller.id,
+        },
         include: { payer: true, earner: true, post: true },
       });
     });
@@ -569,7 +600,8 @@ export class OrdersService {
       // can land on an active order.
       const claimed = await tx.order.updateMany({
         where: { id: orderId, status: OrderStatus.active },
-        data: { status: OrderStatus.cancelled },
+        // cancelledById stays empty: a system/ops close, not a party's.
+        data: { status: OrderStatus.cancelled, completedAt: new Date() },
       });
       if (claimed.count === 0) {
         throw new ConflictException('Only active orders can be refunded');
@@ -871,9 +903,16 @@ export class OrdersService {
         where: { postId: order.postId, status: ApplicationStatus.selected },
         data: { status: ApplicationStatus.released },
       });
+      // Same split as cancel(): the pitch returns to market, but a
+      // proposal-born DIRECT post dies with its deal.
       await tx.post.update({
         where: { id: order.postId },
-        data: { status: PostStatus.open },
+        data: {
+          status:
+            order.post.proposalId !== ''
+              ? PostStatus.cancelled
+              : PostStatus.open,
+        },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.open);
       return tx.order.update({

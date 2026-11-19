@@ -49,14 +49,20 @@ export interface OrderDto {
   /// be passed to the mapper): the host asks for it in person and submits
   /// it to start the service. Empty for everyone else.
   meetCode: string;
+  /// Set when the fee entered escrow. Tells cancelled orders apart:
+  /// paid-then-cancelled means a refund happened, never-paid means not.
+  paidAt: Date | null;
   /// Set when the host submitted the correct meet code: the service is
   /// running and auto-settles after its planned duration.
   startedAt: Date | null;
   /// Until when either side may still cancel with a full refund (payment
   /// time + the cancel window); null before payment or once started.
   cancellableUntil: Date | null;
-  /// Set when the order closed (settled or forfeited).
+  /// Set when the order closed (settled, cancelled or forfeited).
   completedAt: Date | null;
+  /// For CANCELLED orders: the participant who cancelled, or empty for
+  /// system closes (payment timeout, ops refund). Empty otherwise.
+  cancelledById: string;
   /// Whether the viewer ever opened this order's chat room (their read
   /// cursor is set). Drives the "new partner, go say hi" nudge.
   viewerEnteredRoom: boolean;
@@ -104,11 +110,13 @@ export function toOrderDto(
     planProposedAt: order.planProposedAt,
     planConfirmedAt: order.planConfirmedAt,
     meetCode: viewerId === order.payerId ? order.meetCode : '',
+    paidAt: order.paidAt,
     startedAt: order.startedAt,
     cancellableUntil: cancellable
       ? new Date(order.paidAt!.getTime() + cancelWindowMs())
       : null,
     completedAt: order.completedAt,
+    cancelledById: order.cancelledById,
     viewerEnteredRoom:
       viewerId === order.payerId
         ? order.payerLastReadAt !== null

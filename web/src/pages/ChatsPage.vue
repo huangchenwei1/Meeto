@@ -47,10 +47,11 @@ onActivated(() => void poll());
 
 onUnmounted(() => window.clearInterval(pollTimer));
 
-/** Card messages carry JSON, so previews label them instead. */
+/** Card and system messages carry codes, so previews label them instead. */
 function previewOf(c: ConversationItem): string {
   if (c.lastMessageKind === 'PLAN') return strings.msgPreviewPlan;
   if (c.lastMessageKind === 'REQUEST') return strings.msgPreviewRequest;
+  if (c.lastMessageKind === 'SYSTEM') return strings.msgPreviewCancelled;
   return c.lastMessageText;
 }
 

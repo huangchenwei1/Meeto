@@ -1522,6 +1522,10 @@ describe('Meeto API (e2e)', () => {
         .set('X-User-Id', BIANCA)
         .expect(201);
       expect(res.body.status).toBe('CANCELLED');
+      // The close is attributed and stamped: who cancelled, and when.
+      expect(res.body.cancelledById).toBe(BIANCA);
+      expect(res.body.completedAt).not.toBeNull();
+      expect(res.body.paidAt).not.toBeNull();
 
       // Escrow fully unwound; nothing settled to anyone.
       const escrow = await prisma.ledgerEntry.aggregate({
@@ -1555,6 +1559,37 @@ describe('Meeto API (e2e)', () => {
         .post(`/orders/${orderId}/cancel`)
         .set('X-User-Id', MIGUEL)
         .expect(409);
+    });
+
+    it('a paid cancel leaves a system line and keeps the conversation', async () => {
+      // The conversation row survives the cancel (the chat IS the
+      // record), and the system line counts as unread for the peer.
+      // Checked BEFORE reading the room: fetching messages advances the
+      // read cursor and would swallow the unread bump.
+      const conversations = await api()
+        .get('/orders/conversations')
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      const row = conversations.body.find(
+        (c: { peer: { id: string } }) => c.peer.id === BIANCA,
+      );
+      expect(row).toBeDefined();
+      expect(row.hasLiveOrder).toBe(false);
+      expect(row.lastMessageKind).toBe('SYSTEM');
+      expect(row.unreadCount).toBeGreaterThanOrEqual(1);
+
+      // The room narrates its own closure: a SYSTEM record from the
+      // canceller, so the other side finds out who called it off.
+      const messages = await api()
+        .get(`/orders/${orderId}/messages`)
+        .set('X-User-Id', MIGUEL)
+        .expect(200);
+      const systemLine = messages.body.find(
+        (m: { kind: string }) => m.kind === 'SYSTEM',
+      );
+      expect(systemLine).toBeDefined();
+      expect(systemLine.text).toBe('ORDER_CANCELLED');
+      expect(systemLine.senderId).toBe(BIANCA);
     });
 
     it('the cancel window closes 30 minutes after payment', async () => {
@@ -2228,11 +2263,12 @@ describe('Meeto API (e2e)', () => {
       ).toBeDefined();
 
       // No money ever moved: nothing to refund, and the pitch is back on
-      // the market with the host's queue logic intact.
+      // the market. The private DIRECT post was only the order's vehicle
+      // and dies with the deal (it must not haunt the inviter's board).
       const post = await prisma.post.findUnique({
         where: { id: unpaid.postId },
       });
-      expect(post!.status).toBe('OPEN');
+      expect(post!.status).toBe('CANCELLED');
       const proposal = await prisma.proposal.findUnique({
         where: { id: post!.proposalId },
       });
