@@ -208,7 +208,7 @@ export interface InvitationRecord {
   id: string;
   proposalId: string;
   note: string;
-  /** PENDING | ACCEPTED */
+  /** PENDING | ACCEPTED | CANCELLED (a selection that fell through). */
   status: string;
   /** The concrete meeting time the inviter picked. */
   scheduledAt: Date | null;

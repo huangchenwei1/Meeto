@@ -288,8 +288,11 @@ export class HostsService {
     return HostsService.toInvitationDto(invitation);
   }
 
-  /// The proposal's pending invite pool, host-only — the mirror of the
-  /// poster-only candidate list on a demand post.
+  /// The proposal's invite pool, host-only — the mirror of the
+  /// poster-only candidate list on a demand post. Pending inviters come
+  /// first; CANCELLED records (a selection that fell through) trail as
+  /// the pool's visible history, so the host knows who backed out
+  /// instead of people silently vanishing.
   async listInvites(
     caller: User,
     proposalId: string,
@@ -299,10 +302,22 @@ export class HostsService {
       throw new ForbiddenException('Only the host sees the invite pool');
     }
     const invitations = await this.prisma.invitation.findMany({
-      where: { proposalId, status: InvitationStatus.pending },
+      where: {
+        proposalId,
+        status: {
+          in: [InvitationStatus.pending, InvitationStatus.cancelled],
+        },
+      },
       include: { from: true },
       orderBy: { createdAt: 'asc' },
     });
+    invitations.sort((a, b) =>
+      a.status === b.status
+        ? a.createdAt.getTime() - b.createdAt.getTime()
+        : a.status === InvitationStatus.pending
+          ? -1
+          : 1,
+    );
     return invitations.map((i) => HostsService.toInvitationDto(i));
   }
 

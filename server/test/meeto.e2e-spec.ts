@@ -1949,6 +1949,8 @@ describe('Meeto API (e2e)', () => {
       expect(cancelled.body.status).toBe('CANCELLED');
 
       // The pitch reopens and the untouched queue is selectable again.
+      // Andrea does not vanish: her invitation trails the pool as a
+      // CANCELLED record, so the host sees who backed out.
       const reopened = await api()
         .get(`/proposals/${proposalId}`)
         .set('X-User-Id', NOEL)
@@ -1958,8 +1960,11 @@ describe('Meeto API (e2e)', () => {
         .get(`/proposals/${proposalId}/invitations`)
         .set('X-User-Id', NOEL)
         .expect(200);
-      expect(pool.body.map((i: { id: string }) => i.id)).toEqual([
-        miguelInviteId,
+      expect(
+        pool.body.map((i: { id: string; status: string }) => [i.id, i.status]),
+      ).toEqual([
+        [miguelInviteId, 'PENDING'],
+        [andreaInviteId, 'CANCELLED'],
       ]);
       const res = await api()
         .post(`/proposals/${proposalId}/invitations/${miguelInviteId}/select`)

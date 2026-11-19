@@ -12,6 +12,10 @@ export type Gender = (typeof Gender)[keyof typeof Gender];
 export const InvitationStatus = {
   pending: 'PENDING',
   accepted: 'ACCEPTED',
+  // Accepted but the deal fell through (payer cancelled before/after
+  // escrow, or the payment window expired): kept as a visible record in
+  // the host's invite pool instead of silently vanishing.
+  cancelled: 'CANCELLED',
 } as const;
 export type InvitationStatus =
   (typeof InvitationStatus)[keyof typeof InvitationStatus];

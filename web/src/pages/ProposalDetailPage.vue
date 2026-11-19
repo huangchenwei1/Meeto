@@ -240,6 +240,7 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
             v-for="invitation in invites"
             :key="invitation.id"
             class="invite-row"
+            :class="{ cancelled: invitation.status === 'CANCELLED' }"
             @click="router.push(`/users/${invitation.fromId}`)"
           >
             <AppAvatar :url="invitation.fromAvatarUrl" :name="invitation.fromName" :size="42" />
@@ -257,7 +258,16 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
                 “{{ invitation.note }}”
               </span>
             </div>
+            <!-- A selection that fell through stays on the record: the
+                 row greys out and says so instead of vanishing. -->
+            <span
+              v-if="invitation.status === 'CANCELLED'"
+              class="invite-cancelled"
+            >
+              {{ strings.inviteCancelledBadge }}
+            </span>
             <button
+              v-else
               class="approve-btn"
               :disabled="selecting"
               @click.stop="submitSelect(invitation)"
@@ -481,6 +491,18 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
 
 .invite-row + .invite-row {
   border-top: 1px solid var(--color-divider);
+}
+
+.invite-row.cancelled {
+  opacity: 0.55;
+}
+
+.invite-cancelled {
+  flex-shrink: 0;
+  padding: 7px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-hint);
 }
 
 .invite-main {

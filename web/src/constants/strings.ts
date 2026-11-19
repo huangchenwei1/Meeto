@@ -429,6 +429,7 @@ export const strings = {
   proposalFeePickNote: 'Ikaw ang pipili ng halaga sa pag-aya',
   proposalInvitesTitle: 'Mga natanggap na aya',
   proposalInvitesEmpty: 'Wala pang nag-aaya, maghintay lang',
+  inviteCancelledBadge: 'Nagkansela',
   selectInviterDoneSnack:
     'Napili na — magsisimula ang plano kapag nagbayad sila',
 
