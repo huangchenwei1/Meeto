@@ -9,6 +9,7 @@ import {
 import type { Message, Prisma, User } from '@prisma/client';
 import {
   ApplicationStatus,
+  InvitationStatus,
   LedgerAccount,
   LedgerEntryType,
   OrderStatus,
@@ -533,6 +534,12 @@ export class OrdersService {
         },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.open);
+      // The accepted invitation becomes a visible CANCELLED record in the
+      // host's invite pool — the selection fell through, on the record.
+      await tx.invitation.updateMany({
+        where: { orderId: order.id, status: InvitationStatus.accepted },
+        data: { status: InvitationStatus.cancelled },
+      });
       // A paid room had a live conversation: drop a system line into it
       // so the other side finds out who called it off (this is also what
       // bumps their unread badge — the promise in the cancel dialog).
@@ -919,6 +926,12 @@ export class OrdersService {
         },
       });
       await OrdersService.syncProposal(tx, order, PostStatus.open);
+      // Same record as a manual cancel: the host sees WHY the inviter
+      // left the pool (the payment never arrived).
+      await tx.invitation.updateMany({
+        where: { orderId: order.id, status: InvitationStatus.accepted },
+        data: { status: InvitationStatus.cancelled },
+      });
       return tx.order.update({
         where: { id: order.id },
         data: { status: OrderStatus.cancelled, completedAt: new Date() },
