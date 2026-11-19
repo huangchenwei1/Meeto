@@ -27,6 +27,14 @@ type Journey =
 const journeys = ref<Journey[]>([]);
 const loaded = ref(false);
 
+/** Closed deals linger on the board for a week, then leave. */
+const CLOSED_GRACE_MS = 7 * 24 * 3600 * 1000;
+
+function recentlyClosed(order: LiveOrder): boolean {
+  const closedAt = order.completedAt ?? order.createdAt;
+  return closedAt.getTime() >= Date.now() - CLOSED_GRACE_MS;
+}
+
 let pollTimer: number | undefined;
 
 async function poll(): Promise<void> {
@@ -40,21 +48,29 @@ async function poll(): Promise<void> {
       isHost ? fetchAppliedRequests() : Promise.resolve([] as ActivityPost[]),
     ]);
     const list: Journey[] = [
-      // Running and finished deals, plus deals waiting on MY payment
-      // (e.g. a host picked my invitation): those need a way in to pay.
-      // Cancelled orders and deals unpaid by the counterpart stay off.
+      // Running and finished deals, plus unpaid deals for BOTH sides:
+      // the payer needs a way in to pay, and the other side needs to see
+      // that their selection landed and the deal is waiting on payment
+      // (otherwise the activity vanishes from their board the moment a
+      // candidate is picked). Cancelled deals keep a muted card for a
+      // grace week — the record of what fell through and who called it —
+      // instead of vanishing without a trace.
       ...orders
         .filter(
           (o) =>
             o.status === 'ACTIVE' ||
             o.status === 'COMPLETED' ||
-            (o.status === 'AWAITING_PAYMENT' && o.payer.id === myId),
+            o.status === 'AWAITING_PAYMENT' ||
+            (o.status === 'CANCELLED' && recentlyClosed(o)),
         )
         .map(
           (order): Journey => ({
             kind: 'order',
             order,
-            group: order.status === 'COMPLETED' ? 2 : 0,
+            group:
+              order.status === 'COMPLETED' || order.status === 'CANCELLED'
+                ? 2
+                : 0,
             createdAt: order.createdAt,
           }),
         ),
@@ -130,12 +146,16 @@ const visible = computed(() => journeys.value);
 
 function openJourney(j: Journey): void {
   if (j.kind === 'order') {
-    // An unpaid order routes to checkout, not the chat room.
-    void router.push(
-      j.order.status === 'AWAITING_PAYMENT'
-        ? `/orders/${j.order.id}/pay`
-        : `/orders/${j.order.id}`,
-    );
+    if (j.order.status === 'AWAITING_PAYMENT') {
+      // An unpaid order routes to checkout, not the chat room — but only
+      // for the payer. The other side has nowhere to go yet (chat stays
+      // locked until escrow), so their card is a pure status display.
+      if (j.order.payer.id === session.userId) {
+        void router.push(`/orders/${j.order.id}/pay`);
+      }
+      return;
+    }
+    void router.push(`/orders/${j.order.id}`);
   } else if (j.kind === 'post') {
     void router.push(`/posts/${j.post.id}`);
   } else {
@@ -144,17 +164,39 @@ function openJourney(j: Journey): void {
 }
 
 function orderStatusLabel(order: LiveOrder): string {
-  if (order.status === 'AWAITING_PAYMENT') return strings.statusAwaitingPayment;
+  if (order.status === 'AWAITING_PAYMENT') {
+    return order.payer.id === session.userId
+      ? strings.statusAwaitingPayment
+      : strings.statusWaitingPeerPayment;
+  }
+  if (order.status === 'CANCELLED') return strings.statusCancelled;
   return order.status === 'ACTIVE'
     ? strings.statusActive
     : strings.statusCompleted;
 }
 
+/** Empty label = no action button (the non-payer side of an unpaid deal). */
 function orderCtaLabel(order: LiveOrder): string {
-  if (order.status === 'AWAITING_PAYMENT') return strings.myOrderPayCta;
+  if (order.status === 'AWAITING_PAYMENT') {
+    return order.payer.id === session.userId ? strings.myOrderPayCta : '';
+  }
   return order.status === 'ACTIVE'
     ? strings.myOrderChatCta
     : strings.myOrderDetailCta;
+}
+
+/** The cancelled card's story line: who called it off, plus the refund
+ *  when money had actually entered escrow. */
+function orderCancelledLine(order: LiveOrder): string {
+  if (order.status !== 'CANCELLED') return '';
+  const peer = order.payer.id === session.userId ? order.earner : order.payer;
+  const who =
+    order.cancelledById === session.userId
+      ? strings.cancelledByYouNote
+      : order.cancelledById === peer.id
+        ? strings.cancelledByPeerNote(peer.name)
+        : strings.cancelledBySystemNote;
+  return order.paidAt ? `${who} · ${strings.cancelledRefundNote}` : who;
 }
 
 /**
@@ -255,10 +297,18 @@ function proposalInfoLine(p: ProposalCard): string {
               <p v-if="orderRunningLine(j.order)" class="card-line running">
                 {{ orderRunningLine(j.order) }}
               </p>
+              <p v-if="orderCancelledLine(j.order)" class="card-line">
+                {{ orderCancelledLine(j.order) }}
+              </p>
             </div>
             <span
               class="status"
-              :class="j.order.status === 'COMPLETED' ? 'muted' : 'accent'"
+              :class="
+                j.order.status === 'COMPLETED' ||
+                j.order.status === 'CANCELLED'
+                  ? 'muted'
+                  : 'accent'
+              "
             >
               {{ orderStatusLabel(j.order) }}
             </span>
@@ -272,10 +322,14 @@ function proposalInfoLine(p: ProposalCard): string {
               <strong>{{ formatMoney(j.order.feeAmount) }}</strong>
             </span>
           </div>
-          <div class="card-actions">
+          <div v-if="orderCtaLabel(j.order)" class="card-actions">
             <button
               class="pill"
-              :class="{ accent: j.order.status !== 'COMPLETED' }"
+              :class="{
+                accent:
+                  j.order.status !== 'COMPLETED' &&
+                  j.order.status !== 'CANCELLED',
+              }"
               @click.stop="openJourney(j)"
             >
               {{ orderCtaLabel(j.order) }}

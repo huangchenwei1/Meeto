@@ -366,7 +366,10 @@ const badge = computed(() => {
   if (o.status === 'FORFEITED') {
     return { label: strings.forfeitedBadge, kind: 'muted' };
   }
-  if (o.status === 'COMPLETED' || o.status === 'CANCELLED') {
+  if (o.status === 'CANCELLED') {
+    return { label: strings.statusCancelled, kind: 'muted' };
+  }
+  if (o.status === 'COMPLETED') {
     return { label: strings.chatEndedBadge, kind: 'muted' };
   }
   if (o.startedAt) return { label: strings.startedBadge, kind: 'accent' };
@@ -374,6 +377,33 @@ const badge = computed(() => {
   // simply a confirmed plan waiting for the meet code.
   return { label: strings.planConfirmedBadge, kind: 'accent' };
 });
+
+/** Who pulled the plug — mine / theirs / the system clock. */
+function cancelledByLine(byId: string): string {
+  if (byId === myId.value) return strings.cancelledByYouNote;
+  if (byId === peer.value?.id) {
+    return strings.cancelledByPeerNote(peer.value.name);
+  }
+  return strings.cancelledBySystemNote;
+}
+
+/** The cancelled plan card note: who called it off, plus the refund
+ *  line when money had actually entered escrow. */
+const cancelledLine = computed(() => {
+  const o = order.value;
+  if (!o || o.status !== 'CANCELLED') return '';
+  const who = cancelledByLine(o.cancelledById);
+  return o.paidAt ? `${who} · ${strings.cancelledRefundNote}` : who;
+});
+
+/** System lines (e.g. the cancel record) render as centered notices;
+ *  semantic codes translate here, anything else shows verbatim. */
+function systemLineOf(message: OrderMessage): string {
+  if (message.text === 'ORDER_CANCELLED') {
+    return cancelledByLine(message.senderId);
+  }
+  return message.text;
+}
 </script>
 
 <template>
@@ -395,10 +425,8 @@ const badge = computed(() => {
       {{ strings.chatLockedNote }}
     </div>
 
-    <div v-else-if="order.status === 'CANCELLED'" class="center-note">
-      {{ strings.cancelledNote }}
-    </div>
-
+    <!-- Cancelled rooms fall through to the normal layout: the plan card
+         says who called it off and the chat history stays readable. -->
     <template v-else>
       <!-- The one pinned plan card: born with the order and read-only. -->
       <section class="plan-card">
@@ -500,6 +528,10 @@ const badge = computed(() => {
           {{ strings.forfeitedNote }}
         </p>
 
+        <p v-else-if="order.status === 'CANCELLED'" class="status-note">
+          {{ cancelledLine }}
+        </p>
+
         <!-- Safety valve: reporting freezes settlement until ops acts. -->
         <button
           v-if="order.status === 'ACTIVE'"
@@ -591,6 +623,12 @@ const badge = computed(() => {
                 {{ strings.requestDeclinedNote }}
               </p>
             </div>
+          </div>
+
+          <!-- System records (e.g. who cancelled): centered, nobody's
+               bubble — the room narrating its own history. -->
+          <div v-else-if="message.kind === 'SYSTEM'" class="system-line">
+            {{ systemLineOf(message) }}
           </div>
 
           <div
@@ -1123,6 +1161,18 @@ const badge = computed(() => {
 .bubble-row {
   display: flex;
   margin-bottom: 10px;
+}
+
+.system-line {
+  margin: 4px auto 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-hint);
+  font-size: 12px;
+  text-align: center;
+  width: fit-content;
+  max-width: 85%;
 }
 
 .bubble-row.mine {

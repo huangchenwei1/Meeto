@@ -66,6 +66,7 @@ export const strings = {
   chatsHint: 'Mananatili dito ang chat ninyo ng kasama pagkatapos mag-match',
   msgPreviewPlan: '[Plano]',
   msgPreviewRequest: '[Imbitasyon]',
+  msgPreviewCancelled: '[Nakansela ang plano]',
   chatLiveBadge: 'Ongoing ang activity',
 
   verifiedLabel: 'Verified',
@@ -272,6 +273,7 @@ export const strings = {
   activityPostedAt: (time: string) => `Na-post ${time}`,
   activityInvites: (count: number) => `${count} imbitasyon`,
   statusAwaitingPayment: 'Hintay sa bayad',
+  statusWaitingPeerPayment: 'Hinihintay ang bayad ng kabila',
   myOrderPayCta: 'Magbayad',
   statusActive: 'Ongoing',
   statusCancelled: 'Nakansela',
@@ -279,7 +281,10 @@ export const strings = {
     `Tapos na ang activity · ${net} naipasok sa wallet mo`,
   settledPayerNote: (fee: string) =>
     `Tapos na ang activity · ${fee} na-settle mula sa escrow`,
-  cancelledNote: 'Nakansela ang plano · Na-refund nang buo',
+  cancelledByYouNote: 'Ikinansela mo ang plano',
+  cancelledByPeerNote: (name: string) => `Kinansela ni ${name} ang plano`,
+  cancelledBySystemNote: 'Awtomatikong nakansela — hindi nabayaran sa oras',
+  cancelledRefundNote: 'Na-refund nang buo ang bayad',
 
   // Profile setup wizard. Role is fixed to host for this version.
   setupStepGenderTitle: 'Ako ay...',

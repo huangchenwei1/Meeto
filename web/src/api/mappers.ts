@@ -96,9 +96,11 @@ export function toLiveOrder(json: Json): LiveOrder {
     planProposedAt: parseDate(json.planProposedAt),
     planConfirmedAt: parseDate(json.planConfirmedAt),
     meetCode: (json.meetCode as string) ?? '',
+    paidAt: parseDate(json.paidAt),
     startedAt: parseDate(json.startedAt),
     cancellableUntil: parseDate(json.cancellableUntil),
     completedAt: parseDate(json.completedAt),
+    cancelledById: (json.cancelledById as string) ?? '',
     viewerEnteredRoom: (json.viewerEnteredRoom as boolean) ?? false,
     createdAt: new Date(json.createdAt as string),
   };
