@@ -106,9 +106,13 @@ export interface LiveOrder {
   planConfirmedAt: Date | null;
   /** Proof-of-meeting code, served ONLY to the payer. */
   meetCode: string;
+  /** Set once the fee entered escrow (a cancelled paid order was refunded). */
+  paidAt: Date | null;
   startedAt: Date | null;
   cancellableUntil: Date | null;
   completedAt: Date | null;
+  /** For CANCELLED orders: who cancelled (empty = system close). */
+  cancelledById: string;
   /** Whether I ever opened this order's chat room. */
   viewerEnteredRoom: boolean;
   createdAt: Date;
@@ -119,9 +123,11 @@ export interface OrderMessage {
   senderId: string;
   /**
    * TEXT for plain chat; PLAN carries the plan JSON snapshot; REQUEST
-   * carries a rebooking card (see ActivityRequestCard).
+   * carries a rebooking card (see ActivityRequestCard); SYSTEM carries a
+   * semantic code the room renders as a centered notice (e.g.
+   * ORDER_CANCELLED).
    */
-  kind: 'TEXT' | 'PLAN' | 'REQUEST';
+  kind: 'TEXT' | 'PLAN' | 'REQUEST' | 'SYSTEM';
   text: string;
   createdAt: Date;
 }
