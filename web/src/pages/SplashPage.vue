@@ -124,7 +124,7 @@ function enter(): void {
   justify-content: space-between;
   padding: 14vh 28px calc(28px + env(safe-area-inset-bottom));
   background: #120e0c;
-  color: #f4efe6;
+  color: #fff;
 }
 
 .bg {
@@ -221,9 +221,9 @@ function enter(): void {
   width: 100%;
   height: 48px;
   border-radius: 999px;
-  border: 1px solid rgb(244 239 230 / 46%);
-  background: rgb(255 248 240 / 10%);
-  color: #f4efe6;
+  border: none;
+  background: #fff;
+  color: #1c1917;
   font-family: 'Iowan Old Style', Palatino, 'Palatino Linotype', Georgia, serif;
   font-size: 16px;
   letter-spacing: 0.04em;

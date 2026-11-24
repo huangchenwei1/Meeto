@@ -25,25 +25,32 @@ export const strings = {
   sceneLabel: (tag: string) => SCENE_LABELS[tag] ?? tag,
 
   // Login
-  loginTagline: 'MEET · PLAN · EARN',
-  loginSignInTitle: 'Mag-login gamit ang numero mo',
+  loginTagline: 'TOGETHER',
+  loginHero: 'Sama-sama tayong lumabas para maglaro.',
+  loginAside: 'Kape, sine, o hapunan.',
+  loginSignInTitle: 'Mag-login gamit ang Google',
+  loginGoogleCta: 'Magpatuloy gamit ang Google',
+  loginTestCta: '测试登录',
+  loginPhoneTitle: 'Mag-login gamit ang numero',
+  loginCodeTitle: 'Ilagay ang code',
   loginCodeSentTo: (phone: string) => `Naipadala ang code sa ${phone}`,
   loginCodeHint: '6-digit na code',
   loginChangeNumber: 'Palitan ang numero',
-  loginDevCodeNote: (code: string) => `Demo · Ang code mo ay ${code}`,
+  loginDevCodeNote: (code: string) => `Demo · ang code mo ay ${code}`,
   loginContinueCta: 'Magpatuloy',
   loginVerifyCta: 'I-verify',
-  loginPhoneRequiredHint: 'Ilagay ang numero mo',
+  loginPhoneRequiredHint: 'Ilagay ang numero',
   loginInvalidCode: 'Maling code, subukan ulit',
+  loginCloseLabel: 'Close',
 
   // Launch splash. Signed-out opens get the cinematic intro; a saved
   // session gets the wordmark only.
   splashWordmark: 'Meeto',
   splashBrand: 'MEETO',
   splashLines: [
-    'May kasama ka sa totoong lakad.',
-    'Mag-post ng activity, o kumita bilang kasama.',
-    'Hawak ng Meeto ang bayad hanggang matapos.',
+    'May kasama ka sa bawat lakad.',
+    'Kape, sine, o hapunan.',
+    'Mas masaya ang araw kapag may kasama.',
   ],
   splashEnterCta: 'Pumasok',
 
