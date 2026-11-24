@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
 import { useSessionStore } from '@/stores/session';
+import { isLaunchSplashPending } from '@/utils/launchSplash';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +16,12 @@ export const router = createRouter({
       path: '/setup',
       name: 'setup',
       component: () => import('@/pages/ProfileSetupPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/splash',
+      name: 'splash',
+      component: () => import('@/pages/SplashPage.vue'),
       meta: { public: true },
     },
     {
@@ -107,6 +114,10 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   const session = useSessionStore();
+  // Splash runs once each time the site is opened, before login or the app.
+  if (to.name !== 'splash' && isLaunchSplashPending()) {
+    return { name: 'splash', query: { next: to.fullPath } };
+  }
   if (!to.meta.public && !session.isSignedIn) {
     return { name: 'login' };
   }
