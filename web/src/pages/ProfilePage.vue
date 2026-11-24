@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 
 import { fetchCurrentUser, fetchWallet } from '@/api/users';
 import AppAvatar from '@/components/AppAvatar.vue';
-import { INTRO_SEEN_KEY } from '@/constants/guest';
+import { resetIntroAcknowledgement } from '@/constants/guest';
 import { strings } from '@/constants/strings';
 import { useSessionStore } from '@/stores/session';
 import { formatMoney } from '@/utils/format';
@@ -28,7 +28,7 @@ onActivated(() => void load());
 
 function logout(): void {
   session.clear();
-  sessionStorage.removeItem(INTRO_SEEN_KEY);
+  resetIntroAcknowledgement();
   void router.replace('/');
 }
 </script>

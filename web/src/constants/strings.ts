@@ -24,17 +24,24 @@ const SCENE_LABELS: Record<string, string> = {
 export const strings = {
   sceneLabel: (tag: string) => SCENE_LABELS[tag] ?? tag,
 
-  // Splash
+  // Splash. Three pages; the enter action exists only on the last page.
   splashBrand: 'MEETO',
-  splashLines: [
-    'May mga gabing hindi dapat mag-isa.',
-    'May upuang nakalaan sa harap mo.',
-    'Sine, hapunan, o lakad sa siyudad.',
-    'Hindi mo kailangang ipaliwanag kung bakit.',
-    'May maglalaan ng oras na ito para sa iyo.',
+  splashPages: [
+    {
+      title: 'Gawin nating mainit ang pagkikita.',
+      body: 'Isang hapunan, isang sine,\nat lakad na puwedeng bagalan.',
+    },
+    {
+      title: 'Sa totoong lugar ang pagkikita.',
+      body: 'May kasama sa mesa, bago magsimula ang sine,\nat pagkatapos, handa pang maglakad kasama mo.',
+    },
+    {
+      title: 'Magandang samahan, nagsisimula sa paggalang.',
+      body: 'Para sa totoong aktibidad lang ang Meeto.\nBawal ang panliligalig, sexual na pahiwatig,\nat anumang imbitasyong lumalampas.',
+    },
   ],
-  splashEnterCta: 'Pumasok sa gabing ito',
-  splashEntering: 'Binubuksan ang pinto',
+  splashEnterCta: 'Sang-ayon at pumasok',
+  splashEntering: 'Papasok na',
   splashEnterFailed: 'Hindi nakapasok, subukan ulit',
 
   // Login

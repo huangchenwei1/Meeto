@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import { INTRO_SEEN_KEY, isProfileReady, markProfileReady } from '@/constants/guest';
+import {
+  isIntroAcknowledged,
+  isProfileReady,
+  markProfileReady,
+} from '@/constants/guest';
 import { useSessionStore } from '@/stores/session';
 
 export const router = createRouter({
@@ -117,22 +121,24 @@ function registrationFinished(): boolean {
   return false;
 }
 
-function splashTarget(fullPath: string): { name: 'boot' | 'intro'; query?: { next: string } } {
-  const name = registrationFinished() ? 'boot' : 'intro';
-  return fullPath === '/' ? { name } : { name, query: { next: fullPath } };
+function splashTarget(fullPath: string): { name: 'intro'; query?: { next: string } } {
+  if (fullPath === '/' || fullPath === '/intro') return { name: 'intro' };
+  return { name: 'intro', query: { next: fullPath } };
 }
 
 router.beforeEach((to) => {
   const session = useSessionStore();
-  const introSeen = sessionStorage.getItem(INTRO_SEEN_KEY) === '1';
+  const introSeen = isIntroAcknowledged();
   const ready = registrationFinished();
   const profileOpen = session.isSignedIn && (session.user?.avatarUrl ?? '') === '';
-  if (!introSeen && to.name !== 'intro' && to.name !== 'boot') {
+  // A saved login still has to pass the story splash on each fresh load.
+  if (!introSeen && to.name !== 'intro') {
     return splashTarget(to.fullPath);
   }
-  const carried = typeof to.query.next === 'string' ? to.query.next : '/';
-  if (to.name === 'intro' && ready) return splashTarget(carried);
-  if (to.name === 'boot' && !ready) return splashTarget(carried);
+  if (to.name === 'boot' && !ready) {
+    const carried = typeof to.query.next === 'string' ? to.query.next : '/';
+    return splashTarget(carried);
+  }
   // Registration still runs after the story splash. Only role and gender are skipped.
   if (profileOpen && !ready && to.name !== 'setup' && to.name !== 'intro' && to.name !== 'boot') {
     return { name: 'setup', query: { resume: '1' } };

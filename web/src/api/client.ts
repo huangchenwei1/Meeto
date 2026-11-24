@@ -1,4 +1,4 @@
-import { INTRO_SEEN_KEY } from '@/constants/guest';
+import { resetIntroAcknowledgement } from '@/constants/guest';
 import { useSessionStore } from '@/stores/session';
 
 /** Base URL of the Meeto API; dev uses the Vite proxy at /api. */
@@ -81,7 +81,7 @@ async function request(
     // The refresh token is dead too: the session is over. A hard
     // redirect lets the guard pick the story splash or the plain boot.
     session.clear();
-    sessionStorage.removeItem(INTRO_SEEN_KEY);
+    resetIntroAcknowledgement();
     window.location.assign('/');
   }
   if (response.status === 403) {
@@ -89,7 +89,7 @@ async function request(
     // A banned account is signed out on the spot, whatever it tapped.
     if (text.includes('ACCOUNT_BANNED')) {
       session.clear();
-      sessionStorage.removeItem(INTRO_SEEN_KEY);
+      resetIntroAcknowledgement();
       window.location.assign('/');
     }
     throw new ApiError(response.status, text);

@@ -3,7 +3,7 @@ import { onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { beginEntry } from '@/api/auth';
-import { INTRO_SEEN_KEY } from '@/constants/guest';
+import { acknowledgeIntro, resetIntroAcknowledgement } from '@/constants/guest';
 import { pathAfterEntry } from '@/utils/entryRoute';
 
 const BOOT_HOLD_MS = 900;
@@ -19,11 +19,11 @@ onMounted(() => {
   timer = window.setTimeout(() => {
     void entryPromise
       .then(async (entry) => {
-        sessionStorage.setItem(INTRO_SEEN_KEY, '1');
+        acknowledgeIntro();
         await router.replace(pathAfterEntry(entry, next));
       })
       .catch(() => {
-        sessionStorage.removeItem(INTRO_SEEN_KEY);
+        resetIntroAcknowledgement();
       });
   }, BOOT_HOLD_MS);
 });
