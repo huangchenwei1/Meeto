@@ -738,7 +738,7 @@ function systemLineOf(message: OrderMessage): string {
                 class="text-field"
                 rows="2"
                 maxlength="300"
-                :placeholder="strings.inviteNoteHint"
+                :placeholder="strings.rebookNoteHint"
               ></textarea>
               <button
                 class="btn-primary"

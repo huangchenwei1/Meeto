@@ -242,6 +242,10 @@ export class HostsService {
     budgetMinor: number | undefined,
     note: string,
   ): Promise<InvitationDto> {
+    const trimmedNote = note.trim();
+    if (trimmedNote.length === 0) {
+      throw new BadRequestException('INVITE_NOTE_REQUIRED');
+    }
     if (caller.role === Role.host) {
       throw new ForbiddenException('Hosts cannot invite other hosts');
     }
@@ -280,7 +284,7 @@ export class HostsService {
         hostId: proposal.hostId,
         sceneTag: proposal.sceneTag,
         scheduledAt: meetAt,
-        note,
+        note: trimmedNote,
         budgetMinor: budget,
       },
       include: { from: true },

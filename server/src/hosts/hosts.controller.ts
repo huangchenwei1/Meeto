@@ -47,7 +47,7 @@ class CreateProposalDto {
 
 /// Inviting on a proposal is where the deal gets concrete: the inviter
 /// picks the meeting time (inside the pitch's window) and the price tier
-/// (from the scene's platform tiers), plus an optional note.
+/// (from the scene's platform tiers), plus the note the host will read.
 class InviteDto {
   /// The concrete meeting time; validated against working hours and the
   /// pitch's declared availability window.
@@ -61,10 +61,11 @@ class InviteDto {
   @Min(0)
   budgetMinor?: number;
 
-  @IsOptional()
+  /// Shown to the host as the invitation. Whitespace-only is rejected.
   @IsString()
+  @IsNotEmpty()
   @MaxLength(300)
-  note?: string;
+  note!: string;
 }
 
 @Controller('hosts')
@@ -123,7 +124,7 @@ export class ProposalsController {
       id,
       dto.scheduledAt,
       dto.budgetMinor,
-      dto.note ?? '',
+      dto.note.trim(),
     );
   }
 

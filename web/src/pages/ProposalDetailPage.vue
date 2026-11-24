@@ -99,12 +99,12 @@ async function sendInvite(): Promise<void> {
     showToast(strings.publishMeetTimeRequiredHint);
     return;
   }
+  const note = inviteNote.value.trim();
+  if (note.length === 0) {
+    showToast(strings.inviteNoteRequiredHint);
+    return;
+  }
   inviteSheetOpen.value = false;
-  // An empty note still carries context server-side via the pitch itself.
-  const note =
-    inviteNote.value.trim().length > 0
-      ? inviteNote.value.trim()
-      : proposal.value.title;
   try {
     await inviteToProposal(proposalId, {
       scheduledAt: inviteAt.value,
@@ -332,6 +332,7 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
             </div>
             <p class="hint-text">{{ strings.serviceFeeNoteUser }}</p>
 
+            <p class="sheet-label">{{ strings.inviteNoteLabel }}</p>
             <textarea
               v-model="inviteNote"
               class="text-field"
@@ -339,6 +340,7 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
               maxlength="300"
               :placeholder="strings.inviteNoteHint"
             ></textarea>
+            <p class="hint-text note-guide">{{ strings.inviteNoteGuide }}</p>
             <p class="hint-text">
               {{ strings.inviteFeeNote(formatMoney(inviteBudget)) }}
             </p>
@@ -640,6 +642,11 @@ async function submitSelect(invitation: InvitationRecord): Promise<void> {
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-secondary);
+}
+
+.note-guide {
+  margin: -4px 0 0;
+  line-height: 1.5;
 }
 
 .chips {

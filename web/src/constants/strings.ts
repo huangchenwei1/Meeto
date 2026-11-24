@@ -423,7 +423,12 @@ export const strings = {
   hostNewLabel: 'Bagong kasama',
   hostInviteCta: 'Ayain',
   inviteSheetTitle: (name: string) => `Ayain si ${name}`,
-  inviteNoteHint: 'Sabihin ang plano mo (optional)',
+  inviteNoteLabel: 'Aya mo',
+  inviteNoteHint: 'Isulat ang aya mo',
+  inviteNoteGuide:
+    'Sulatan ito nang maayos. Ipapadala ang sulat sa kanya, at mas mataas ang tsansa na tanggapin ka kapag maganda ang dating.',
+  inviteNoteRequiredHint: 'Isulat muna ang aya mo',
+  rebookNoteHint: 'Sabihin ang plano mo (optional)',
   inviteFeeNote: (fee: string) =>
     `Kapag tinanggap, magbabayad ka ng ${fee} para simulan ang plano`,
   inviteSendCta: 'Ipadala',
